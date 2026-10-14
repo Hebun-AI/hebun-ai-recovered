@@ -79,8 +79,14 @@ async function main(): Promise<void> {
     const repo = createDurableConversationRepository(handle.db);
     const knowledge = createDurableKnowledgeRepository(handle.db);
     const knowledgeDeps = { getRepo: () => knowledge, now: () => NOW };
-    const scopeA = { tenantId: TENANT_A, actorId: tenantContext(TENANT_A).userId };
-    const scopeB = { tenantId: TENANT_B, actorId: tenantContext(TENANT_B).userId };
+    /*
+     * HEBY-GROUNDED-CONVERSATION-1 — a conversation belongs to the human who started it, so each
+     * tenant is ONE stable human here; a fresh random user per call would be another member.
+     */
+    const ctxA = tenantContext(TENANT_A);
+    const ctxB = tenantContext(TENANT_B);
+    const scopeA = { tenantId: TENANT_A, actorId: ctxA.userId };
+    const scopeB = { tenantId: TENANT_B, actorId: ctxB.userId };
 
     for (const [id, slug] of [
       [TENANT_A, "a"],
@@ -176,7 +182,7 @@ async function main(): Promise<void> {
     /* ── 3. THE RELOAD STILL SHOWS v3 ─────────────────────────────────────── */
     const reloaded = await loadHebyConversation(
       { conversationId: persisted.conversationId },
-      { resolveTenant: async () => tenantContext(TENANT_A), getConversationRepo: () => repo },
+      { resolveTenant: async () => ctxA, getConversationRepo: () => repo },
     );
     assert.equal(reloaded.status, "loaded");
     if (reloaded.status !== "loaded") throw new Error("unreachable");
@@ -276,7 +282,7 @@ async function main(): Promise<void> {
       /* B cannot read A's conversation at all. */
       const asB = await loadHebyConversation(
         { conversationId: persisted.conversationId },
-        { resolveTenant: async () => tenantContext(TENANT_B), getConversationRepo: () => repo },
+        { resolveTenant: async () => ctxB, getConversationRepo: () => repo },
       );
       assert.equal(asB.status, "not-found", "tenant B cannot load tenant A's conversation");
 
@@ -287,7 +293,7 @@ async function main(): Promise<void> {
       /* A foreign conversation id yields nothing rather than someone else's thread. */
       const foreign = await loadHebyConversation(
         { conversationId: randomUUID() },
-        { resolveTenant: async () => tenantContext(TENANT_A), getConversationRepo: () => repo },
+        { resolveTenant: async () => ctxA, getConversationRepo: () => repo },
       );
       assert.equal(foreign.status, "not-found");
 

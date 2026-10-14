@@ -13,6 +13,7 @@
  */
 import type { HebyRuntimeResponse, HebySourceEvidenceGroup } from "@/features/heby-runtime";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
+import type { ModelDisclosureView } from "@/features/heby-runtime/model-disclosure";
 import type { HebyTurnView } from "./heby-turns";
 import { describeMessageProvenance, deriveLatestProvenance } from "./heby-provenance";
 
@@ -34,6 +35,8 @@ export interface ThreadMessage {
    * details were not retained", while the rows sat unread in `heby_answer_source_evidence`.
    */
   readonly sourceEvidence?: readonly HebySourceEvidenceGroup[];
+  /** HEBY-GROUNDED-CONVERSATION-1 — what the model received, from the recorded EAI decision. */
+  readonly modelDisclosure?: ModelDisclosureView;
 }
 
 export interface LatestTurn {
@@ -77,6 +80,8 @@ export function buildTurns(
       ...(isHeby && message.sourceEvidence && message.sourceEvidence.length > 0
         ? { sourceEvidence: message.sourceEvidence }
         : {}),
+      /* Every Heby turn says what the model received — or that the record is not available. */
+      ...(isHeby ? { modelDisclosure: message.modelDisclosure ?? { status: "unavailable" as const } } : {}),
     };
   });
 
@@ -123,6 +128,13 @@ export function buildTurns(
       sourceEvidence: latest.response.sourceEvidence,
       historical: false,
       limitations: latest.response.limitations,
+      /*
+       * HEBY-GROUNDED-CONVERSATION-1 — an unsaved answer has no stored correlation to read a decision
+       * by, so where a model was asked the record is UNAVAILABLE here, never guessed from the response.
+       */
+      modelDisclosure: latest.response.modelInvocationAttempted
+        ? { status: "unavailable" }
+        : { status: "no-invocation-recorded" },
     });
   }
 

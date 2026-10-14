@@ -47,6 +47,12 @@ export interface ExternalAiDisclosureDeclaration {
   /** Every class the request carries. All are REQUIRED: one unauthorized class refuses the request. */
   readonly dataClasses: readonly DataClass[];
   /**
+   * HEBY-GROUNDED-CONVERSATION-1. Classes the request carries only where every authority permits
+   * them — the released composer's `optionalDataClasses`. Never required, never widening: a class
+   * not authorized is withheld by the caller's projection and the request still goes.
+   */
+  readonly optionalDataClasses?: readonly DataClass[];
+  /**
    * APF-5. The authenticated human whose request causes this disclosure, from the same TenantContext.
    * Never read to DECIDE anything — it is only who the decision's audit evidence is attributed to.
    */
@@ -72,7 +78,8 @@ export async function authorizeExternalAiDisclosure(
     !!declaration?.tenantId &&
     isPurpose(declaration.purpose) &&
     declaration.dataClasses.length > 0 &&
-    declaration.dataClasses.every(isDataClass);
+    declaration.dataClasses.every(isDataClass) &&
+    (declaration.optionalDataClasses ?? []).every(isDataClass);
 
   const read = async <T>(fn: () => Promise<T>): Promise<T | { status: "unavailable" }> => {
     try {
@@ -95,6 +102,7 @@ export async function authorizeExternalAiDisclosure(
       serviceScope: ANTHROPIC_MESSAGES_SCOPE,
       purpose: valid ? declaration!.purpose : "assistance",
       requiredDataClasses: valid ? declaration!.dataClasses : [],
+      optionalDataClasses: valid ? (declaration!.optionalDataClasses ?? []) : [],
       modelId: typeof modelId === "string" ? modelId : "",
     },
     policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
@@ -145,7 +153,7 @@ export function externalAiDisclosureEvidence(
     serviceScope: ANTHROPIC_MESSAGES_SCOPE,
     accountRef: CONFIGURED_ANTHROPIC_ACCOUNT_REF,
     purpose: declaration.purpose,
-    declaredDataClasses: [...declaration.dataClasses],
+    declaredDataClasses: [...new Set([...declaration.dataClasses, ...(declaration.optionalDataClasses ?? [])])],
     authorizedDataClasses: [...decision.authorizedDataClasses],
     modelId,
     disposition: decision.disposition,

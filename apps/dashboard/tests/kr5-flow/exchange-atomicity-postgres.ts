@@ -142,7 +142,8 @@ async function main(): Promise<void> {
     {
       /* A tenant with no `companies` row violates the conversation's tenant foreign key. */
       await rejectsBecause(
-        () => repo.persistExchange({ tenantId: ABSENT_TENANT }, turn()),
+        /* HEBY-GROUNDED-CONVERSATION-1: an actor is required first, so one is named to reach the FK. */
+        () => repo.persistExchange({ tenantId: ABSENT_TENANT, actorId: randomUUID() }, turn()),
         /violates foreign key constraint/i,
       );
       assert.deepEqual(await counts(), empty, "A: nothing at all was written");

@@ -39,6 +39,7 @@ import {
   type AuthorizeExternalAiDisclosure,
   type ExternalAiDisclosureDeclaration,
 } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
+import type { DataClass } from "@/features/external-ai-data-use/contracts";
 import {
   recordExternalAiDisclosureDecision,
   type RecordExternalAiDisclosureDecision,
@@ -68,6 +69,14 @@ export interface HebyModelGenerationDeps {
   readonly recordDisclosure?: RecordExternalAiDisclosureDecision;
   /** AP-3. Injectable for tests only; defaults to the persistent tenant AI dispatch safety cap. */
   readonly admitDispatch?: AdmitAiDispatch;
+  /*
+   * HEBY-GROUNDED-CONVERSATION-1 — the caller's MODEL-FACING PROJECTION, re-run for the classes the
+   * decision actually authorized. Consulted only when the declaration names optional classes and the
+   * decision is `authorized`; the request's own evidence (optional classes withheld) is sent
+   * otherwise. The projection stays the only thing that writes a grounding line; this seam only hands
+   * it the authority's answer.
+   */
+  readonly projectAuthorizedEvidence?: (authorizedDataClasses: readonly DataClass[]) => readonly string[];
 }
 
 export type HebyModelOutcome =
@@ -128,6 +137,7 @@ export async function generateHebyModelAnswer(
    * refusal can never reach the network. A request whose tenant differs from the declaration's is
    * refused rather than trusted. A fake transport discloses nothing and is not gated.
    */
+  let authorizedEvidence: readonly string[] | undefined;
   /* ponytail: keyed on the live transport's egress mark; a wrapper that drops the mark would skip the gate — wrap inside the transport, never around it. */
   if (isAnthropicMessagesEgress(deps.transport)) {
     /*
@@ -193,6 +203,9 @@ export async function generateHebyModelAnswer(
       /* The authorized decision could not be recorded: not sent, exactly as APF-5 released. */
       return unavailable("DATA_USE_NOT_AUTHORIZED");
     }
+    if (declaration!.optionalDataClasses?.length && deps.projectAuthorizedEvidence) {
+      authorizedEvidence = deps.projectAuthorizedEvidence(decision.authorizedDataClasses);
+    }
   }
 
   const client = createClaudeModelClient({
@@ -201,6 +214,7 @@ export async function generateHebyModelAnswer(
   });
   const result = await client.generate({
     ...request,
+    ...(authorizedEvidence ? { evidence: authorizedEvidence } : {}),
     // The model id is authoritative from server config, not from the request.
     modelId: config.modelId!,
     /*

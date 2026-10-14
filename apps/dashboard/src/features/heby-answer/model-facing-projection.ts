@@ -96,10 +96,18 @@ function modelFacingRecordRef(recordRef: string): string | null {
  * The grounding lines the model receives. Same order, same line per item, same provenance — only
  * identifiers are withheld. Verbatim `content` is quoted exactly as the source returned it.
  */
-export function modelGroundingLines(resolutions: readonly SourceResolution[]): readonly string[] {
+export function modelGroundingLines(
+  resolutions: readonly SourceResolution[],
+  /*
+   * HEBY-GROUNDED-CONVERSATION-1 — disclosable classes this request may NOT carry (an optional class
+   * the EAI decision did not authorize). Withheld exactly as a non-disclosable class is.
+   */
+  withheld: ReadonlySet<DataClass> = new Set(),
+): readonly string[] {
   const lines: string[] = [];
   for (const resolution of resolutions) {
-    if (!DISCLOSABLE_SOURCE_CLASSES[resolution.sourceClass]) {
+    const dataClass = DISCLOSABLE_SOURCE_CLASSES[resolution.sourceClass];
+    if (!dataClass || withheld.has(dataClass)) {
       lines.push(`[${resolution.sourceClass}] ${MODEL_WITHHELD_SOURCE}`);
       continue;
     }

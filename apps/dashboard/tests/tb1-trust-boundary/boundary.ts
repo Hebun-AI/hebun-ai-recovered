@@ -189,7 +189,7 @@ function provenanceIsCarriedIntoContext(): void {
    * and verbatim content is labelled as source text and quoted UNMINIMIZED.
    */
   const answer = codeOf(read("src/features/heby-answer/model-answer.server.ts"));
-  assert.ok(/return modelGroundingLines\(resolutions\)/.test(answer), "the answer's grounding is the model-facing projection");
+  assert.ok(/return modelGroundingLines\(resolutions(, withheld)?\)/.test(answer), "the answer's grounding is the model-facing projection");
   const source = read("src/features/heby-answer/model-facing-projection.ts");
   const code = codeOf(source);
   assert.ok(

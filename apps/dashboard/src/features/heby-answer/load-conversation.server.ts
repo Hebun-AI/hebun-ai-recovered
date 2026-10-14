@@ -19,6 +19,11 @@ import {
   type DurableConversationRepository,
 } from "@/features/heby-conversation/durable-conversation-repository.server";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
+import { modelDisclosureOf, type ModelDisclosureView } from "@/features/heby-runtime/model-disclosure";
+import {
+  readExternalAiDisclosureDecisions,
+  type ExternalAiDisclosureDecisionsRead,
+} from "@/features/governance-audit/external-ai-disclosure-read.server";
 
 export interface HebyConversationMessageView {
   readonly id: string;
@@ -51,6 +56,12 @@ export interface HebyConversationMessageView {
    * authoritative record with a derived one still replays as the mixture it was.
    */
   readonly sourceEvidence?: readonly ReplayedSourceEvidence[];
+  /**
+   * HEBY-GROUNDED-CONVERSATION-1 — what the MODEL received for this answer, from the EAI decision
+   * record APF-5 wrote for its request. Heby messages only. Distinct from the evidence above, which
+   * is what the HUMAN is shown: a class withheld from the model can still appear there.
+   */
+  readonly modelDisclosure?: ModelDisclosureView;
 }
 
 export interface HebyConversationView {
@@ -68,6 +79,8 @@ export type LoadConversationResult =
 export interface LoadConversationDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
   readonly getConversationRepo?: () => DurableConversationRepository | null;
+  /** The governance-audit disclosure reader. Injectable for tests; defaults to the real read. */
+  readonly readDisclosureDecisions?: (tenantId: string, correlationIds: readonly string[]) => Promise<ExternalAiDisclosureDecisionsRead>;
 }
 
 function assertServerRuntime(): void {
@@ -122,6 +135,17 @@ export async function loadHebyConversation(
       sourceByMessage.set(row.messageId, [...(sourceByMessage.get(row.messageId) ?? []), row]);
     }
 
+    /*
+     * HEBY-GROUNDED-CONVERSATION-1 — the disclosure decisions ride the SAME proven ownership: the
+     * correlation ids are the ones the owned-conversation read returned, and the read is scoped to
+     * this tenant. A read failure is not an error for the conversation — it is "unavailable" per turn.
+     */
+    const correlationIds = messages.flatMap((m) => (m.role !== "user" && m.correlationId ? [m.correlationId] : []));
+    const disclosureRead = await (deps.readDisclosureDecisions ?? readExternalAiDisclosureDecisions)(tenant.tenantId, correlationIds).catch(
+      () => ({ status: "unavailable" }) as const,
+    );
+    const decisions = disclosureRead.status === "read" ? disclosureRead.byCorrelation : null;
+
     return {
       status: "loaded",
       view: {
@@ -143,6 +167,7 @@ export async function loadHebyConversation(
             ...(storedSources && storedSources.length > 0
               ? { sourceEvidence: fromStoredSourceEvidence(storedSources) }
               : {}),
+            ...(message.role !== "user" ? { modelDisclosure: modelDisclosureOf(message, decisions) } : {}),
           };
         }),
       },

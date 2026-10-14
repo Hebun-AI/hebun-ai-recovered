@@ -151,7 +151,9 @@ import type { ExternalAiDisclosureDeclaration } from "@/features/external-ai-dat
 import {
   resolveKnowledgeEvidenceDetailed,
   resolvePublicKnowledgeEvidence,
+  resolveRatifiedKnowledgeEvidence,
   type PublicKnowledgeDeps,
+  type RatifiedKnowledgeDeps,
   type PublicKnowledgeOutcome,
 } from "./knowledge-evidence.server";
 
@@ -313,7 +315,7 @@ export interface HebyModelAnswerDeps {
    * with no database. It is consulted ONLY for workspaces that declare the `knowledge` source
    * class, and it can only ever contribute EVIDENCE — never authority, never a tool, never an act.
    */
-  readonly knowledge?: PublicKnowledgeDeps;
+  readonly knowledge?: PublicKnowledgeDeps & RatifiedKnowledgeDeps;
   /** KT-5 — the public-purpose Knowledge resolution. Injectable for tests; defaults to the real one. A plain `resolveKnowledge` stub is NOT used for public content. */
   readonly resolvePublicKnowledge?: (tenant: KnowledgeTenant, query: string, deps?: PublicKnowledgeDeps) => Promise<PublicKnowledgeOutcome>;
   /**
@@ -504,6 +506,8 @@ async function withKnowledge(
   query: string,
   deps: HebyModelAnswerDeps,
   purpose?: "public-content",
+  /** HEBY-GROUNDED-CONVERSATION-1 — Command (`/heby`): ratified Knowledge only, never an injected resolver. */
+  ratifiedOnly = false,
 ): Promise<{
   readonly resolutions: readonly SourceResolution[];
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
@@ -551,7 +555,11 @@ async function withKnowledge(
      * manufactured. A fabricated empty set would tell the reader "we searched and explained
      * nothing", when the truth is that this path never searched at all.
      */
-    if (deps.resolveKnowledge) {
+    if (ratifiedOnly) {
+      const ratified = await resolveRatifiedKnowledgeEvidence(tenant, query, deps.knowledge);
+      knowledge = ratified.resolution;
+      knowledgeEvidence = ratified.evidence;
+    } else if (deps.resolveKnowledge) {
       knowledge = await deps.resolveKnowledge(tenant, query, deps.knowledge);
     } else {
       const detailed = await resolveKnowledgeEvidenceDetailed(tenant, query, deps.knowledge);
@@ -1134,8 +1142,11 @@ async function withOperations(
  * model, while names, states and verbatim source text travel unchanged. The human-facing answer and
  * the persisted evidence are built from the same resolutions and are not minimized.
  */
-function groundingLines(resolutions: readonly SourceResolution[]): readonly string[] {
-  return modelGroundingLines(resolutions);
+function groundingLines(
+  resolutions: readonly SourceResolution[],
+  withheld: ReadonlySet<DataClass> = new Set(),
+): readonly string[] {
+  return modelGroundingLines(resolutions, withheld);
 }
 
 /**
@@ -1259,6 +1270,7 @@ export async function answerHebyModelRequest(
     validation.prompt,
     deps,
     options.knowledgePurpose,
+    context.workspace === "command",
   );
   // R3W — prepared work joins the SAME deterministic evidence set, through the same server seam.
   const artifactResolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
@@ -1353,6 +1365,14 @@ export async function answerHebyModelRequest(
      * whatever the preparation brief declared. Purpose is assistance; nothing here can relabel it.
      */
     const briefApplied = Boolean(options.preparationBrief) && HEBY_INTENT_DESCRIPTORS[intent].prepares;
+    /*
+     * HEBY-GROUNDED-CONVERSATION-1 (Director decision C) — through Command, Knowledge is OPTIONAL:
+     * the request is built with it withheld, and the generator re-runs THIS projection with exactly
+     * the classes the EAI decision authorized. A tenant authorized for conversation but not for
+     * Knowledge keeps its model answer; Knowledge then never reaches the provider.
+     */
+    const optionalClasses: readonly DataClass[] =
+      context.workspace === "command" && modelDisclosedDataClasses(resolutions).includes("knowledge") ? ["knowledge"] : [];
     const disclosure: ExternalAiDisclosureDeclaration | undefined =
       briefApplied && !options.preparationBriefDataClasses
         ? undefined
@@ -1363,10 +1383,11 @@ export async function answerHebyModelRequest(
             dataClasses: [
               ...new Set<DataClass>([
                 "conversation",
-                ...modelDisclosedDataClasses(resolutions),
+                ...modelDisclosedDataClasses(resolutions).filter((c) => !optionalClasses.includes(c)),
                 ...(briefApplied ? options.preparationBriefDataClasses! : []),
               ]),
             ],
+            ...(optionalClasses.length > 0 ? { optionalDataClasses: optionalClasses } : {}),
           };
     const modelRequest: ModelGenerationRequest = {
       correlationId,
@@ -1379,7 +1400,7 @@ export async function answerHebyModelRequest(
        * delimited section under the classes the brief declared above. Only the brief's minted
        * instruction joins the instruction channel.
        */
-      evidence: groundingLines(resolutions),
+      evidence: groundingLines(resolutions, new Set(optionalClasses)),
       ...(briefApplied && options.preparationBrief!.material.length > 0 ? { material: options.preparationBrief!.material } : {}),
       modelId: "",
       maxOutputTokens: 0,
@@ -1393,6 +1414,10 @@ export async function answerHebyModelRequest(
       env,
       modelRequest,
       disclosure,
+      projectAuthorizedEvidence:
+        optionalClasses.length > 0
+          ? (authorized) => groundingLines(resolutions, new Set(optionalClasses.filter((c) => !authorized.includes(c))))
+          : undefined,
       selection,
       context,
       authority,
@@ -1486,6 +1511,7 @@ async function produceAnswer(args: {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly modelRequest: ModelGenerationRequest;
   readonly disclosure: ExternalAiDisclosureDeclaration | undefined;
+  readonly projectAuthorizedEvidence: ((authorized: readonly DataClass[]) => readonly string[]) | undefined;
   readonly selection: ModelTransportSelection;
   readonly context: HebyRuntimeContext;
   readonly authority: HebyAuthorityMode;
@@ -1493,11 +1519,16 @@ async function produceAnswer(args: {
   readonly assembled: ReturnType<typeof assembleEvidence>;
   readonly deterministic: HebyRuntimeResponse;
 }): Promise<ProducedAnswer> {
-  const { generate, env, modelRequest, disclosure, selection, context, authority, resolutions, assembled, deterministic } = args;
+  const { generate, env, modelRequest, disclosure, projectAuthorizedEvidence, selection, context, authority, resolutions, assembled, deterministic } = args;
 
   let outcome;
   try {
-    outcome = await generate(modelRequest, { env, transport: selection.transport, disclosure });
+    outcome = await generate(modelRequest, {
+      env,
+      transport: selection.transport,
+      disclosure,
+      ...(projectAuthorizedEvidence ? { projectAuthorizedEvidence } : {}),
+    });
   } catch (error) {
     const code = error instanceof ModelConnectivityError ? error.code : "unknown-provider-error";
     return {

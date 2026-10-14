@@ -118,8 +118,9 @@ function theScopeIsExactlyOneMoreWorkspace(): void {
   );
   assert.deepEqual(
     [...carryingKnowledge].sort(),
-    ["decisions", "intelligence", "knowledge", "operations"].sort(),
-    "`knowledge` gains Operations and nothing else",
+    /* HEBY-GROUNDED-CONVERSATION-1 later adds `command` (ratified-only, optional at the EAI gate). */
+    ["command", "decisions", "intelligence", "knowledge", "operations"].sort(),
+    "`knowledge` gains Operations (and HGC-1's Command) and nothing else",
   );
 
   const carryingWork = HEBY_PROFILED_WORKSPACES.filter((w) =>

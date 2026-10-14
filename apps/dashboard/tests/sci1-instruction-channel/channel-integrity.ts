@@ -133,7 +133,8 @@ async function main(): Promise<void> {
 
   /* 8, 9 · wiring: material rides evidence with the declared classes; instruction is joined from minted parts. */
   const answer = code("src/features/heby-answer/model-answer.server.ts");
-  assert.ok(/evidence: groundingLines\(resolutions\),\s*\.\.\.\(briefApplied && options\.preparationBrief!\.material\.length > 0 \? \{ material: options\.preparationBrief!\.material \} : \{\}\)/.test(answer));
+  /* HEBY-GROUNDED-CONVERSATION-1: the grounding call also names the optional classes it withholds. */
+  assert.ok(/evidence: groundingLines\(resolutions, new Set\(optionalClasses\)\),\s*\.\.\.\(briefApplied && options\.preparationBrief!\.material\.length > 0 \? \{ material: options\.preparationBrief!\.material \} : \{\}\)/.test(answer));
   assert.ok(/return joinHebunInstructions\(\[HEBY_MODEL_SYSTEM_INSTRUCTIONS, brief\.instruction\]\)/.test(answer));
   assert.ok(
     /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/.test(

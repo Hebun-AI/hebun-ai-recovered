@@ -240,6 +240,11 @@ async function main(): Promise<void> {
          * so its single tenant + action + actor scope stays one expression. ALLOWLIST — a new name
          * here is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/governed-work-link-read.server.ts",
+        /* HEBY-GROUNDED-CONVERSATION-1 — the SIXTH declared reader: the APF-5 disclosure decision for
+         * given request correlations in ONE tenant, so a reloaded Heby answer can say what the model
+         * received. Its own entity type, closed shape (disposition + class names), writes nothing —
+         * proved by its absence from the write census. */
+        "src/features/governance-audit/external-ai-disclosure-read.server.ts",
       ].sort(),
       "the sink is imported by its writers and by the declared readers — nothing else",
     );

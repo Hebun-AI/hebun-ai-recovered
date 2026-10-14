@@ -6,8 +6,10 @@
  * same authored migrations) — NOT a second persistence framework. Every read and write is
  * tenant-scoped: the tenant id comes only from an already-resolved server-side TenantContext,
  * never from the client. A conversation id alone is never trusted — ownership is always
- * re-checked against the tenant, so tenant B can never read, list, or append to tenant A's
- * conversation. Fail-closed: no in-memory fallback; a missing database throws upstream.
+ * re-checked against the tenant AND the acting human, so tenant B can never read, list, or append
+ * to tenant A's conversation, and neither can a second member of tenant A
+ * (HEBY-GROUNDED-CONVERSATION-1, Director decision A: individual ownership). Fail-closed: no
+ * in-memory fallback; a missing database throws upstream.
  *
  * Server-only. Not re-exported from any client-importable index.
  */
@@ -26,7 +28,13 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** The minimal server-side authority projection the repository needs. */
 export interface ConversationScope {
   readonly tenantId: string;
-  /** The acting user id (durable actor attribution). Optional. */
+  /**
+   * The acting human's user id. Attribution AND ownership: a conversation belongs to the human who
+   * started it, and every conversation read or write requires this id and matches it against
+   * `conversations.created_by`. Optional in the type only because the message-keyed evidence reads
+   * (`listAnswerEvidence`, `listAnswerSourceEvidence`) are tenant-scoped by design — a work artifact
+   * revision cites its source message to every member who can see the artifact.
+   */
   readonly actorId?: string;
 }
 
@@ -249,6 +257,17 @@ function requireTenant(scope: ConversationScope): string {
   return tenantId;
 }
 
+/*
+ * HEBY-GROUNDED-CONVERSATION-1 — every conversation-identity operation names its owner. A missing
+ * actor is refused, never treated as "any member": a conversation written without an owner could
+ * never be read back by anyone, and one read without an owner check is readable by everyone.
+ */
+function requireActor(scope: ConversationScope): string {
+  const actorId = scope.actorId?.trim();
+  if (!actorId) throw new ConversationScopeError("An acting user id is required for every conversation operation.");
+  return actorId;
+}
+
 function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -295,39 +314,53 @@ export function createDurableConversationRepository(
   async function ownedConversationWith(
     executor: Pick<ControlPlaneDatabase, "select">,
     tenantId: string,
+    actorId: string,
     conversationId: string,
   ): Promise<DurableConversationRecord | undefined> {
     // A malformed id can never belong to the tenant — fail safe, do not query.
     if (!UUID_RE.test(conversationId)) return undefined;
+    /*
+     * Tenant AND owner. A legacy row with no `created_by` matches no actor, so it fails closed: it is
+     * not deleted, it is simply no longer reachable through Heby (Director decision A).
+     */
     const rows = await executor
       .select()
       .from(conversations)
-      .where(and(eq(conversations.id, conversationId), eq(conversations.tenantId, tenantId)))
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.tenantId, tenantId),
+          eq(conversations.createdBy, actorId),
+        ),
+      )
       .limit(1);
     return rows[0] ? toConversation(rows[0]) : undefined;
   }
 
   async function ownedConversation(
     tenantId: string,
+    actorId: string,
     conversationId: string,
   ): Promise<DurableConversationRecord | undefined> {
-    return ownedConversationWith(db, tenantId, conversationId);
+    return ownedConversationWith(db, tenantId, actorId, conversationId);
   }
 
   return {
     async createConversation(scope, input = {}) {
       const tenantId = requireTenant(scope);
+      const actorId = requireActor(scope);
       const rows = await db
         .insert(conversations)
-        .values({ tenantId, subject: input.subject ?? null, createdBy: scope.actorId ?? null })
+        .values({ tenantId, subject: input.subject ?? null, createdBy: actorId })
         .returning();
       return toConversation(rows[0]!);
     },
 
     async appendMessage(scope, input) {
       const tenantId = requireTenant(scope);
-      // Ownership is authoritative: a conversation the tenant does not own cannot be appended.
-      const owned = await ownedConversation(tenantId, input.conversationId);
+      const actorId = requireActor(scope);
+      // Ownership is authoritative: a conversation this human does not own cannot be appended.
+      const owned = await ownedConversation(tenantId, actorId, input.conversationId);
       if (!owned) throw new ConversationNotFoundError();
       const rows = await db
         .insert(messages)
@@ -353,6 +386,7 @@ export function createDurableConversationRepository(
 
     async persistExchange(scope, input) {
       const tenantId = requireTenant(scope);
+      const actorId = requireActor(scope);
       /*
        * ONE transaction, and conversation creation is INSIDE it on purpose.
        *
@@ -365,7 +399,7 @@ export function createDurableConversationRepository(
        */
       return db.transaction(async (tx) => {
         const owned = input.providedConversationId
-          ? await ownedConversationWith(tx, tenantId, input.providedConversationId)
+          ? await ownedConversationWith(tx, tenantId, actorId, input.providedConversationId)
           : undefined;
 
         const conversationId =
@@ -373,7 +407,7 @@ export function createDurableConversationRepository(
           (
             await tx
               .insert(conversations)
-              .values({ tenantId, subject: input.subject, createdBy: scope.actorId ?? null })
+              .values({ tenantId, subject: input.subject, createdBy: actorId })
               .returning()
           )[0]!.id;
 
@@ -612,13 +646,13 @@ export function createDurableConversationRepository(
 
     async getConversation(scope, conversationId) {
       const tenantId = requireTenant(scope);
-      return ownedConversation(tenantId, conversationId);
+      return ownedConversation(tenantId, requireActor(scope), conversationId);
     },
 
     async listConversationMessages(scope, conversationId) {
       const tenantId = requireTenant(scope);
-      // No ownership → honest empty (never another tenant's messages).
-      const owned = await ownedConversation(tenantId, conversationId);
+      // No ownership → honest empty (never another tenant's, or another member's, messages).
+      const owned = await ownedConversation(tenantId, requireActor(scope), conversationId);
       if (!owned) return [];
       const rows = await db
         .select()

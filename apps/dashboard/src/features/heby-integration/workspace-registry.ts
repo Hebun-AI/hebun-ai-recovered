@@ -177,6 +177,14 @@ const WORKSPACE_PROFILES = {
        * (draft copy) is NOT added: readiness is a package fact `content-media` already carries.
        */
       "content-media",
+      /*
+       * HEBY-GROUNDED-CONVERSATION-1 adds `knowledge` here (Director decisions B and C). Through
+       * Command — where `/heby` resolves — Knowledge is resolved RATIFIED-ONLY by the server seam
+       * (`resolveRatifiedKnowledgeEvidence`), and it reaches the external model only as an OPTIONAL
+       * class the tenant's own EAI authorization must cover; a conversation-only tenant keeps its
+       * model answer with Knowledge withheld. Every other profile keeps its Knowledge path unchanged.
+       */
+      "knowledge",
     ],
     authority: "advisory-only",
     mayExplain: [

@@ -54,6 +54,10 @@ import {
   type KnowledgePublicUseRead,
 } from "@/features/governance-decision/knowledge-public-use-read.server";
 import { readRejectedKnowledgeVersions } from "@/features/governance-decision/knowledge-rejection-read.server";
+import {
+  readKnowledgeRatificationDecisions,
+  type KnowledgeRatificationDecisionsRead,
+} from "@/features/governance-decision/knowledge-ratification-read.server";
 
 /** Map the canonical knowledge lifecycle onto the evidence lifecycle vocabulary. */
 function toEvidenceLifecycle(
@@ -404,4 +408,68 @@ export async function resolvePublicKnowledgeEvidence(
     resolution: toRetrievalResolution(result),
     evidence: buildRetrievalEvidence(result, query),
   };
+}
+
+/* ── HEBY-GROUNDED-CONVERSATION-1: RATIFIED KNOWLEDGE FOR THE GENERAL HEBY WORKSPACE ──────────
+ *
+ * Director decision B: through `/heby`, Knowledge may ground an answer only when its exact version
+ * is RATIFIED, on top of the ordinary runtime eligibility `searchKnowledge` already applies (tenant,
+ * active version, lifecycle, effective window, Governance rejection). `/knowledge` and every other
+ * workspace keep `resolveKnowledgeEvidenceDetailed` unchanged.
+ *
+ * Ratified means Governance agrees: the Knowledge row's `ratification_decision_id` is a CLAIM
+ * (SCI-2A leaves it writable), and it counts only when Governance holds a `ratify` decision with
+ * exactly that id for exactly that version, in this tenant — Governance's own projection, read
+ * per served candidate. No purpose-specific contract (SCI-2B, public use) is consulted.
+ *
+ * FAIL CLOSED. A ratification read that cannot be answered refuses the whole Knowledge resolution:
+ * "could not tell" never becomes "ratified", and never silently becomes "drop just that one" either.
+ * A candidate that is not ratified is dropped WHOLE — statement, key and exclusion line — so neither
+ * the model nor the evidence card learns that it exists; that is the rule KT-5 set for public use.
+ */
+export interface RatifiedKnowledgeDeps extends KnowledgeReadDeps {
+  /** Governance's ratification projection. Injectable for tests; defaults to the real read. */
+  readonly readRatificationDecisions?: (
+    tenant: KnowledgeTenant,
+    knowledgeNodeId: string,
+  ) => Promise<KnowledgeRatificationDecisionsRead>;
+}
+
+const RATIFICATION_UNAVAILABLE: RetrievalResult = {
+  status: "unavailable",
+  reason: "read-failed",
+  detail: "Governance's record of ratified Knowledge versions could not be read, so no Knowledge was served.",
+};
+
+export async function resolveRatifiedKnowledgeEvidence(
+  tenant: KnowledgeTenant | null,
+  query: string,
+  deps: RatifiedKnowledgeDeps = {},
+): Promise<KnowledgeEvidenceOutcome> {
+  let result = await searchKnowledge(tenant, { queryText: query }, deps);
+  if (result.status === "matched" && tenant) {
+    const read = deps.readRatificationDecisions ?? ((t: KnowledgeTenant, id: string) => readKnowledgeRatificationDecisions(t, id));
+    // ponytail: ratification filters AFTER the retrieval limit, so unratified matches can crowd out ratified ones; filter inside the ranked pool if that bites.
+    const verdicts = await Promise.all(
+      result.candidates.map(async ({ record }) => {
+        const claimed = record.ratificationDecisionId;
+        if (claimed === null || record.activeKnowledgeNodeId === null) return false;
+        const decisions = await read(tenant, record.activeKnowledgeNodeId).catch(() => ({ status: "unavailable" }) as const);
+        if (decisions.status !== "read") return null;
+        return decisions.ratifyDecisionIds.has(claimed);
+      }),
+    );
+    if (verdicts.includes(null)) {
+      result = RATIFICATION_UNAVAILABLE;
+    } else {
+      const kept = result.candidates.filter((_, index) => verdicts[index] === true);
+      result =
+        kept.length > 0
+          ? { ...result, candidates: kept, excluded: [] }
+          : { status: "no-match", excluded: [], capability: result.capability };
+    }
+  } else if (result.status === "no-match") {
+    result = { ...result, excluded: [] };
+  }
+  return { resolution: toRetrievalResolution(result), evidence: buildRetrievalEvidence(result, query) };
 }

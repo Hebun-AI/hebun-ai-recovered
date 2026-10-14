@@ -24,6 +24,7 @@ import { HebySourceEvidencePanel } from "./heby-source-evidence";
 import { HebyMarkdown } from "./heby-markdown";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
 import { splitModelDiagnostics } from "./heby-provenance";
+import { disclosureClassLabel, type ModelDisclosureView } from "@/features/heby-runtime/model-disclosure";
 
 export interface HebyEvidenceRef {
   readonly sourceClass: string;
@@ -68,6 +69,36 @@ export interface HebyTurnView {
   readonly historical?: boolean;
   /** Newest Heby turn only — the response's honest limitations. */
   readonly limitations?: readonly string[];
+  /**
+   * HEBY-GROUNDED-CONVERSATION-1 — what the MODEL received for this answer, from the recorded EAI
+   * decision. Heby turns only. The evidence panels show what the HUMAN is shown; this says which of
+   * it reached the model, and what authorization withheld.
+   */
+  readonly modelDisclosure?: ModelDisclosureView;
+}
+
+/* Fixed copy around recorded facts. Nothing here infers a permission. */
+function disclosureLines(view: ModelDisclosureView): readonly string[] {
+  switch (view.status) {
+    case "no-invocation-recorded":
+      return ["No model request is recorded for this answer."];
+    case "unavailable":
+      return ["What the model received is not available for this answer."];
+    case "recorded":
+      return [
+        `The model received: ${view.disclosed.map(disclosureClassLabel).join(", ")}.`,
+        ...(view.withheld.length > 0
+          ? [`Withheld from the model by your organization's AI authorization: ${view.withheld.map(disclosureClassLabel).join(", ")}.`]
+          : []),
+        "Everything else listed here was shown to you only.",
+      ];
+  }
+}
+
+/* Whether the Knowledge evidence below reached the model — stated, never implied. */
+function knowledgeModelUse(view: ModelDisclosureView | undefined): string {
+  if (view?.status !== "recorded") return "model use not recorded";
+  return view.disclosed.includes("knowledge") ? "sent to the model" : "shown to you only, not sent to the model";
 }
 
 const TONE_TEXT: Record<ProvenanceTone, string> = {
@@ -179,7 +210,7 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
                     turn.knowledgeEvidence.status === "bounded-universe"
                       ? ` (${turn.knowledgeEvidence.items.length})`
                       : ""
-                  }`
+                  } · ${knowledgeModelUse(turn.modelDisclosure)}`
                 }
               >
                 <HebyEvidencePanel
@@ -243,6 +274,15 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
               * production attempts. It is rendered verbatim: the runtime owns the wording, and a
               * code is never restated as a claim about a provider being reached or refused.
               */}
+            {turn.modelDisclosure ? (
+              <Disclosure summary="What the model received">
+                <ul data-model-disclosure={turn.modelDisclosure.status} className="mt-1.5 flex flex-col gap-0.5 pl-4 text-fg-muted">
+                  {disclosureLines(turn.modelDisclosure).map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </Disclosure>
+            ) : null}
             {modelDiagnostics.length > 0 ? (
               <ul
                 data-heby-diagnostic=""

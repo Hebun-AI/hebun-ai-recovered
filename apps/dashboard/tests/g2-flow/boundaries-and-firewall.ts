@@ -381,6 +381,11 @@ function main(): void {
          * so its single tenant + action + actor scope stays one expression. ALLOWLIST — a new name
          * here is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/governed-work-link-read.server.ts",
+        /* HEBY-GROUNDED-CONVERSATION-1 — the SIXTH declared reader: the APF-5 disclosure decision for
+         * given request correlations in ONE tenant, so a reloaded Heby answer can say what the model
+         * received. Its own entity type, closed shape (disposition + class names), writes nothing —
+         * proved by its absence from the write census. */
+        "src/features/governance-audit/external-ai-disclosure-read.server.ts",
         /* E2-7 — the THIRD declared reader: the unbounded windowed count. It selects and writes
          * nothing, proved by its absence from the write census directly above. A third file for the
          * same reason there is a second: `read.server.ts` forbids `.limit(` anywhere and
