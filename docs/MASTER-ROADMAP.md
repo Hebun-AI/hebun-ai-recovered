@@ -5621,6 +5621,7 @@ re-graded here.
 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` |
 | HEBY-PLAN-DELEGATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` |
 | WORK-UPDATE-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` |
+| HEBY-GROUNDED-CONVERSATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` |
 
 ---
 
@@ -5655,3 +5656,9 @@ before §16.1 are not yet indexed (Phase B).
 | WORK-UPDATE-LOGIN-QUERY-LOSS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | UX continuity | DEFERRED | A Director-approved login redirect that keeps the return query |
 | WORK-UPDATE-ROLLBACK-FLOOR-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Release safety | DEFERRED | Director decision on a formal rollback floor for migration 78 (reversal is a mandate revision without the kind plus a code disable) |
 | PERMIT-EXPIRED-STATUS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Authority legibility | DEFERRED | A Director decision on how an expired permit's status is shown or counted |
+| HGC-1-CONVERSATION-ONLY-PROD-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Verification gap | DEFERRED | A production tenant authorized for conversation but not Knowledge |
+| HGC-1-SECOND-MEMBER-PROD-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Verification gap | DEFERRED | A second member account in one production tenant for a negative ownership test |
+| HGC-1-RATIFIED-POOL-ORDER-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Retrieval quality | DEFERRED | Filtering ratification inside the ranked pool when a corpus shows crowding |
+| HGC-1-RATIFIED-DRAFT-LIFECYCLE-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Knowledge legibility | DEFERRED | A Knowledge-owner decision on lifecycle after Governance ratification |
+| HGC-1-ROLLBACK-NOT-EQUIVALENT-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Release safety | DEFERRED | Any rollback below 63847a56 is a Director decision accepting tenant-only conversation access |
+| TEST-HARNESS-ADMIN-ROLE-1 | HEBY-GROUNDED-CONVERSATION-1 | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` | Test infrastructure | DEFERRED | A harness default on PostgreSQL 17+ with a superuser admin role |
