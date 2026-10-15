@@ -11,6 +11,16 @@ import {
   type LoadConversationResult,
 } from "@/features/heby-answer/load-conversation.server";
 import {
+  listHebyConversations,
+  type ListConversationsResult,
+} from "@/features/heby-answer/list-conversations.server";
+
+/*
+ * A type re-export WITH its `from`: a bare `export type { X };` in a "use server" module is compiled
+ * into a runtime export and takes the whole action module down (`X is not defined`).
+ */
+export type { ListConversationsResult } from "@/features/heby-answer/list-conversations.server";
+import {
   runHebyReadCommand,
   type HebyReadCommandInput,
   type HebyReadCommandResult,
@@ -73,6 +83,17 @@ export async function loadHebyConversationAction(
     { conversationId: input.conversationId },
     { resolveTenant: resolveTenantContext },
   );
+}
+
+/**
+ * HEBY-CONVERSATION-CONTINUITY-1 — list the authenticated human's own conversations. The client
+ * carries only an opaque cursor the server issued; tenant and owner come from the session. It reads
+ * the control plane only and can never reach a provider.
+ */
+export async function listHebyConversationsAction(
+  input: { cursor?: string } = {},
+): Promise<ListConversationsResult> {
+  return listHebyConversations({ cursor: input.cursor }, { resolveTenant: resolveTenantContext });
 }
 
 /**

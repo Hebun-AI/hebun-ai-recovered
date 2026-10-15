@@ -151,6 +151,18 @@ export function createInMemoryConversationRepo(): DurableConversationRepository 
       return { conversationId, assistantMessageId: assistant.id };
     },
 
+    /*
+     * HEBY-CONVERSATION-CONTINUITY-1 — tenant-only, like every other read of this double (it keeps
+     * no owner). Owner scoping and keyset paging are proven against PostgreSQL.
+     */
+    async listOwnedConversations(scope: ConversationScope) {
+      const items = [...conversations.values()]
+        .filter((c) => c.tenantId === scope.tenantId)
+        .map((c) => ({ id: c.id, subject: c.subject, createdAt: c.createdAt, lastActivityAt: c.createdAt }))
+        .reverse();
+      return { items, nextCursor: null };
+    },
+
     async listAnswerEvidence(scope: ConversationScope, messageIds: readonly string[]) {
       const visible = new Set(
         messages.filter((m) => m.tenantId === scope.tenantId).map((m) => m.id),

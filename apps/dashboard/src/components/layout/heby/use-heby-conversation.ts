@@ -38,6 +38,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createConversationSelectionGuard } from "./heby-conversation-selection";
 import {
   askHebyAction,
   loadHebyConversationAction,
@@ -95,6 +96,29 @@ function conversationKey(route: string): string {
   return `heby:conversation:${route}`;
 }
 
+/** HEBY-CONVERSATION-CONTINUITY-1 — the deep-link query parameter on `/heby`. */
+const CONVERSATION_PARAM = "conversation";
+
+/**
+ * The same sentence for a foreign, unknown, malformed or unreadable conversation id: a caller must
+ * not learn from Heby whether someone else's conversation exists.
+ */
+const CONVERSATION_UNAVAILABLE = "That conversation is not available. It may not exist, or it is not yours.";
+
+/**
+ * Mirror the selected conversation into the Full Workspace URL so a reload or a copied link
+ * re-opens it. `replaceState` only — no navigation, no server round trip, other parameters kept.
+ */
+function syncConversationParam(id: string | null): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  // Rebuilt rather than edited in place: no delete call of any kind in the view (H1C pin).
+  const params = new URLSearchParams([...url.searchParams].filter(([key]) => key !== CONVERSATION_PARAM));
+  if (id) params.set(CONVERSATION_PARAM, id);
+  url.search = params.toString();
+  window.history.replaceState(window.history.state, "", url);
+}
+
 interface ConversationSession {
   /** The context route this session belongs to. A different context starts empty. */
   readonly key: string;
@@ -139,6 +163,11 @@ export interface UseHebyConversationInput {
   readonly surface: HebySurfaceKind;
   /** Where the Full Workspace returns to, for `/close` copy. */
   readonly returnLabel?: string;
+  /**
+   * HEBY-CONVERSATION-CONTINUITY-1 — the `?conversation=` deep link, Full Workspace only. A lookup
+   * key and nothing more: the server re-checks tenant and owner before a single message is shown.
+   */
+  readonly requestedConversationId?: string;
   /** Close the active Heby surface (`/close`). Presentation only — it ends no conversation. */
   readonly onCloseSurface?: () => void;
   /**
@@ -170,6 +199,10 @@ export interface HebyConversationModel {
   readonly onComposerChange: (value: string) => void;
   readonly onSubmit: () => void;
   readonly onNewConversation: () => void;
+  /** HEBY-CONVERSATION-CONTINUITY-1 — the durable conversation on screen, or null for a new one. */
+  readonly conversationId: string | null;
+  /** Open one of the operator's own conversations. Ignored while the seam is busy. */
+  readonly onSelectConversation: (conversationId: string) => void;
   readonly onSuggestion: (value: string) => void;
   readonly onPaletteMove: (delta: number) => void;
   /** Select a palette entry by command id. Commands needing arguments are typed in, not run. */
@@ -179,8 +212,11 @@ export interface HebyConversationModel {
 }
 
 export function useHebyConversation(input: UseHebyConversationInput): HebyConversationModel {
-  const { contextRoute, contextLabel, contextDetail, capabilityView, surface, onCloseSurface, onNavigate } =
+  const { contextRoute, contextLabel, contextDetail, capabilityView, surface, onCloseSurface, onNavigate, requestedConversationId } =
     input;
+  const workspace = surface === "full-workspace";
+  // One guard for the life of this seam: the last selection wins, whatever resolves first.
+  const [selection] = useState(createConversationSelectionGuard);
   const returnLabel = input.returnLabel ?? "your workspace";
 
   const [raw, setRaw] = useState<ConversationSession>(() => emptySession(contextRoute));
@@ -208,27 +244,44 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
   // Restore the durable conversation for this context. Only ASYNC setState — the derived `session`
   // already handles the reset, so the effect body writes no state synchronously.
   useEffect(() => {
+    // A deep link outranks the remembered pointer; it is a request, not a grant.
+    const requested = workspace ? requestedConversationId : undefined;
     const stored =
       typeof window !== "undefined" ? window.localStorage.getItem(conversationKey(contextRoute)) : null;
-    if (!stored) return;
-    let active = true;
-    loadHebyConversationAction({ conversationId: stored }).then((result) => {
-      if (!active) return;
-      if (result.status === "loaded") {
-        setRaw({
-          ...emptySession(contextRoute),
-          conversationId: result.view.conversationId,
-          messages: result.view.messages,
-        });
-      } else {
-        if (typeof window !== "undefined") window.localStorage.removeItem(conversationKey(contextRoute));
-        setRaw(emptySession(contextRoute));
-      }
-    });
+    const target = requested ?? stored;
+    if (!target) return;
+    const token = selection.claim();
+    loadHebyConversationAction({ conversationId: target }).then(
+      (result) => {
+        if (!selection.isCurrent(token)) return;
+        if (result.status === "loaded") {
+          setRaw({
+            ...emptySession(contextRoute),
+            conversationId: result.view.conversationId,
+            messages: result.view.messages,
+          });
+          if (requested) rememberConversation(result.view.conversationId);
+        } else if (requested) {
+          // The operator's own remembered pointer is left alone: a bad link does not erase it.
+          setRaw({ ...emptySession(contextRoute), notice: { tone: "warn", text: CONVERSATION_UNAVAILABLE } });
+        } else {
+          if (typeof window !== "undefined") window.localStorage.removeItem(conversationKey(contextRoute));
+          setRaw(emptySession(contextRoute));
+        }
+      },
+      () => {
+        if (selection.isCurrent(token) && requested) {
+          setRaw({ ...emptySession(contextRoute), notice: { tone: "warn", text: CONVERSATION_UNAVAILABLE } });
+        }
+      },
+    );
     return () => {
-      active = false;
+      // Leaving this context makes its in-flight restore stale.
+      selection.claim();
     };
-  }, [contextRoute]);
+    // `rememberConversation` is derived from the same two inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextRoute, requestedConversationId, workspace, selection]);
 
   /*
    * THE single detach primitive. Both the "New conversation" control and the `/new` and `/clear`
@@ -237,9 +290,44 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
    * message simply starts a fresh server-owned conversation. No delete authority exists here.
    */
   const detachConversation = useCallback(() => {
+    // A detach is a selection too: anything still in flight for the old conversation is now stale.
+    selection.claim();
     if (typeof window !== "undefined") window.localStorage.removeItem(conversationKey(contextRoute));
+    if (workspace) syncConversationParam(null);
     setRaw(emptySession(contextRoute));
-  }, [contextRoute]);
+  }, [contextRoute, selection, workspace]);
+
+  /** THE one place the conversation pointer is written (and the workspace URL mirrored). */
+  function rememberConversation(id: string): void {
+    if (typeof window !== "undefined") window.localStorage.setItem(conversationKey(contextRoute), id);
+    if (workspace) syncConversationParam(id);
+  }
+
+  /*
+   * HEBY-CONVERSATION-CONTINUITY-1 — open one of the operator's own conversations. Refused while a
+   * request or read is in flight, so a pending answer can never be shown under another thread.
+   */
+  function selectConversation(id: string): void {
+    if (asking || reading || id === session.conversationId) return;
+    const token = selection.claim();
+    setReading(true);
+    loadHebyConversationAction({ conversationId: id })
+      .then(
+        (result) => {
+          if (!selection.isCurrent(token)) return;
+          if (result.status === "loaded") {
+            setRaw({ ...emptySession(contextRoute), conversationId: result.view.conversationId, messages: result.view.messages });
+            rememberConversation(result.view.conversationId);
+          } else {
+            patch({ notice: { tone: "warn", text: CONVERSATION_UNAVAILABLE } });
+          }
+        },
+        () => {
+          if (selection.isCurrent(token)) patch({ notice: { tone: "warn", text: CONVERSATION_UNAVAILABLE } });
+        },
+      )
+      .finally(() => setReading(false));
+  }
 
   /** Evidence for `/sources`: the SERVER-returned evidence of the latest response, or nothing. */
   const evidenceLines = useMemo(
@@ -728,6 +816,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
 
     patch({ pending: prompt, composer: "", notice: null, commandOutput: null });
     setAsking(true);
+    // The answer belongs to the conversation selected NOW; a later selection makes it stale.
+    const token = selection.claim();
     try {
       const prior =
         session.conversationId ??
@@ -736,12 +826,15 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
           : undefined);
       // The ONLY client-crossing payload: prompt + allow-listed route + opaque conversation id.
       const result = await askHebyAction({ prompt, route: contextRoute, conversationId: prior });
+      // Durably recorded either way; it is simply no longer this view's to show.
+      if (!selection.isCurrent(token)) return;
       if (result.status === "answered") {
         const durable = result.persistence.durable;
         if (durable) {
           const id = result.persistence.conversationId;
-          if (typeof window !== "undefined") window.localStorage.setItem(conversationKey(contextRoute), id);
+          rememberConversation(id);
           const reload = await loadHebyConversationAction({ conversationId: id });
+          if (!selection.isCurrent(token)) return;
           const messages = reload.status === "loaded" ? reload.view.messages : session.messages;
           patch({
             conversationId: id,
@@ -823,6 +916,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
     },
     onSubmit: () => void submitInput(),
     onNewConversation: detachConversation,
+    conversationId: session.conversationId,
+    onSelectConversation: selectConversation,
     onSuggestion: (suggestion: string) => void submitInput(suggestion),
     onPaletteMove: (delta: number) =>
       setPaletteIndex((index) => {

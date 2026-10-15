@@ -125,7 +125,8 @@ for (const i of [...mr.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!)) {
     `the list imports no writer or acting action: ${i}`);
 }
 assert.ok(!/approve|execute\(|revoke/i.test(mr.replace(/Approvals/g, "")), "the list offers no decision or execution");
-assert.match(code("src/components/layout/heby/heby-workspace-client.tsx"), /headerAction=\{<HebyMyRequests \/>\}/, "mounted in the Heby top bar");
+/* HEBY-CONVERSATION-CONTINUITY-1 put the conversation list beside it, in the same top-bar slot. */
+assert.match(code("src/components/layout/heby/heby-workspace-client.tsx"), /headerAction=\{\s*<>[^]*?<HebyMyRequests \/>\s*<\/>\s*\}/, "mounted in the Heby top bar");
 
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async () => {

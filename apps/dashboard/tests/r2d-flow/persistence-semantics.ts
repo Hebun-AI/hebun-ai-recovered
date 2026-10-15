@@ -146,6 +146,10 @@ function recordingRepo(failOn?: "create" | "append"): RecordingRepo {
     async listAnswerSourceEvidence() {
       return [];
     },
+    /* HEBY-CONVERSATION-CONTINUITY-1 — the list is proven against PostgreSQL, not this double. */
+    async listOwnedConversations() {
+      return { items: [], nextCursor: null };
+    },
     async listAnswerEvidence(scope: ConversationScope, messageIds) {
       const visible = new Set(messages.filter((m) => m.tenantId === scope.tenantId).map((m) => m.id));
       return evidenceSets.filter((set) => messageIds.includes(set.messageId) && visible.has(set.messageId));

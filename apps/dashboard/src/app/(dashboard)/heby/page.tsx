@@ -66,7 +66,7 @@ async function readStream(): Promise<HebyStreamState> {
 export default async function HebyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string | string[]; workItem?: string | string[] }>;
+  searchParams: Promise<{ from?: string | string[]; workItem?: string | string[]; conversation?: string | string[] }>;
 }) {
   const params = await searchParams;
   /*
@@ -78,6 +78,12 @@ export default async function HebyPage({
   const selection =
     rawWorkItem === undefined ? null : await readWorkStateSelection(await resolveTenantContext(), rawWorkItem);
   const rawFrom = Array.isArray(params.from) ? params.from[0] : params.from;
+  /*
+   * HEBY-CONVERSATION-CONTINUITY-1 — `?conversation=<id>` is a lookup key, never a grant. Nothing is
+   * read here: the conversation seam loads it through the owner-checked read, and a foreign, unknown
+   * or malformed id renders the same "not available" sentence.
+   */
+  const rawConversation = Array.isArray(params.conversation) ? params.conversation[0] : params.conversation;
   const entry = resolveHebyWorkspaceEntry(rawFrom);
 
   // The authority boundary for the resolved context — the same mapping the runtime uses.
@@ -109,6 +115,7 @@ export default async function HebyPage({
       authorityLabel={authorityLabel}
       returnRoute={resolveHebyReturnRoute(rawFrom)}
       returnLabel={resolveHebyReturnLabel(rawFrom)}
+      requestedConversationId={rawConversation || undefined}
       stream={await readStream()}
       selection={selection ? <HebyWorkStateSelection selection={selection} /> : undefined}
     />

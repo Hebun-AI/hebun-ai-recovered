@@ -23,6 +23,7 @@ import { useHebyVoiceSurface } from "./use-heby-voice-surface";
 import { HebyWorkspace } from "./heby-workspace";
 import { HebyOriginationAffordance } from "./heby-origination-affordance";
 import { HebyMyRequests } from "./heby-my-requests";
+import { HebyConversations } from "./heby-conversations";
 import type { CommandCapabilityView } from "@/features/heby-commands/contracts";
 
 export interface HebyWorkspaceClientProps {
@@ -52,6 +53,8 @@ export interface HebyWorkspaceClientProps {
    * only each command's resolved state and the governing authority's own sentence.
    */
   readonly capabilityView: CommandCapabilityView;
+  /** HEBY-CONVERSATION-CONTINUITY-1 — the `?conversation=` deep link, unverified until loaded. */
+  readonly requestedConversationId?: string;
   /** WORK-UPDATE V1 — the server-rendered work item selection, when the person came from Work. */
   readonly selection?: React.ReactNode;
 }
@@ -59,7 +62,7 @@ export interface HebyWorkspaceClientProps {
 export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
   const {
     contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel, stream,
-    capabilityView, selection,
+    capabilityView, selection, requestedConversationId,
   } = props;
   const { operate, registerWorkspaceReturn } = useHebySurface();
   const router = useRouter();
@@ -76,6 +79,7 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
     capabilityView,
     surface: "full-workspace",
     returnLabel,
+    requestedConversationId,
     /* `/close` in the workspace is the same safe return the rail control performs. */
     onCloseSurface: () => operate("rail"),
     /*
@@ -105,7 +109,16 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
        */
       onClose={() => operate("rail")}
       userTurnAction={(content) => <HebyOriginationAffordance goal={content} />}
-      headerAction={<HebyMyRequests />}
+      headerAction={
+        <>
+          <HebyConversations
+            currentId={conversation.conversationId}
+            disabled={conversation.busy}
+            onSelect={conversation.onSelectConversation}
+          />
+          <HebyMyRequests />
+        </>
+      }
       selection={selection}
       {...conversation}
       /* Spread AFTER the conversation: the arbitrated presence and the operator's wrapped submit. */

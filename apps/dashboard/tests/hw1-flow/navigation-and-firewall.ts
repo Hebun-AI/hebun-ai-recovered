@@ -183,6 +183,11 @@ function main(): void {
       "originateHebyActionProposalAction",
       /* CGO-5: the provider-observation action — the third that can reach a provider. */
       "runHebyProviderObservationCommandAction",
+      /*
+       * HEBY-CONVERSATION-CONTINUITY-1: the owner's conversation list. A control-plane read on the
+       * conversation authority's own owner predicate; it reaches no model and no provider.
+       */
+      "listHebyConversationsAction",
     ] as const;
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

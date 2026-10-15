@@ -14,7 +14,7 @@
  * Server-only. Not re-exported from any client-importable index.
  */
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { conversations, messages } from "@/db/schema/conversation";
 import {
@@ -193,6 +193,33 @@ export interface StoredEvidenceSet extends Omit<AppendEvidenceSetInput, "items">
   readonly items: readonly AppendEvidenceItemInput[];
 }
 
+/**
+ * HEBY-CONVERSATION-CONTINUITY-1 — one row of the owner's conversation list. No message content: the
+ * subject is the owner's own first prompt, already persisted at creation (`subjectFrom`).
+ */
+export interface DurableConversationSummary {
+  readonly id: string;
+  readonly subject: string | null;
+  readonly createdAt: string;
+  /** The newest message's time, or the conversation's own when it holds none. */
+  readonly lastActivityAt: string;
+}
+
+export interface ConversationListPage {
+  readonly items: readonly DurableConversationSummary[];
+  /** Opaque keyset cursor for the next, older page; null when this page is the last. */
+  readonly nextCursor: string | null;
+}
+
+export const CONVERSATION_LIST_DEFAULT_LIMIT = 20;
+const CONVERSATION_LIST_MAX_LIMIT = 50;
+/*
+ * `<lastActivity epoch microseconds>:<conversation id>`. Microseconds, not an ISO string: PostgreSQL
+ * stores microseconds and a JS Date keeps milliseconds, so a cursor that round-trips through Date
+ * would skip or repeat rows whose activity differs below the millisecond.
+ */
+const CURSOR_RE = /^(\d{1,18}):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
 export class ConversationNotFoundError extends Error {
   readonly code = "CONVERSATION_NOT_FOUND";
   constructor() {
@@ -223,6 +250,15 @@ export interface DurableConversationRepository {
     scope: ConversationScope,
     conversationId: string,
   ): Promise<readonly DurableMessageRecord[]>;
+  /**
+   * HEBY-CONVERSATION-CONTINUITY-1 — the acting human's own conversations, newest activity first,
+   * keyset-paginated. The SAME tenant + `created_by` predicate as every other read; a malformed
+   * cursor is an honest empty page, never a thrown SQL error.
+   */
+  listOwnedConversations(
+    scope: ConversationScope,
+    page?: { readonly limit?: number; readonly cursor?: string },
+  ): Promise<ConversationListPage>;
   /**
    * KR5 — persist one whole Heby turn in ONE transaction: conversation (resolved or created),
    * user message, assistant message, and the historical evidence set with its items.
@@ -658,8 +694,54 @@ export function createDurableConversationRepository(
         .select()
         .from(messages)
         .where(and(eq(messages.conversationId, conversationId), eq(messages.tenantId, tenantId)))
-        .orderBy(asc(messages.createdAt));
+        /*
+         * HEBY-CONVERSATION-CONTINUITY-1 — `created_at` alone is not an order. `persistExchange`
+         * writes a turn's question and answer in ONE transaction, and `now()` is the transaction's
+         * start, so the pair shares one timestamp exactly. Within a timestamp the question comes
+         * first (it is inserted first, and a turn is one question and one answer); `id` makes the
+         * rare remainder deterministic. See the closure record for the one case this cannot order.
+         */
+        .orderBy(asc(messages.createdAt), sql`case when ${messages.role} = 'user' then 0 else 1 end`, asc(messages.id));
       return rows.map(toMessage);
+    },
+
+    async listOwnedConversations(scope, page = {}) {
+      const tenantId = requireTenant(scope);
+      const actorId = requireActor(scope);
+      const limit = Math.min(Math.max(Math.trunc(page.limit ?? CONVERSATION_LIST_DEFAULT_LIMIT), 1), CONVERSATION_LIST_MAX_LIMIT);
+      let after: { readonly micros: string; readonly id: string } | null = null;
+      if (page.cursor !== undefined) {
+        const match = CURSOR_RE.exec(page.cursor);
+        if (!match) return { items: [], nextCursor: null };
+        after = { micros: match[1]!, id: match[2]! };
+      }
+      /*
+       * Activity is aggregated per OWNED conversation: the predicate filters conversations before the
+       * join, so another member's or tenant's rows are never grouped. Keyset on (activity, id) — a
+       * total order, so pages neither repeat nor skip a conversation whose activity did not change.
+       */
+      const executed = await db.execute<{ id: string; subject: string | null; created_at: string; last_us: string }>(sql`
+        select id, subject, created_at, last_us from (
+          select c.id, c.subject, c.created_at,
+                 (extract(epoch from coalesce(max(m.created_at), c.created_at)) * 1000000)::bigint as last_us
+            from ${conversations} c
+            left join ${messages} m on m.conversation_id = c.id and m.tenant_id = c.tenant_id
+           where c.tenant_id = ${tenantId} and c.created_by = ${actorId}
+           group by c.id
+        ) owned
+        where ${after === null ? sql`true` : sql`(last_us, id) < (${after.micros}::bigint, ${after.id}::uuid)`}
+        order by last_us desc, id desc
+        limit ${limit + 1}
+      `);
+      const rows = executed.rows;
+      const items = rows.slice(0, limit).map((row) => ({
+        id: row.id,
+        subject: row.subject,
+        createdAt: iso(row.created_at),
+        lastActivityAt: new Date(Number(BigInt(row.last_us) / BigInt(1000))).toISOString(),
+      }));
+      const last = rows[limit - 1];
+      return { items, nextCursor: rows.length > limit && last ? `${last.last_us}:${last.id}` : null };
     },
   };
 }
