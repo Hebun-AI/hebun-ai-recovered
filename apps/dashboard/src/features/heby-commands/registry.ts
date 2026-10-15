@@ -378,6 +378,17 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     description: "Show recorded provider token totals for your organization.",
     availability: "available", handler: "usage", ...base("read"),
   },
+  {
+    id: "performance", slash: "/performance", label: "Publication performance", category: "analyze", kind: "read",
+    /*
+     * HEBY-OBSERVED-PERFORMANCE-READ-1. What Hebun has RECORDED about accepted Instagram and YouTube
+     * publications: the ledger's provider ids joined to stored observations. A read of Hebun's own
+     * records — zero provider dispatch, like every `read` — and never model context: the output is
+     * a local command result, and `provider-observation` is not an allowed `assistance` class.
+     */
+    description: "Show what Hebun has recorded about your accepted Instagram and YouTube publications.",
+    availability: "available", handler: "performance", ...base("read"),
+  },
 
   /* ── The first provider-read command (INT-5B1) ─────────────────────────────
    *

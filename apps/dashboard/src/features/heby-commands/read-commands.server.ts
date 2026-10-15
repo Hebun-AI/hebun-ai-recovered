@@ -103,6 +103,7 @@ import {
   type SubjectActHistoryResult,
 } from "@/features/governance-activity/contracts";
 import type { HebyCommandResult } from "./contracts";
+import { PERFORMANCE_PROVENANCE, readPerformance, renderPerformance } from "./performance-read.server";
 
 /** The single client-controlled input. It carries NO authority. */
 export interface HebyReadCommandInput {
@@ -123,6 +124,8 @@ export interface HebyReadCommandInput {
 
 export interface HebyReadCommandDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
+  /** HEBY-OBSERVED-PERFORMANCE-READ-1 — the `/performance` composition. Injectable for proof. */
+  readonly readPerformance?: typeof readPerformance;
   /** HEBY ORGANIZATIONAL ACTION PLANNING — the two released reads `/plan` composes. Injectable for proof. */
   readonly readWork?: (tenant: TenantContext) => Promise<WorkRegister>;
   readonly readOriginationAvailability?: (tenant: TenantContext) => Promise<AgentOriginationAvailability>;
@@ -574,6 +577,20 @@ export async function runHebyReadCommand(
      * while local persistence failed left no row anywhere. The totals are therefore a floor, and
      * the closing lines say so rather than letting a floor be read as a fact.
      */
+    case "performance": {
+      /*
+       * HEBY-OBSERVED-PERFORMANCE-READ-1 — a composition of released readers (see
+       * performance-read.server.ts). Read-only, tenant from the session, no provider, no model.
+       */
+      const read = await (deps.readPerformance ?? readPerformance)(tenant);
+      if (read.status === "unavailable") {
+        return unavailable(slash, "Publication performance", [
+          "Hebun could not read this organization's content drafts, so nothing is said about their publications.",
+        ], PERFORMANCE_PROVENANCE);
+      }
+      return ok(slash, "Publication performance", renderPerformance(read).lines, PERFORMANCE_PROVENANCE);
+    }
+
     case "usage": {
       const read = await (deps.readUsage ?? ((t: TenantContext) => readRecordedProviderUsage(t)))(
         tenant,
