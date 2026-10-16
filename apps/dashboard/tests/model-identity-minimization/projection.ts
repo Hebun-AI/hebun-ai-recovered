@@ -123,9 +123,10 @@ for (const line of [lines[0]!, lines[2]!, lines[3]!, lines[5]!]) {
 assert.deepEqual([...modelDisclosedDataClasses(resolutions)].sort(), ["knowledge", "work-artifact"], "only the disclosed classes are declared");
 
 /* ── 3. History: Hebun's own earlier answers are minimized; the human's words are not. ─────── */
+/* EAI-HISTORY-ORIGIN-1: minimization applies to a MODEL answer; any other assistant turn is withheld whole. */
 const history = modelFacingHistory([
   { role: "user", content: `Is ${USER} the owner? Mail me at me@acme.example` },
-  { role: "assistant", content: `Ayşe Yılmaz (${USER}) owns Finance; account ops@acme.example is connected.` },
+  { role: "assistant", content: `Ayşe Yılmaz (${USER}) owns Finance; account ops@acme.example is connected.`, origin: "model" },
 ]);
 assert.deepEqual(history, [
   { role: "user", content: `Is ${USER} the owner? Mail me at me@acme.example` },

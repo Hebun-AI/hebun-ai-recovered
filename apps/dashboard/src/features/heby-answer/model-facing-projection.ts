@@ -135,13 +135,32 @@ export function modelGroundingLines(
   return lines;
 }
 
-/**
- * The history the model receives. Heby's OWN earlier answers are Hebun-authored and may repeat a
- * detail the human was shown (a name with its identifier), so they are minimized. The human's own
- * turns are their words and travel as typed.
+/*
+ * EAI-HISTORY-ORIGIN-1 — WHICH OF HEBY'S EARLIER ANSWERS MAY REACH THE MODEL.
+ *
+ * A deterministic answer is built from EVERY resolved source, withheld classes included, as untagged
+ * lines that no reader can separate afterwards. Replayed as history it would reach the model under
+ * `conversation` — the withheld grounding relabelled by the route it took. So an assistant turn's
+ * text travels only when it is a MODEL answer: the model wrote it from what it was already allowed to
+ * see. Every other assistant turn — deterministic, legacy (no origin), or any origin this code does not
+ * know — is replaced whole by one fixed line. An allowlist, so a new origin is withheld until named.
+ * The human's own turns are their words and travel as typed (SCI0 §5 F); nothing guesses at them.
  */
-export function modelFacingHistory(turns: readonly ConversationTurn[]): readonly ConversationTurn[] {
-  return turns.map((turn) =>
-    turn.role === "assistant" ? { ...turn, content: minimizeModelFacingText(turn.content) } : turn,
-  );
+export const MODEL_WITHHELD_HISTORY_ANSWER = "[Earlier Heby system-generated answer withheld]";
+
+/**
+ * The history the model receives. Heby's OWN earlier model answers are Hebun-authored and may repeat
+ * a detail the human was shown (a name with its identifier), so they are minimized; any other
+ * assistant turn is withheld (above). The human's own turns are their words and travel as typed.
+ * Only `role` and `content` leave: persisted provenance never reaches the transport.
+ */
+export function modelFacingHistory(
+  turns: readonly (ConversationTurn & { readonly origin?: string | null })[],
+): readonly ConversationTurn[] {
+  return turns.map((turn) => {
+    if (turn.role !== "assistant") return { role: turn.role, content: turn.content };
+    return turn.origin === "model"
+      ? { role: turn.role, content: minimizeModelFacingText(turn.content) }
+      : { role: turn.role, content: MODEL_WITHHELD_HISTORY_ANSWER };
+  });
 }

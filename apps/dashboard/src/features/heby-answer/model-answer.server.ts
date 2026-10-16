@@ -55,7 +55,6 @@ import {
   type HebyRuntimeContext,
   type HebyRuntimeOutcome,
   type HebyRuntimeResponse,
-  type ConversationTurn,
   type ModelGenerationRequest,
   type ModelGenerationResult,
   type ResolvedSourceItem,
@@ -144,7 +143,7 @@ import {
   toResponseSourceEvidence,
   toStoredSourceEvidence,
 } from "@/features/heby-conversation/answer-evidence";
-import { buildBoundedHistory } from "./bounded-history";
+import { buildBoundedHistory, type HistoryTurn } from "./bounded-history";
 import { modelDisclosedDataClasses, modelFacingHistory, modelGroundingLines } from "./model-facing-projection";
 import type { DataClass } from "@/features/external-ai-data-use/contracts";
 import type { ExternalAiDisclosureDeclaration } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
@@ -1596,16 +1595,19 @@ async function produceAnswer(args: {
  * fabricated memory. The repository re-checks tenant ownership, so a foreign/unknown conversation
  * id returns no messages and no cross-tenant history can ever enter the request. The current turn
  * is not yet persisted at this point, so it is inherently excluded.
+ *
+ * EAI-HISTORY-ORIGIN-1 — each message keeps the `origin` it was persisted with, named explicitly so a
+ * message read without one arrives as `null` (withheld by `modelFacingHistory`), never as a model answer.
  */
 async function loadBoundedHistory(
   repo: DurableConversationRepository | null,
   scope: ConversationScope,
   conversationId: string | undefined,
-): Promise<readonly ConversationTurn[]> {
+): Promise<readonly HistoryTurn[]> {
   if (!repo || !conversationId) return [];
   try {
     const messages = await repo.listConversationMessages(scope, conversationId);
-    return buildBoundedHistory(messages);
+    return buildBoundedHistory(messages.map((m) => ({ role: m.role, content: m.content, origin: m.origin ?? null })));
   } catch {
     return [];
   }

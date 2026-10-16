@@ -154,9 +154,14 @@ async function main(): Promise<void> {
   {
     const CONVERSATION = "abababab-abab-4bab-8bab-abababababab";
     let historyRequest: ModelGenerationRequest | undefined;
+    /*
+     * EAI-HISTORY-ORIGIN-1 — only a MODEL answer's text reaches the model as history, so the
+     * minimization this section proves is exercised on one. A turn with no origin is withheld whole
+     * (tests/eai-history-origin-1); before that phase this fixture carried none and was minimized.
+     */
     const stored = [
-      { role: "user", content: `Who is ${PERSON}? Write to me at me@acme.example` },
-      { role: "assistant", content: `Ayşe Yılmaz (${PERSON}) is a member; the connected account is ops.lead@acme.example.` },
+      { role: "user", content: `Who is ${PERSON}? Write to me at me@acme.example`, origin: "user" },
+      { role: "assistant", content: `Ayşe Yılmaz (${PERSON}) is a member; the connected account is ops.lead@acme.example.`, origin: "model" },
     ];
     await answerHebyModelRequest(
       { prompt: "And where does she work?", route: "/heby", conversationId: CONVERSATION },

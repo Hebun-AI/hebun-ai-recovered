@@ -23,29 +23,40 @@ export const MAX_HISTORY_CHARS = 6000;
 export interface HistoryMessageInput {
   readonly role: string;
   readonly content: string;
+  /**
+   * EAI-HISTORY-ORIGIN-1 — how the persisted content was produced (`messages.origin`), carried
+   * unchanged so the model-facing projection can decide what an external model may see. Never
+   * reconstructed from the text; a message read without one carries none.
+   */
+  readonly origin?: string | null;
+}
+
+/** A prior turn with the provenance it was persisted with. Internal: the transport never sees `origin`. */
+export interface HistoryTurn extends ConversationTurn {
+  readonly origin?: string | null;
 }
 
 export function buildBoundedHistory(
   messages: readonly HistoryMessageInput[],
   opts: { readonly maxMessages?: number; readonly maxChars?: number } = {},
-): readonly ConversationTurn[] {
+): readonly HistoryTurn[] {
   const maxMessages = opts.maxMessages ?? MAX_HISTORY_MESSAGES;
   const maxChars = opts.maxChars ?? MAX_HISTORY_CHARS;
 
   // Keep only well-formed user/assistant turns, preserving order.
-  const turns: ConversationTurn[] = [];
+  const turns: HistoryTurn[] = [];
   for (const message of messages) {
     if (message.role !== "user" && message.role !== "assistant") continue;
     const content = typeof message.content === "string" ? message.content.trim() : "";
     if (content.length === 0) continue;
-    turns.push({ role: message.role, content });
+    turns.push("origin" in message ? { role: message.role, content, origin: message.origin ?? null } : { role: message.role, content });
   }
 
   // Take the most-recent `maxMessages` (drop oldest first).
   let recent = turns.slice(Math.max(0, turns.length - maxMessages));
 
   // Enforce the char budget by dropping OLDEST whole turns first — never split a turn.
-  const totalChars = (list: readonly ConversationTurn[]): number =>
+  const totalChars = (list: readonly HistoryTurn[]): number =>
     list.reduce((sum, turn) => sum + turn.content.length, 0);
   while (recent.length > 0 && totalChars(recent) > maxChars) {
     recent = recent.slice(1);
