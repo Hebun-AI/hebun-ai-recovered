@@ -582,13 +582,15 @@ export async function runHebyReadCommand(
        * HEBY-OBSERVED-PERFORMANCE-READ-1 — a composition of released readers (see
        * performance-read.server.ts). Read-only, tenant from the session, no provider, no model.
        */
-      const read = await (deps.readPerformance ?? readPerformance)(tenant);
+      const read = await (deps.readPerformance ?? readPerformance)(tenant, { readOrganization: readOrganizationAuthority });
+      /* HEBY-PERFORMANCE-COMPARISON-1 — the name is the Organization authority's, for the session's tenant. */
+      const title = read.organization.status === "read" ? `Publication performance · ${read.organization.name}` : "Publication performance";
       if (read.status === "unavailable") {
-        return unavailable(slash, "Publication performance", [
+        return unavailable(slash, title, [
           "Hebun could not read this organization's content drafts, so nothing is said about their publications.",
         ], PERFORMANCE_PROVENANCE);
       }
-      return ok(slash, "Publication performance", renderPerformance(read).lines, PERFORMANCE_PROVENANCE);
+      return ok(slash, title, renderPerformance(read).lines, PERFORMANCE_PROVENANCE);
     }
 
     case "usage": {

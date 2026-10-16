@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import {
+  PERFORMANCE_LIMITATIONS,
   readPerformance,
   renderPerformance,
   type PerformanceRead,
@@ -38,6 +39,9 @@ const A1 = "11111111-1111-4111-8111-111111111111";
 const A2 = "22222222-2222-4222-8222-222222222222";
 const NOTE = "33333333-3333-4333-8333-333333333333";
 const ref = (id: string, n: number) => `work-artifact/${id}@${n}`;
+/* HEBY-PERFORMANCE-COMPARISON-1 added `organization` and `readAt` to a read; these tests keep their own subject. */
+const NAMED = { organization: { status: "read", name: "Org" }, readAt: "2026-10-10T00:00:00.000Z" } as const;
+const namedOrg = (async () => ({ status: "available", organization: { name: "Org" } })) as never;
 
 type Artifact = { id: string; artifactType: string; title: string; currentRevision: number };
 const listing = (...artifacts: Artifact[]) => (async () => ({ status: "read", artifacts })) as never;
@@ -93,6 +97,7 @@ async function main(): Promise<void> {
     const read = await readPerformance(TENANT, {
       listArtifacts: listing({ id: A1, artifactType: "content-draft", title: "Lost", currentRevision: 2 }),
       readHistory: histories({}),
+      readOrganization: namedOrg,
       readMeasurements: (async () => new Map()) as never,
     });
     const text = renderPerformance(read as Extract<PerformanceRead, { status: "read" }>).lines.join("\n");
@@ -103,7 +108,7 @@ async function main(): Promise<void> {
   {
     const r = await runHebyReadCommand({ commandId: "performance", args: [], route: "/heby" }, {
       resolveTenant: async () => TENANT,
-      readPerformance: (async () => ({ status: "unavailable", reason: "drafts-unreadable" })) as never,
+      readPerformance: (async () => ({ status: "unavailable", reason: "drafts-unreadable", organization: { status: "unavailable" } })) as never,
     });
     assert.ok(r.status === "ok" && r.result.tone === "unavailable" && /could not read this organization's content drafts/.test(r.result.lines[0]!));
     assert.deepEqual(await runHebyReadCommand({ commandId: "performance", args: [], route: "/heby" }, { resolveTenant: async () => null }), { status: "unauthorized" });
@@ -128,7 +133,7 @@ async function main(): Promise<void> {
       [ref(A1, 2), { status: "read", instagram: ig, youtubeAcceptedCount: 3, youtube: yt }],
       [ref(A1, 1), { status: "unknown" }],
     ]);
-    const { lines, hasPublications } = renderPerformance({ status: "read", checked: [rev(2, true), rev(1, false)], truncated: false, historyUnreadable: [], measurements });
+    const { lines, hasPublications } = renderPerformance({ status: "read", ...NAMED, checked: [rev(2, true), rev(1, false)], truncated: false, historyUnreadable: [], measurements });
     const text = lines.join("\n");
     assert.ok(hasPublications);
     assert.match(text, /Instagram media IG-ZERO · “Kilim” revision 2 \(current\) · published 2026-10-03 00:00 UTC — likes 0 · comments not reported · as of 2026-10-09 06:00 UTC \(stored media observation; first listed 2026-10-03 06:00 UTC\)\./);
@@ -141,16 +146,19 @@ async function main(): Promise<void> {
     assert.match(text, /name no video and channel Hebun can match[^\n]*revision 2 \(current\): 1/);
     assert.match(text, /publication record could not be read for 1 revision\(s\)[^\n]*revision 1 \(superseded\)/, "an unknown ledger is not 'no publication'");
     assert.ok(text.includes(PUBLICATION_MEASUREMENT_NON_CLAIM) && text.includes(YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM));
-    const order = ["IG-NONE", "IG-ZERO", "YT-1", "IG-ABSENT", "YT-2", "IG-CLIPPED", "IG-UNREAD"].map((id) => text.indexOf(id));
-    assert.deepEqual([...order].sort((a, b) => a - b), order, "newest publication first, across providers");
+    /* HEBY-PERFORMANCE-COMPARISON-1 groups by provider: the cross-provider order this pinned is obsolete; newest first within each group is kept. */
+    const order = ["Instagram", "IG-NONE", "IG-ZERO", "IG-ABSENT", "IG-CLIPPED", "IG-UNREAD", "YouTube", "YT-1", "YT-2"].map((id) => lines.findIndex((l) => l === id || l.includes(`${id} `) || l.includes(`id ${id} `)));
+    assert.ok(order.every((i) => i >= 0), "every heading and publication is listed");
+    assert.deepEqual([...order].sort((a, b) => a - b), order, "grouped by provider, newest publication first within each group");
     assert.ok(!/No accepted/.test(text));
     for (const word of ["rate", "score", "rank", "trend", "performed", "recommend"]) {
-      assert.ok(!new RegExp(`\\b${word}`, "i").test(lines.filter((l) => l !== PUBLICATION_MEASUREMENT_NON_CLAIM && l !== YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM).join("\n")), `no "${word}" outside the non-claims`);
+      assert.ok(!new RegExp(`\\b${word}`, "i").test(lines.filter((l) => l !== PUBLICATION_MEASUREMENT_NON_CLAIM && l !== YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM && !(PERFORMANCE_LIMITATIONS as readonly string[]).includes(l)).join("\n")), `no "${word}" outside the non-claims`);
     }
 
     /* Absence semantics: only a complete read may state a global absence. */
     const mixed = renderPerformance({
       status: "read",
+      ...NAMED,
       checked: [rev(2, true), rev(1, false)],
       truncated: false,
       historyUnreadable: [],
@@ -164,6 +172,7 @@ async function main(): Promise<void> {
     assert.match(mixed, /publication record could not be read for 1 revision\(s\)/, "and the unread part is still named");
     const partHistory = renderPerformance({
       status: "read",
+      ...NAMED,
       checked: [rev(1, true)],
       truncated: false,
       historyUnreadable: ["Lost"],
@@ -172,7 +181,7 @@ async function main(): Promise<void> {
     assert.ok(!/for this organization's content drafts/.test(partHistory), "one unread history suppresses the global claim");
     assert.match(partHistory, /was found among the 1 content revision\(s\)[\s\S]*could not be read for 1 content draft\(s\)/);
 
-    const none = renderPerformance({ status: "read", checked: [rev(1, true)], truncated: false, historyUnreadable: [], measurements: new Map([[ref(A1, 1), { status: "read", instagram: [], youtubeAcceptedCount: 0, youtube: [] }]]) });
+    const none = renderPerformance({ status: "read", ...NAMED, checked: [rev(1, true)], truncated: false, historyUnreadable: [], measurements: new Map([[ref(A1, 1), { status: "read", instagram: [], youtubeAcceptedCount: 0, youtube: [] }]]) });
     assert.deepEqual(none.lines, ["No accepted Instagram or YouTube publication is recorded for this organization's content drafts."], "nothing published, nothing claimed, no non-claim noise");
   }
 
@@ -193,6 +202,9 @@ async function main(): Promise<void> {
   const ALLOWED = [
     "@/features/auth/tenant/tenant-context",
     "@/features/action-authorization/content-publication-state.server",
+    /* HEBY-PERFORMANCE-COMPARISON-1: IG-AN3's pure gap notes and type, and the Organization read's result TYPE (the caller injects the read). */
+    "@/features/instagram-connection-surface/media-measurement-evolution",
+    "@/features/organization-authority/contracts",
     "@/features/content-publication-measurement/contracts",
     "@/features/content-publication-measurement/read-publication-measurement.server",
     "@/features/work-artifacts/artifact-ref",
