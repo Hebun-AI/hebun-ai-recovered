@@ -5623,6 +5623,7 @@ re-graded here.
 | WORK-UPDATE-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` |
 | HEBY-GROUNDED-CONVERSATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-grounded-conversation-1-closure.md` |
 | HEBY-CONVERSATION-CONTINUITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-conversation-continuity-1-closure.md` |
+| HEBY-OBSERVED-PERFORMANCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` |
 
 ---
 
@@ -5667,3 +5668,6 @@ before §16.1 are not yet indexed (Phase B).
 | HCC-1-SAME-INSTANT-TURNS-1 | HEBY-CONVERSATION-CONTINUITY-1 | `docs/product-vision/runtime/hebun-heby-conversation-continuity-1-closure.md` | Message ordering | DEFERRED | A schema decision on a per-conversation sequence column |
 | HCC-1-SOFT-NAV-DEEP-LINK-1 | HEBY-CONVERSATION-CONTINUITY-1 | `docs/product-vision/runtime/hebun-heby-conversation-continuity-1-closure.md` | UX continuity | DEFERRED | A Director-approved hook fix if an in-app link to `?conversation=` is ever added |
 | HCC-1-PROD-NEGATIVE-PATHS-1 | HEBY-CONVERSATION-CONTINUITY-1 | `docs/product-vision/runtime/hebun-heby-conversation-continuity-1-closure.md` | Verification gap | DEFERRED | A second production account, or an owner with more than 20 conversations |
+| HOPR-1-ORG-LEGIBILITY-1 | HEBY-OBSERVED-PERFORMANCE-READ-1 | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` | Result legibility | DEFERRED | A Director-approved wording change that names the active organization |
+| HOPR-1-NOT-REPORTED-PATH-1 | HEBY-OBSERVED-PERFORMANCE-READ-1 | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` | Verification gap | DEFERRED | A production publication whose stored observation lacks a count or falls outside the observation window |
+| HOPR-1-REVISION-BOUND-1 | HEBY-OBSERVED-PERFORMANCE-READ-1 | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` | Read completeness | DEFERRED | A Director decision when an organization's content revisions approach 50 |
