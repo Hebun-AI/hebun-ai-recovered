@@ -133,3 +133,14 @@ dayanmaz.
 - Commit/merge/deploy bir 🚦 gate'tir — Director onayı olmadan yapma.
 - Birincil çalışma ağacı tek yazardır; commit'ten hemen önce HEAD yeniden doğrulanır
   (yukarıdaki *Eşzamanlı Oturumlar*).
+- **`main`'e push = production deploy.** `main` dalına push, mevcut Vercel Git entegrasyonunda
+  otomatik production deployment başlatır; her böyle push açık Director onayı ister. Push'tan hemen
+  önce gerçek remote HEAD `git ls-remote origin refs/heads/main` ile okunur ve hedef commit'in onun
+  torunu olduğu kanıtlanır. Remote SHA beklenenden farklıysa DUR — otomatik pull, merge, rebase veya
+  force push yok. Push başarısı deployment başarısı diye raporlanmaz; deployment durumu gerçek Vercel
+  deployment kaydından doğrulanır.
+- **Secret ve izinler.** Açık, kapsamı belirli Director onayı olmadan credential, token, secret veya
+  production environment değeri okunmaz, çözülmez, yazdırılmaz, loglanmaz. Production durumu yalnızca
+  mevcut yetkili read seam'lerden doğrulanır. İzin katmanı bir işlemi reddederse alternatif komut, araç
+  veya yöntemle reddi aşmaya çalışılmaz; durum `UNAVAILABLE` raporlanır ve gereken yetki Director'a
+  bildirilir.
