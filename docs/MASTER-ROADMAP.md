@@ -5640,7 +5640,8 @@ second agent today can hold only existing kinds.
 
 **Remaining production acceptance gaps before AP-5 can close** (owners in §22): no second agent has
 ever been registered in production; no production surface has rendered an agent chooser; the
-work-state affordance has no chooser (`WORK-UPDATE-AGENT-SELECTION-1`); agent out-of-responsibility
+work-state affordance chooser is deployed (`WORK-UPDATE-AGENT-SELECTION-1`, CLOSED 2026-10-17,
+`dpl_9XejFBF38W1utxNs7bmdmWASXvYh`) but has never rendered in production; agent out-of-responsibility
 refusal and agent proposal approve → permit → spend are test-only (AP-4B); retirement, suspension and
 reactivation have never run in production; the full suite baseline is red
 (`EHO-1-RED-SUITE-BASELINE-1`).
@@ -5688,7 +5689,7 @@ re-graded here.
 | L-2b | DEPLOYED | `docs/product-vision/runtime/hebun-l2b-agent-suspension-closure.md` |
 | CONTENT-AGENT-2 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-2-closure.md` |
 | AP-5-ENTRY-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` |
-| WORK-UPDATE-AGENT-SELECTION-1 | VERIFIED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
+| WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
 
 ---
 
@@ -5719,7 +5720,7 @@ before §16.1 are not yet indexed (Phase B).
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
 | WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |
 | WORK-UPDATE-UNSCOPED-ITEMS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Product reach | DEFERRED | Human scoping of unscoped work items through the Work path; no automatic scoping |
-| WORK-UPDATE-AGENT-SELECTION-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Agent identity | DEFERRED | An agent choice in the Heby state-change affordance before a second in-service agent is placed |
+| WORK-UPDATE-AGENT-SELECTION-1 | WORK-UPDATE-AGENT-SELECTION-1 | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` | Agent identity | CLOSED | — |
 | WORK-UPDATE-LOGIN-QUERY-LOSS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | UX continuity | DEFERRED | A Director-approved login redirect that keeps the return query |
 | WORK-UPDATE-ROLLBACK-FLOOR-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Release safety | DEFERRED | Director decision on a formal rollback floor for migration 78 (reversal is a mandate revision without the kind plus a code disable) |
 | PERMIT-EXPIRED-STATUS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Authority legibility | DEFERRED | A Director decision on how an expired permit's status is shown or counted |

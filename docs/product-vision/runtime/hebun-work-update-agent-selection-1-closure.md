@@ -2,7 +2,8 @@
 
 Base `cd3ddbfe` (AP-5 entry reconciliation, local) on `f9ae3b4c` (`origin/main`). Worktree
 `.claude/worktrees/work-update-agent-selection-1`, branch `feat/work-update-agent-selection-1`. Local
-commit only: not pushed, not deployed. Fixes the code half of the deferred risk
+commit at the time of implementation; released and deployed 2026-10-17 (see *Release and deployment*).
+Fixes the code half of the deferred risk
 `WORK-UPDATE-AGENT-SELECTION-1` (owner `hebun-work-update-v1-closure.md`), the first code prerequisite
 named by `hebun-ap5-two-agent-acceptance-contract.md` §6.
 
@@ -108,25 +109,69 @@ work-update-v1 `work-state-postgres`, ap5a `readiness-postgres` + `surface-and-f
 `eligibility-postgres`, wf1 `availability-postgres`, l2b `suspension-postgres`, agent-id-0-1
 `read-seam-and-truth`, ap1 `bite-proofs`, development-continuity — all exit 0.
 
+## Release and deployment (2026-10-17)
+
+Director-authorized controlled release of the chain `f9ae3b4c → cd3ddbfe → b5784119 → 7ad5675b`.
+
+- **Preflight.** Remote `origin` = `Hebun-AI/hebun-ai-recovered`; `git ls-remote origin refs/heads/main`
+  = `f9ae3b4c493035d8b27882e3500b866f0d90dd64` (expected) before the gates and again immediately before
+  the push; `7ad5675b` descends from it by exactly the three approved commits (fast-forward). Release
+  diff: 20 files, 7 under `apps/dashboard` (5 source, 2 tests), the rest documentation and one
+  `learnings.md` line; no migration, schema, environment, package or Vercel configuration file; secret
+  pattern scan of the added lines empty; `git diff --check` clean; release worktree clean at `7ad5675b`.
+- **Gates at `7ad5675b`.** `tsc --noEmit` 0; `eslint` clean on the 7 changed code/test files; exit 0:
+  `work-update-agent-selection-1` `choice-and-surface` + `selection-postgres` (disposable PG18 on
+  127.0.0.1:55433), `ap5a-plurality-readiness` `surface-and-firewall` + `readiness-postgres` +
+  `bite-proofs` (11), `work-update-v1` `work-state-firewall` + `work-register-reach-firewall` +
+  `selection-render` + `work-state-postgres` + `bite-proofs` (13), `wf1-origination-recommendation`
+  `firewall-and-surface` + `bite-proofs` (9/9), `ap4b-strict-work-eligibility/firewall`,
+  `ap1-plurality-foundation/bite-proofs` (9), `development-continuity/closure-contract`. Baseline
+  failures `osa-owner-eligibility/eligibility-firewall` and `cmdb1-command-overview/canonical-overview`
+  recur as the same migration-count pin (actual 78, expected 67); the migration count is 78 at both
+  `f9ae3b4c` and `7ad5675b` and neither test file nor the migration directory changed in the release.
+- **Push.** `git push origin 7ad5675bc3e0557b12c1140a31376888bd379331:refs/heads/main` →
+  `f9ae3b4c..7ad5675b`, 2026-10-17T12:40:12Z; remote `main` read back as `7ad5675b…`. No tag, no force,
+  no other ref.
+- **Deployment (Vercel CLI, scope `hebuntechs-projects`; the Vercel MCP cannot see this scope).**
+  Project `hebun-ai-recovered` (`prj_NXzcQeXAtYY9UmRc2NhjSPQbFHlF`), deployment
+  `dpl_9XejFBF38W1utxNs7bmdmWASXvYh`
+  (`https://hebun-ai-recovered-kb2zwokev-hebuntechs-projects.vercel.app`), target `production`,
+  `readyState` READY; `GET /v13/deployments/{id}` → `meta.githubCommitSha`
+  `7ad5675bc3e0557b12c1140a31376888bd379331`, ref `main`. Aliases on the deployment:
+  `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app`,
+  `hebun-ai-recovered-hebuntechs-projects.vercel.app`, `hebun-ai-recovered-git-main-…`.
+- **HTTP smoke (2026-10-17T12:42Z, unauthenticated).** `www.hebuntech.com/` 200, `hebuntech.com/` 308 →
+  www, `/login` 200, `/heby` and `/agents` 307 → `/login` (auth enforcing),
+  `hebun-ai-recovered.vercel.app/login` 200. Deployment runtime logs: 29 lines fetched, 0 error /
+  warning / 5xx.
+- **Not done, by boundary:** no sign-in, no production database read or write, no agent registration,
+  no mandate change, no ceremony, no provider or model call, no kill-switch change.
+
+**What this proves and what it does not.** The chooser code is running in production (`DEPLOYED`). It
+is not `PRODUCTION-ACCEPTED`: no signed-in production surface was opened, and with one in-service agent
+per tenant the production affordance takes the unchanged single-agent path, so the chooser has never
+rendered in production. That happens only after Agent #2 is registered (AP-5).
+
 ## Closure Contract (v1)
 
 - Phase: WORK-UPDATE-AGENT-SELECTION-1
 - Owner: Heby work-state affordance (`components/layout/heby/heby-work-state-affordance.tsx`) and the WF-1 availability projection (`features/origination-availability/`)
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT — local only, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: b57841190d0dccd249f116ae82902db73b4f7dea (released to `main` in the chain ending 7ad5675bc3e0557b12c1140a31376888bd379331)
 - Verification level: V2 — shared selection seam (AP-5A chooser, availability projection, work-state boundary); server authorities unchanged, so no V3 boundary moves
 - Verification evidence: local signed-in browser acceptance on a disposable PG18 database (zero / one / several agents, no default, missing and ineligible selection blocked, explicit selection resolved, suspended and foreign agents refused or absent, 375 px; 0 invocations, 0 requests; see *Local browser acceptance*); tsc 0; eslint clean; `tests/work-update-agent-selection-1/choice-and-surface.ts` and `selection-postgres.ts` exit 0 (two mutations caught); seam suites and bite-proofs listed above exit 0; `osa-owner-eligibility/eligibility-firewall` and `cmdb1-command-overview/canonical-overview` fail identically at base cd3ddbfe
 - Test environment: worktree `.claude/worktrees/work-update-agent-selection-1`, `node --import tsx`, disposable PostgreSQL 18 on 127.0.0.1:55433 created and dropped per suite; browser: `next dev --webpack` from the worktree with an empty inherited environment and five local keys, built-in browser pane, local `/login`
-- Deployment evidence: N/A — not deployed; push not authorized
-- Production acceptance evidence: N/A — not deployed; no second production agent exists
-- Deferred risks: WORK-UPDATE-AGENT-SELECTION-1 (DEFERRED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); WUAS-1-BROWSER-UNVERIFIED-1 (CLOSED); WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)
-- Director approvals: implementation, focused tests and one scoped local commit (Director, 2026-10-17); local two-agent browser acceptance on a disposable database (Director, 2026-10-17); this acceptance record as one local documentation commit (Director, 2026-10-17); push, deploy, agent registration and mandate changes NOT approved
+- Deployment evidence: Vercel production deployment dpl_9XejFBF38W1utxNs7bmdmWASXvYh (project hebun-ai-recovered), READY, githubCommitSha 7ad5675bc3e0557b12c1140a31376888bd379331, aliased to www.hebuntech.com and hebuntech.com; HTTP smoke and runtime logs clean (see *Release and deployment*)
+- Production acceptance evidence: N/A — no signed-in production check was run and no second production agent exists, so the chooser has never rendered in production
+- Deferred risks: WORK-UPDATE-AGENT-SELECTION-1 (CLOSED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); WUAS-1-BROWSER-UNVERIFIED-1 (CLOSED); WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)
+- Director approvals: implementation, focused tests and one scoped local commit (Director, 2026-10-17); local two-agent browser acceptance on a disposable database (Director, 2026-10-17); this acceptance record as one local documentation commit (Director, 2026-10-17); push, deploy, agent registration and mandate changes NOT approved at that time; controlled production release of the chain ending 7ad5675b (exact fast-forward push, read-only deployment checks, one local documentation commit) (Director, 2026-10-17); agent registration, mandate changes, ceremonies and further pushes NOT approved
 
 ## Deferred risks
 
-- `WORK-UPDATE-AGENT-SELECTION-1` stays **DEFERRED** under its owner until this code is released: the
-  production affordance still has no chooser. The release's documentation change lists it `(CLOSED)`
-  and moves the §22 pointer here.
+- **WORK-UPDATE-AGENT-SELECTION-1 (CLOSED)** — was: the Heby affordance sent no `agentId`, so a second
+  in-service agent would make every work-state proposal refuse as ambiguous. Resolved by this code,
+  released and deployed 2026-10-17 (`dpl_9XejFBF38W1utxNs7bmdmWASXvYh`); the §22 pointer moves here.
+  The chooser's first production render remains an AP-5 acceptance step, not this risk.
 - **WUAS-1-BROWSER-UNVERIFIED-1 (CLOSED)** — was: the chooser had not been rendered in a signed-in
   browser with two in-service agents. Closed by the local browser acceptance above (2026-10-17). Local
   only: it says nothing about production.
