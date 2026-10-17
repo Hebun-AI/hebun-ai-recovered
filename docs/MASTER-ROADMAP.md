@@ -5626,6 +5626,7 @@ re-graded here.
 | HEBY-OBSERVED-PERFORMANCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` |
 | HEBY-PERFORMANCE-COMPARISON-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-performance-comparison-1-closure.md` |
 | EAI-HISTORY-ORIGIN-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` |
+| PHASE-B2-PRIMARY-TREE-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` |
 
 ---
 
@@ -5637,7 +5638,7 @@ before §16.1 are not yet indexed (Phase B).
 
 | Risk ID | Owning phase | Detail record | Category | Disposition | Acceptance dependency |
 |---|---|---|---|---|---|
-| CONTINUITY-STALE-PRIMARY-TREE-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Session recovery | DEFERRED | Phase B primary-tree reconciliation (Director decision) |
+| CONTINUITY-STALE-PRIMARY-TREE-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Session recovery | DEFERRED | Primary tree reconciled by PHASE-B2; older worktrees and running sessions remain — sessions restarted or opened fresh, and a Director decision on worktree cleanup |
 | CONTINUITY-NO-CI-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Verification enforcement | DEFERRED | Director decision on CI or another integration |
 | CONTINUITY-CODE-DEFERRED-SCAN-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Risk discoverability | DEFERRED | Phase B historical deferred-risk reconciliation |
 | CONTINUITY-PICKER-STRANDED-ACCEPTANCE-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Historical record integrity | DEFERRED | Director decision on the proposed GOOGLE-PICKER-1 addendum |
@@ -5680,3 +5681,8 @@ before §16.1 are not yet indexed (Phase B).
 | EHO-1-CLAUDE-SWITCH-STATE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | The Director's signed-in read of `/director/provider-matrix` |
 | EHO-1-ROLLBACK-RESTORES-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Release safety | DEFERRED | Any rollback below 1f8f9a47 is a Director decision, preceded by disabling Claude connectivity under production possession |
 | EHO-1-RED-SUITE-BASELINE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification reliability | DEFERRED | A Director-selected suite-recovery phase |
+| B2-SECRET-BEARING-UNTRACKED-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Secret handling | DEFERRED | This commit in the primary tree (ignore rule), and a Director decision on the settings backup and the unrotated key |
+| B2-P3-UNCOMMITTED-EVIDENCE-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Historical record integrity | DEFERRED | A B1-style preservation decision on the three uncommitted P3 records |
+| B2-LEGACY-ACCEPTANCE-SCRIPTS-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Operational tooling | DEFERRED | A Director decision to commit, archive or remove the untracked rung1 and k2 scripts |
+| B2-UNTRACKED-ARTIFACTS-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Repository hygiene | DEFERRED | A Director decision on screenshots, exports, benchmark, fixture and 0-byte files |
+| B2-LOCAL-TSC-UNKNOWN-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Verification reliability | DEFERRED | A primary-tree type-check run, or B2-LEGACY-ACCEPTANCE-SCRIPTS-1 resolved |

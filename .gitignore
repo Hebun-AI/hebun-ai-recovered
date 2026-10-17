@@ -7,6 +7,7 @@ node_modules/
 # Local files
 .DS_Store
 .claude/settings.local.json
+/.mcp.json
 .gstack/
 .vercel
 .env*
