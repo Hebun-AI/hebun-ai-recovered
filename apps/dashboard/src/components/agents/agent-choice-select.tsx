@@ -16,6 +16,12 @@
 export interface AgentOption {
   readonly agentId: string;
   readonly name: string;
+  /**
+   * WORK-UPDATE-AGENT-SELECTION-1 — set when the server said this agent cannot take the act. The
+   * agent is still LISTED (so the person sees who serves) but cannot be chosen. Display only: the
+   * server re-asks its own authorities whatever is sent.
+   */
+  readonly unavailableNote?: string;
 }
 
 /** True when the human must name an agent before acting. */
@@ -68,8 +74,8 @@ export function AgentChoiceSelect({
       >
         <option value="">Choose an agent</option>
         {agents.map((agent) => (
-          <option key={agent.agentId} value={agent.agentId}>
-            {agent.name}
+          <option key={agent.agentId} value={agent.agentId} disabled={agent.unavailableNote !== undefined}>
+            {agent.unavailableNote === undefined ? agent.name : `${agent.name} — ${agent.unavailableNote}`}
           </option>
         ))}
       </select>

@@ -34,6 +34,10 @@ import {
 import { authorizeExternalAiDisclosure } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import type { DataClass } from "@/features/external-ai-data-use/contracts";
 import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";
+import type { WorkStateAgentChoices } from "./contracts";
+import type { DurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { readWorkStateTarget } from "@/features/organizational-work/read-work.server";
+import type { EligibleAgentsRead } from "./list-eligible-agents.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { listEligibleAgents } from "./list-eligible-agents.server";
 
@@ -218,5 +222,47 @@ export async function preflightWorkStateOrigination(
     return { status: "admitted" };
   } catch {
     return { status: "refused", reason: "agent-mandate-authority-unavailable" };
+  }
+}
+
+/*
+ * WORK-UPDATE-AGENT-SELECTION-1 — the chooser's list for one work item's state change.
+ *
+ * Composed from two reads that already exist and decide nothing here: the Agent Identity Authority's
+ * own read (who is in service in THIS tenant) and the eligibility projection for this kind and the
+ * item's work domain (who is responsible). Only in-service identities of the session's tenant are
+ * listed, so a suspended, retired or foreign agent can never be offered; an eligibility row naming
+ * an agent the identity read does not hold is ignored.
+ *
+ * IT ADMITS NOTHING. The chosen id is a lookup key: the origination boundary resolves it through
+ * `resolveAgentProposer` and asks `preflightWorkStateOrigination` again, and the one writer and the
+ * spend ask the ceilings after that. Fails closed: any unreadable answer is `unavailable`.
+ */
+export function composeWorkStateAgentChoices(identity: DurableAgentIdentityState, eligible: EligibleAgentsRead): WorkStateAgentChoices {
+  if (identity.status !== "known" || eligible.status !== "read") return { status: "unavailable" };
+  const responsible = new Set(eligible.agents.map((agent) => agent.agentId));
+  return {
+    status: "read",
+    agents: identity.identities
+      .filter((candidate) => candidate.inService)
+      .map((candidate) => ({ agentId: candidate.agentId, name: candidate.name, responsible: responsible.has(candidate.agentId) })),
+  };
+}
+
+export async function readWorkStateAgentChoices(
+  tenant: TenantContext | null,
+  workItemId: unknown,
+  deps: { readonly getDb?: () => ControlPlaneDatabase | null } = {},
+): Promise<WorkStateAgentChoices> {
+  if (typeof window !== "undefined") throw new Error("Work state agent choices are server-only.");
+  if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable" };
+  try {
+    const target = await readWorkStateTarget(tenant, workItemId, deps);
+    if (target.status !== "found" || !target.target.inService || target.target.workDomainId === null) return { status: "unavailable" };
+    const kind = AGENT_ORIGINABLE_REGISTRY_KIND[SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS];
+    const eligible = await listEligibleAgents(tenant, { kind: "domain", workDomainId: target.target.workDomainId }, deps, kind);
+    return composeWorkStateAgentChoices(await readDurableAgentIdentityState(tenant, deps), eligible);
+  } catch {
+    return { status: "unavailable" };
   }
 }

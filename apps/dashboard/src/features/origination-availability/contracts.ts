@@ -67,3 +67,20 @@ export interface WorkScopeOption {
   readonly label: string;
   readonly eligibleAgentIds: readonly string[];
 }
+
+/*
+ * WORK-UPDATE-AGENT-SELECTION-1 — whom a person may name for one work item's state change. The
+ * agents are this tenant's IN-SERVICE identities in the identity read's own order; `responsible` says
+ * whether that agent's effective mandate admits the kind for the item's work domain. A display read
+ * for the chooser: the origination boundary re-resolves the chosen id and re-asks the preflight, and
+ * its answer wins.
+ */
+export interface WorkStateAgentChoice {
+  readonly agentId: string;
+  readonly name: string;
+  readonly responsible: boolean;
+}
+
+export type WorkStateAgentChoices =
+  | { readonly status: "read"; readonly agents: readonly WorkStateAgentChoice[] }
+  | { readonly status: "unavailable" };
