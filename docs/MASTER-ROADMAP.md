@@ -5523,6 +5523,16 @@ is not itself one.
 The blocker APF-0 found (identical ceilings) is measured removed; the **motive** — a real
 same-tenant need for a second agent — is not yet measured. APF stays **RECOMMENDED / DEFERRED (C)**.
 
+> **Superseded in part — reconciled at `f9ae3b4c` (2026-10-17).** The table above is the measurement
+> at `dd20b62d` and is kept as such. Since then: `AGENT_ORIGINABLE_ACTION_KINDS` is `["send",
+> "record-work", "set-work-declared-state"]` (WORK-UPDATE-V1); a second identity per tenant is **no
+> longer refused** — each registration is a Governance decision (AP-1); proposer and authorship
+> selection are **explicit** — more than one in-service agent refuses only when no agent is chosen
+> (AP-1, AP-5A); APF-1, APF-3 and APF-5 were released and WF-1…WF-4 production-accepted; agent work is
+> bounded by work-domain responsibility (AP-4A/B); retirement, suspension and reactivation are
+> Governance decisions (L-1b, L-2b). Delegation and permission/policy authority are still absent. The
+> current program state is §20.5.
+
 #### Capability and domain directions — classified, not declared as agents
 
 | Direction | Classification | Existing home | Shape |
@@ -5597,6 +5607,49 @@ because it exists.
 
 **This section takes no program decision and authorizes no implementation.**
 
+### 20.5 Agent Platform — program state, reconciled at `f9ae3b4c`
+
+Navigation only. Each row points to the record that owns the state; this table grants none. The
+program record is `hebun-agent-platform-phase0-design-gate.md` (AP-0, Director 2026-10-07). States are
+copied from each record's own status line or §16.1 contract; where no record measured production,
+none is claimed. Reconciled by `hebun-ap5-entry-reconciliation-closure.md`.
+
+| Phase | What it established | State (as its record holds it) | Record |
+|---|---|---|---|
+| APF-1 | Agent containment | released (status line: "RELEASE APPROVED … Released") | `hebun-apf1-agent-containment.md` |
+| APF-3 | Narrow agent origination (`record-work` arm) | CLOSED / PRODUCTION-ACCEPTED | `hebun-apf3-narrow-agent-origination.md` |
+| APF-5 | Egress continuity | CLOSED / PRODUCTION-ACCEPTED | `hebun-apf5-egress-continuity.md` |
+| WF-1 … WF-4 | Origination recommendation, capability truth, Knowledge-grounded record-work, continuing authority at spend | CLOSED / PRODUCTION-ACCEPTED (each) | `hebun-wf1-…`, `hebun-wf2-…`, `hebun-wf3-…`, `hebun-wf4-…` |
+| AP-0 | Program design gate; sequence AP-1 … AP-5 | DESIGN GATE RECORDED | `hebun-agent-platform-phase0-design-gate.md` |
+| AP-1 | Multi-identity genesis as a Governance decision; explicit proposer/authorship selection; migration 74 | CLOSED / PRODUCTION-ACCEPTED for Agent #1 compatibility; plurality **not** production-exercised | `hebun-ap1-plurality-foundation.md` |
+| AP-2 | Agent placement (Organization Authority) | CLOSED / PRODUCTION-VERIFIED | `hebun-ap2-agent-placement.md` |
+| AP-3 | Per-tenant × class daily AI dispatch safety cap (model 50, media 5) | DEPLOYED; acceptance OPEN | `hebun-ap3-dispatch-safety-cap-closure.md` |
+| AP-4A | Work domains and mandate responsibility (migration 75) | released and in production by ledger (see its reconciliation note); Release A acceptance not recorded | `hebun-ap4a-work-domain-foundation.md` |
+| AP-4B | Strict agent work eligibility | CLOSED / PRODUCTION-ACCEPTED (scoped) | `hebun-ap4b-strict-work-eligibility.md` |
+| AP-5A | Named-agent selection across preparation, media, `/approvals`, origination | DEPLOYED; acceptance OPEN | `hebun-ap5a-plurality-readiness-closure.md` |
+| L-1a | One in-service rule; approval refuses a proposer out of service | DEPLOYED; acceptance OPEN | `hebun-l1a-agent-in-service-closure.md` |
+| L-1b | Retirement as an `agent-lifecycle` Governance decision (migration 76) | DEPLOYED; acceptance OPEN | `hebun-l1b-agent-lifecycle-governance-closure.md` |
+| L-2a | Service status truth (in-service / suspended / retired / indeterminate) | DEPLOYED; acceptance OPEN | `hebun-l2a-service-status-truth-closure.md` |
+| L-2b | Suspend and reactivate; liveness re-checks at spend, issuance and egress | DEPLOYED; acceptance OPEN | `hebun-l2b-agent-suspension-closure.md` |
+| CONTENT-AGENT-2 | Revise a prepared draft from its review change request | DEPLOYED; acceptance OPEN | `hebun-content-agent-2-closure.md` |
+| **AP-5** | **Same-tenant two-agent production acceptance (distinct mandates)** | **NOT STARTED** — entry contract recorded; criteria A1–A15 PROPOSED, NOT APPROVED | `hebun-ap5-two-agent-acceptance-contract.md` |
+
+**Sequence drift, recorded.** AP-0 planned AP-4 as "Agent #2 action kind design gate"; the delivered
+AP-4A/B is the work-domain responsibility dimension instead. No Agent #2 action kind was designed, so a
+second agent today can hold only existing kinds.
+
+**Remaining production acceptance gaps before AP-5 can close** (owners in §22): no second agent has
+ever been registered in production; no production surface has rendered an agent chooser; the
+work-state affordance has no chooser (`WORK-UPDATE-AGENT-SELECTION-1`); agent out-of-responsibility
+refusal and agent proposal approve → permit → spend are test-only (AP-4B); retirement, suspension and
+reactivation have never run in production; the full suite baseline is red
+(`EHO-1-RED-SUITE-BASELINE-1`).
+
+**First implementation target — DESIGN PROPOSAL, NOT APPROVED:** tenant Hebun AI, Agent #1 the
+existing Heby identity, Agent #2 an Engineering-focused candidate holding `record-work` only. Agent #2
+is not created, no mandate is changed and no ceremony is selected
+(`hebun-ap5-two-agent-acceptance-contract.md` §6).
+
 ---
 
 ## 21. Phase Closure Index — Closure Contract v1
@@ -5627,6 +5680,14 @@ re-graded here.
 | HEBY-PERFORMANCE-COMPARISON-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-performance-comparison-1-closure.md` |
 | EAI-HISTORY-ORIGIN-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` |
 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` |
+| AP-3 | DEPLOYED | `docs/product-vision/runtime/hebun-ap3-dispatch-safety-cap-closure.md` |
+| AP-5A | DEPLOYED | `docs/product-vision/runtime/hebun-ap5a-plurality-readiness-closure.md` |
+| L-1a | DEPLOYED | `docs/product-vision/runtime/hebun-l1a-agent-in-service-closure.md` |
+| L-1b | DEPLOYED | `docs/product-vision/runtime/hebun-l1b-agent-lifecycle-governance-closure.md` |
+| L-2a | DEPLOYED | `docs/product-vision/runtime/hebun-l2a-service-status-truth-closure.md` |
+| L-2b | DEPLOYED | `docs/product-vision/runtime/hebun-l2b-agent-suspension-closure.md` |
+| CONTENT-AGENT-2 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-2-closure.md` |
+| AP-5-ENTRY-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` |
 
 ---
 
@@ -5686,3 +5747,12 @@ before §16.1 are not yet indexed (Phase B).
 | B2-LEGACY-ACCEPTANCE-SCRIPTS-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Operational tooling | DEFERRED | A Director decision to commit, archive or remove the untracked rung1 and k2 scripts |
 | B2-UNTRACKED-ARTIFACTS-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Repository hygiene | DEFERRED | A Director decision on screenshots, exports, benchmark, fixture and 0-byte files |
 | B2-LOCAL-TSC-UNKNOWN-1 | PHASE-B2-PRIMARY-TREE-RECONCILIATION | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Verification reliability | DEFERRED | A primary-tree type-check run, or B2-LEGACY-ACCEPTANCE-SCRIPTS-1 resolved |
+| AP3-PROD-ACCEPTANCE-1 | AP-3 | `docs/product-vision/runtime/hebun-ap3-dispatch-safety-cap-closure.md` | Verification gap | DEFERRED | A Director-approved read-only production measurement of the cap configuration and refusal audit |
+| AP5A-PROD-ACCEPTANCE-1 | AP-5A | `docs/product-vision/runtime/hebun-ap5a-plurality-readiness-closure.md` | Verification gap | DEFERRED | A recorded production read of the single-agent surfaces, or the AP-5 acceptance |
+| L1A-PROD-ACCEPTANCE-1 | L-1a | `docs/product-vision/runtime/hebun-l1a-agent-in-service-closure.md` | Verification gap | DEFERRED | A recorded production read of the in-service rule's effect, or AP-5 criterion A12 |
+| L1B-PROD-ACCEPTANCE-1 | L-1b | `docs/product-vision/runtime/hebun-l1b-agent-lifecycle-governance-closure.md` | Verification gap | DEFERRED | A Director decision to retire a production agent (terminal) |
+| L2A-PROD-ACCEPTANCE-1 | L-2a | `docs/product-vision/runtime/hebun-l2a-service-status-truth-closure.md` | Verification gap | DEFERRED | A recorded production read of a suspended agent's surfaces (AP-5 A12) |
+| L2B-PROD-ACCEPTANCE-1 | L-2b | `docs/product-vision/runtime/hebun-l2b-agent-suspension-closure.md` | Verification gap | DEFERRED | A Director-approved production suspend/reactivate with decision, audit and refusal evidence |
+| CA2-PROD-ACCEPTANCE-1 | CONTENT-AGENT-2 | `docs/product-vision/runtime/hebun-content-agent-2-closure.md` | Verification gap | DEFERRED | A recorded production revision prepared from a change request, with its ids |
+| AP-RECON-POSTGRES-UNMEASURED-1 | AP-5-ENTRY-RECONCILIATION | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` | Verification gap | DEFERRED | A Director-approved disposable PostgreSQL 18 run of the seven phases' suites against a recorded baseline |
+| AP-RECON-DEPLOY-REMEASURE-1 | AP-5-ENTRY-RECONCILIATION | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` | Provider evidence | DEFERRED | A read of the production deployment record by an account that can see the Vercel project |

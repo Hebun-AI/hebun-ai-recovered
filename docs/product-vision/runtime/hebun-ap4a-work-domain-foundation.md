@@ -67,3 +67,27 @@ After the Director's migration ceremony and the deploy, with `default_transactio
 7. `npm run platform:ap4-release-b-preflight` reports NOT CLEAR (expected: no responsibility declared yet) — informational, it writes nothing.
 
 Release A is then PRODUCTION-VERIFIED. The Governance ceremony (domains + responsibility revisions) and Release B are separate gates.
+
+---
+
+## Reconciliation note (2026-10-17, AP-5 entry reconciliation) — appended, original text unchanged
+
+The status line above ("IMPLEMENTED, uncommitted at the time of writing") was true when written and is
+**stale**. Measured at `f9ae3b4c`:
+
+- This record and Release A landed together in `534f57e7` ("work domain foundation and inert mandate
+  responsibility (AP-4A)"), followed by `c68150d5` (Release B preflight lifecycle fix). Both are
+  ancestors of `main`.
+- Released: AP-4B was pushed as the fast-forward `c68150d5..d8ef6e8f`
+  (`hebun-ap4b-strict-work-eligibility.md`), so `c68150d5`, and with it `534f57e7`, was already on
+  `origin/main`.
+- Migration 75 is in production: AP-4B records "No migration; ledger stays 75", and WORK-UPDATE-V1 G5
+  later read ledger 78 (`hebun-work-update-v1-closure.md`).
+- Release B (strict eligibility) is CLOSED / PRODUCTION-ACCEPTED in its scoped form in the AP-4B record.
+  Production now holds work domains and responsibilities (Heby revision 5: organization + Engineering
+  `e48da4bb`, WORK-UPDATE-V1 G4), so the "proven untouched" preconditions of the destructive rollback in
+  *Recovery plan* step 3 no longer hold; only forward-fix applies.
+- **Not recorded:** the Release A read-only production acceptance described in *Production acceptance*
+  above has no recorded result in this file or elsewhere. It is not claimed here.
+
+This note re-grades nothing; it states where the later evidence lives.
