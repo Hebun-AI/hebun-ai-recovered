@@ -5625,6 +5625,7 @@ re-graded here.
 | HEBY-CONVERSATION-CONTINUITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-conversation-continuity-1-closure.md` |
 | HEBY-OBSERVED-PERFORMANCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` |
 | HEBY-PERFORMANCE-COMPARISON-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-performance-comparison-1-closure.md` |
+| EAI-HISTORY-ORIGIN-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` |
 
 ---
 
@@ -5673,3 +5674,9 @@ before §16.1 are not yet indexed (Phase B).
 | HOPR-1-NOT-REPORTED-PATH-1 | HEBY-OBSERVED-PERFORMANCE-READ-1 | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` | Verification gap | DEFERRED | A production publication whose stored observation lacks a count or falls outside the observation window |
 | HOPR-1-REVISION-BOUND-1 | HEBY-OBSERVED-PERFORMANCE-READ-1 | `docs/product-vision/runtime/hebun-heby-observed-performance-read-1-closure.md` | Read completeness | DEFERRED | A Director decision when an organization's content revisions approach 50 |
 | HPC-1-PROD-EDGE-PATHS-1 | HEBY-PERFORMANCE-COMPARISON-1 | `docs/product-vision/runtime/hebun-heby-performance-comparison-1-closure.md` | Verification gap | DEFERRED | A production read in which an unreadable organization name, a suppressed elapsed time, mixed observation instants, an IG-AN3 gap note or a missing evolution occurs |
+| EHO-1-HISTORICAL-MODEL-ORIGIN-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | External AI disclosure | DEFERRED | A Director-authorized read-only production count of model-origin rows by creation time, and a decision on them |
+| EHO-1-PROD-PAYLOAD-UNOBSERVED-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification gap | DEFERRED | A Director decision on a bounded production observation or a design decision on an observation seam |
+| EHO-1-REAL-PROVIDER-ACCEPTANCE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | A separately authorized, bounded real-provider test |
+| EHO-1-CLAUDE-SWITCH-STATE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | The Director's signed-in read of `/director/provider-matrix` |
+| EHO-1-ROLLBACK-RESTORES-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Release safety | DEFERRED | Any rollback below 1f8f9a47 is a Director decision, preceded by disabling Claude connectivity under production possession |
+| EHO-1-RED-SUITE-BASELINE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification reliability | DEFERRED | A Director-selected suite-recovery phase |
