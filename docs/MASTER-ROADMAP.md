@@ -5690,6 +5690,7 @@ re-graded here.
 | CONTENT-AGENT-2 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-2-closure.md` |
 | AP-5-ENTRY-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` |
 | WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
+| AP-5 | DEPLOYED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
 
 ---
 
@@ -5760,3 +5761,6 @@ before §16.1 are not yet indexed (Phase B).
 | AP-RECON-DEPLOY-REMEASURE-1 | AP-5-ENTRY-RECONCILIATION | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` | Provider evidence | DEFERRED | A read of the production deployment record by an account that can see the Vercel project |
 | WUAS-1-BROWSER-UNVERIFIED-1 | WORK-UPDATE-AGENT-SELECTION-1 | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` | Verification gap | CLOSED | — |
 | WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 | WORK-UPDATE-AGENT-SELECTION-1 | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` | Verification gap | DEFERRED | The first live origination per agent in AP-5 acceptance (A5), or a Director-approved local run with a model |
+| AP5-HEBY-DIRECT-LINEAGE-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Verification gap | DEFERRED | The first Director-authorized Heby execution in a two-agent tenant, read back with its handoff (non-blocking under AP-5 Director Decision 1) |
+| AP5-WORKSTATE-REASON-COPY-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | A copy change naming the actual ceiling for a non-eligible agent in the work-state chooser |
+| AP5-APPROVALS-RATIONALE-LABEL-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | An `/approvals` rationale label that names the proposing agent |
