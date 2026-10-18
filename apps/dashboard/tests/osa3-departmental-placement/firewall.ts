@@ -159,15 +159,16 @@ async function main(): Promise<void> {
 
   assert.ok(captured, "the answer flow must have composed a model request");
   const grounding = captured!.evidence.join("\n");
-  assert.match(grounding, /\[placement\/placement\/p-1\]/, "the placement citation reaches the model");
-  assert.match(grounding, /Pat Preferred/, "the human's PROVIDER-SAFE name reaches the model");
-  assert.match(grounding, /\(u-1\)/, "and the identifier travels beside it");
-  assert.match(grounding, /Engineering/, "the department reaches the model");
-  assert.match(grounding, /RECORDED BY AN AUTHORIZED HUMAN/, "the provenance reaches the model");
-  assert.match(
-    grounding,
-    /NOT A ROLE, NOT A JOB TITLE, NOT A REPORTING LINE/,
-    "the truth semantics reach the model as data, not as prompt prose",
+  /*
+   * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The placement class is not a class the
+   * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+   * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+   * because the class was resolved — and the human-facing answer and evidence are unchanged.
+   */
+  assert.match(grounding, /^\[placement\] withheld — not disclosed to the external model$/m, "the placement class is wired, and withheld");
+  assert.ok(
+    !/placement\/placement\/p-1|Pat Preferred|\(u-1\)|Engineering|RECORDED BY AN AUTHORIZED HUMAN|NOT A ROLE, NOT A JOB TITLE, NOT A REPORTING LINE/.test(grounding),
+    "nothing the placement says reaches the model",
   );
 
   /* NO ADDRESS, ANYWHERE IN THE WHOLE REQUEST. The disclosure boundary, applied at design time. */
@@ -208,8 +209,8 @@ async function main(): Promise<void> {
     },
   );
   const degradedGrounding = degraded!.evidence.join("\n");
-  assert.match(degradedGrounding, /\[placement\] unavailable/, "the class degrades to the pure resolution");
-  assert.match(degradedGrounding, /tenant-scoped on the server/);
+  /* B2 — a degraded read is withheld exactly like a resolved one: the model never learns which. */
+  assert.match(degradedGrounding, /^\[placement\] withheld — not disclosed to the external model$/m, "the degraded class is withheld too");
   assert.ok(
     !/nobody is placed|no placements|nobody works/i.test(degradedGrounding),
     "A THROWN READ MUST NEVER READ AS 'NOBODY WORKS ANYWHERE'",

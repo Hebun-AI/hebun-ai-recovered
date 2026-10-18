@@ -138,12 +138,17 @@ async function main(): Promise<void> {
 
   assert.ok(captured, "the answer flow must have composed a model request");
   const grounding = captured!.evidence.join("\n");
-  assert.match(grounding, /heby-action-request\/r-1/, "the action half reaches the model");
-  assert.match(grounding, /improvement-hypotheses\/h-1/, "and the hypothesis half");
-  assert.match(grounding, /knowledge-review\/n-1/, "and the Knowledge half");
-  assert.match(grounding, /COMPOSED, NOT OWNED/, "the provenance reaches the model");
-  assert.match(grounding, /DIFFERENT KINDS OF DECISION/, "and refuses the false equivalence");
-  assert.match(grounding, /decision-horizon:complete/, "the completeness verdict reaches the model");
+  /*
+   * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The decision-records class is not a
+   * class the platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model
+   * sees one fixed line naming the class and nothing it says. Wiring is still proven — the line is there
+   * only because the class was resolved — and the human-facing answer and evidence are unchanged.
+   */
+  assert.match(grounding, /^\[decision-records\] withheld — not disclosed to the external model$/m, "the decision-records class is wired, and withheld");
+  assert.ok(
+    !/heby-action-request\/r-1|improvement-hypotheses\/h-1|knowledge-review\/n-1|COMPOSED, NOT OWNED|DIFFERENT KINDS OF DECISION|decision-horizon:complete/.test(grounding),
+    "nothing the horizon says reaches the model",
+  );
 
   /* ═════════════════════════════════════════════════════════════════════════
    * 2. NO WRITER, NO DECISION AUTHORITY, NO TABLE, ANYWHERE IN THE GRAPH.
