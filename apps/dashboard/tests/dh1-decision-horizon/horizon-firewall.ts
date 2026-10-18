@@ -206,7 +206,11 @@ async function main(): Promise<void> {
    * 4. NO NEW SOURCE CLASS. THE CLASS WAS ALWAYS THIS QUESTION.
    * ═══════════════════════════════════════════════════════════════════════ */
   {
-    assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the census is unchanged by DH-1; SOC-ACT1 later added the 21st");
+    /* SUITE-RECOVERY-1 B4a: the twenty-one classes in their historical order, then exactly HEBY-MEDIA-1's `content-media` (3328a7f0) as the 22nd. None is this phase's; any other addition, removal or reordering fails. */
+    assert.deepEqual([...HEBY_SOURCE_CLASSES], [
+        "knowledge", "memory", "intelligence", "operations", "workforce", "governance", "platform", "decision-records", "work-artifacts", "external-recipients", "integrations", "organization", "work", "placement", "people", "agents", "agent-mandate", "recorded-acts", "recorded-act-windows", "knowledge-coverage", "provider-observations",
+        "content-media",
+      ], "the census is unchanged by DH-1; SOC-ACT1 later added the 21st");
     for (const forbidden of ["decision-horizon", "horizon", "decisions"]) {
       assert.ok(!(HEBY_SOURCE_CLASSES as readonly string[]).includes(forbidden), `no ${forbidden} class was added`);
     }

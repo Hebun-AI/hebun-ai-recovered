@@ -548,7 +548,11 @@ async function main(): Promise<void> {
   );
 
   assert.ok(HEBY_SOURCE_CLASSES.includes("placement"));
-  assert.equal(HEBY_SOURCE_CLASSES.length, 21); /* OSA-4 added `people` as the 20th; SOC-ACT1 `provider-observations` as the 21st. */
+  /* SUITE-RECOVERY-1 B4a: the twenty-one classes in their historical order, then exactly HEBY-MEDIA-1's `content-media` (3328a7f0) as the 22nd. None is this phase's; any other addition, removal or reordering fails. */
+  assert.deepEqual([...HEBY_SOURCE_CLASSES], [
+      "knowledge", "memory", "intelligence", "operations", "workforce", "governance", "platform", "decision-records", "work-artifacts", "external-recipients", "integrations", "organization", "work", "placement", "people", "agents", "agent-mandate", "recorded-acts", "recorded-act-windows", "knowledge-coverage", "provider-observations",
+      "content-media",
+    ]); /* OSA-4 added `people` as the 20th; SOC-ACT1 `provider-observations` as the 21st. */
 
   console.log("PASS osa3-departmental-placement/firewall");
 }

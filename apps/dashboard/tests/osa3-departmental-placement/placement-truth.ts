@@ -75,7 +75,11 @@ async function main(): Promise<void> {
    * 1. `placement` IS A DECLARED SOURCE CLASS, AND THE PURE RESOLVER KNOWS IT.
    * ═══════════════════════════════════════════════════════════════════════ */
   assert.ok(HEBY_SOURCE_CLASSES.includes("placement"), "`placement` is a declared source class");
-  assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the census is twenty-one — placement was the 19th, OSA-4's `people` the 20th, SOC-ACT1's `provider-observations` the 21st");
+  /* SUITE-RECOVERY-1 B4a: the twenty-one classes in their historical order, then exactly HEBY-MEDIA-1's `content-media` (3328a7f0) as the 22nd. None is this phase's; any other addition, removal or reordering fails. */
+  assert.deepEqual([...HEBY_SOURCE_CLASSES], [
+      "knowledge", "memory", "intelligence", "operations", "workforce", "governance", "platform", "decision-records", "work-artifacts", "external-recipients", "integrations", "organization", "work", "placement", "people", "agents", "agent-mandate", "recorded-acts", "recorded-act-windows", "knowledge-coverage", "provider-observations",
+      "content-media",
+    ], "the census is twenty-one — placement was the 19th, OSA-4's `people` the 20th, SOC-ACT1's `provider-observations` the 21st");
 
   const pure = resolveSource("placement");
   assert.equal(pure.sourceClass, "placement");

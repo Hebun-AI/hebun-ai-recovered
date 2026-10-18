@@ -399,7 +399,11 @@ function walk(dir: string): string[] {
    * its own Governance gate, and this module's own header sentence ("Not a roster authority. Not a
    * people directory.") is asserted below and remains true of THIS module.
    */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the source class census is unchanged by HLR; SOC-ACT1 later added the 21st");
+  /* SUITE-RECOVERY-1 B4a: the twenty-one classes in their historical order, then exactly HEBY-MEDIA-1's `content-media` (3328a7f0) as the 22nd. None is this phase's; any other addition, removal or reordering fails. */
+  assert.deepEqual([...HEBY_SOURCE_CLASSES], [
+      "knowledge", "memory", "intelligence", "operations", "workforce", "governance", "platform", "decision-records", "work-artifacts", "external-recipients", "integrations", "organization", "work", "placement", "people", "agents", "agent-mandate", "recorded-acts", "recorded-act-windows", "knowledge-coverage", "provider-observations",
+      "content-media",
+    ], "the source class census is unchanged by HLR; SOC-ACT1 later added the 21st");
   for (const forbidden of ["human-labels", "roster", "members"]) {
     assert.ok(
       !HEBY_SOURCE_CLASSES.includes(forbidden as never),
