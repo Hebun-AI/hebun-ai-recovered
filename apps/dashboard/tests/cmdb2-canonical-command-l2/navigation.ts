@@ -141,6 +141,12 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",
   "src/app/(dashboard)/heby/actions.ts",
+  /* SUITE-RECOVERY-1: server actions added since this pin by WF-1, WF-3C, AI planning, HEBY-REQUEST-LIFECYCLE and WORK-UPDATE V1 — the same set heby-nav-0 and agent-id-0-1-acceptance pin. */
+  "src/app/(dashboard)/heby/ai-plan-actions.ts",
+  "src/app/(dashboard)/heby/knowledge-origination-actions.ts",
+  "src/app/(dashboard)/heby/origination-availability-actions.ts",
+  "src/app/(dashboard)/heby/request-lifecycle-actions.ts",
+  "src/app/(dashboard)/heby/work-state-origination-actions.ts",
   /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
   /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
    * disconnect. It is a THIN caller — the credential/connection composition lives in
@@ -515,7 +521,8 @@ function cmdb1AndHebyUntouched(): void {
     assert.ok(sectionIds.includes(id), `CMD-B1 section "${id}" still renders`);
   }
   const shown = visible(overview);
-  for (const title of ["Needs your decision", "Ask Hebun", "More intelligence"]) {
+  /* SUITE-RECOVERY-1: "More intelligence" was retired by CMD-FINAL (dd20b62d); the two sections it still renders stay pinned. */
+  for (const title of ["Needs your decision", "Ask Hebun"]) {
     assert.ok(shown.includes(title), `CMD-B1 section "${title}" is unchanged`);
   }
   assert.ok(

@@ -20,6 +20,7 @@ import {
   INSTAGRAM_PROVIDER_KEY,
   INSTAGRAM_REQUESTED_SCOPES,
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
+  INSTAGRAM_CONTENT_PUBLISH_SCOPE,
 } from "../../src/features/provider-instagram/contracts";
 import { INSTAGRAM_OAUTH_ENV_KEYS } from "../../src/features/provider-instagram/instagram-environment.server";
 
@@ -399,8 +400,12 @@ function main(): void {
   /* ═══ 7. LEAST PRIVILEGE, END TO END ═══════════════════════════════════════ */
   assert.deepEqual(
     [...INSTAGRAM_REQUESTED_SCOPES],
-    [INSTAGRAM_BUSINESS_BASIC_SCOPE],
-    "the ceremony requests exactly one scope",
+    /*
+     * SUITE-RECOVERY-1: PUBLISH-0 (f2005e84, PRODUCTION ACCEPTED in hebun-publish-0-closure.md) is the
+     * one decision that widened this, to the publish scope its governed act needs. Still an exact set.
+     */
+    [INSTAGRAM_BUSINESS_BASIC_SCOPE, INSTAGRAM_CONTENT_PUBLISH_SCOPE],
+    "the ceremony requests exactly the basic scope and PUBLISH-0's publish scope",
   );
   for (const f of CEREMONY) {
     const code = codeOf(read(f));
@@ -437,11 +442,17 @@ function main(): void {
 
   /* ═══ 9. NO MIGRATION ══════════════════════════════════════════════════════ */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
-    entries: readonly unknown[];
+    entries: readonly { readonly tag: string }[];
   };
-  assert.equal(
-    journal.entries.length,
-    57,
+  /*
+   * SUITE-RECOVERY-1: the ledger kept growing for other phases, so a total count stopped meaning
+   * "this ceremony added none". The ceremony's ledger ended at entry 57; it is pinned by tag, and no
+   * later migration may be named for Instagram.
+   */
+  assert.equal(journal.entries[56]?.tag, "20260917135027_media2a_live_image_transport", "the ceremony's ledger still ends where it did");
+  assert.deepEqual(
+    journal.entries.slice(57).filter((e) => e.tag.toLowerCase().includes("instagram")).map((e) => e.tag),
+    [],
     "the ceremony added no migration — the released schema already expresses everything it stores",
   );
   /*
@@ -463,7 +474,16 @@ function main(): void {
     .sort();
   assert.deepEqual(
     mentioning,
-    ["20260903093716_cgo1_content_draft_destination.sql"],
+    /*
+     * SUITE-RECOVERY-1: PUBLISH-0 and YOUTUBE-WRITE-2 name the governed act kind
+     * `publish-instagram-media` in `action_execution_attempts`' recipient CHECK — an act, not a
+     * provider table.
+     */
+    [
+      "20260903093716_cgo1_content_draft_destination.sql",
+      "20260924133417_publish0_recipientless_attempts.sql",
+      "20260928084834_youtube_write2_recipientless_kind.sql",
+    ],
     "only CGO-1's content-destination enum names Instagram — this provider owns no table",
   );
   assert.ok(

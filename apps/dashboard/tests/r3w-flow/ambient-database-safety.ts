@@ -117,6 +117,30 @@ async function captureCanonicalState(client: Client): Promise<CanonicalState> {
 
 async function main(): Promise<void> {
   /*
+   * SUITE-RECOVERY-1 — CANONICAL MUST BE REACHABLE, OR THIS PROOF DID NOT RUN.
+   *
+   * The comparison below needs canonical's real state. When the local canonical instance was down,
+   * the connect failed, teardown dropped the disposable database under a still-open client, and the
+   * process died on that client's `57P01` — hiding the refusal. It now fails first, by name. It is
+   * never skipped and never reported as a pass.
+   */
+  {
+    const probe = new Client({ connectionString: CANONICAL_URL });
+    (probe as unknown as { on: (e: string, h: () => void) => void }).on("error", () => undefined);
+    try {
+      await probe.connect();
+    } catch (error) {
+      const code = (error as { code?: string }).code ?? "unknown";
+      throw new Error(
+        `R3W BLOCKED — canonical hebun_r1 at 127.0.0.1:55432 is unreachable (${code}). ` +
+          "The ambient-database safety proof did not run; this is NOT a pass.",
+      );
+    } finally {
+      await probe.end().catch(() => {});
+    }
+  }
+
+  /*
    * THE HOSTILE PRECONDITION. This is what a developer's shell looks like after sourcing
    * `.env.local`, and it is the exact condition under which the incident would have destroyed
    * something. Restored in `finally` so this file cannot affect any other test.
@@ -137,6 +161,17 @@ async function main(): Promise<void> {
 
   const harness = createDisposablePostgresHarness("hebun_r3w_ambient_safety");
   let dropped = false;
+  /*
+   * SUITE-RECOVERY-1: every connection this file opens is closed BEFORE the drop on every path, once.
+   * `dropDatabase` terminates backends; an idle client still open would otherwise crash the process.
+   */
+  const closers: (() => Promise<unknown>)[] = [];
+  const once = (close: () => Promise<unknown>): (() => Promise<unknown>) => {
+    let closing: Promise<unknown> | undefined;
+    const run = () => (closing ??= close().catch(() => {}));
+    closers.push(run);
+    return run;
+  };
 
   try {
     await harness.createDatabase();
@@ -164,11 +199,16 @@ async function main(): Promise<void> {
     assert.ok(fallback, "the ambient fallback still resolves — this is not a disablement");
 
     const setup = new Client({ connectionString: harness.dbUrl });
+    (setup as unknown as { on: (e: string, h: () => void) => void }).on("error", () => undefined);
+    const closeSetup = once(() => setup.end());
     await setup.connect();
     const handle = createControlPlaneDb(harness.dbUrl);
+    const closeHandle = once(() => handle.dispose());
 
     /* Canonical state BEFORE the deliberately un-injected write. */
     const canonical = new Client({ connectionString: CANONICAL_URL });
+    (canonical as unknown as { on: (e: string, h: () => void) => void }).on("error", () => undefined);
+    const closeCanonical = once(() => canonical.end());
     await canonical.connect();
     const canonicalBefore = await captureCanonicalState(canonical);
 
@@ -249,9 +289,9 @@ async function main(): Promise<void> {
         "canonical is exactly as this test found it — no row, no table, no migration moved",
       );
     } finally {
-      await canonical.end().catch(() => {});
-      await setup.end().catch(() => {});
-      await handle.dispose().catch(() => {});
+      await closeCanonical();
+      await closeSetup();
+      await closeHandle();
     }
 
     /*
@@ -272,6 +312,7 @@ async function main(): Promise<void> {
       "the harness put the prior ambient value back exactly — it does not leak its own",
     );
   } finally {
+    for (const close of closers) await close();
     await disposeControlPlaneDb().catch(() => {});
     if (!dropped) await harness.dropDatabase().catch(() => {});
     if (originalAmbient === undefined) delete process.env.DATABASE_URL;
@@ -288,4 +329,7 @@ async function main(): Promise<void> {
   console.log("PASS r3w ambient database safety");
 }
 
-void main();
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});

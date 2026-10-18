@@ -703,6 +703,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/app/(dashboard)/intelligence/social/page.tsx",
       "src/app/(dashboard)/knowledge/page.tsx",
+      /* SUITE-RECOVERY-1: WF-2 (8af0e7d9) — what the agent can propose now, apart from what its mandate permits. Same StateBlock fact, no density override. */
+      "src/components/agents/agent-capability-truth.tsx",
       "src/components/agents/agent-improvement-hypothesis-filing.tsx",
       /*
        * ELEVEN NOW. AMA-3 adds the mandate surface, for exactly the reason the four before it were
@@ -722,6 +724,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        * six Knowledge surfaces this axis was built to leave alone are still untouched.
        */
       "src/components/agents/agent-mandate-card.tsx",
+      /* SUITE-RECOVERY-1: AP-2 (db970ef8) — the agent placement card. Same StateBlock fact, no density override. */
+      "src/components/agents/agent-placement-card.tsx",
       "src/components/agents/durable-agent-identity-card.tsx",
       /*
        * DH-1 — the decision horizon. The TENTH addition, and it uses `StateBlock` for the one fact
@@ -805,9 +809,17 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",
   "src/app/(dashboard)/heby/actions.ts",
+  /* SUITE-RECOVERY-1: server actions added since this pin by WF-1, WF-3C, AI planning, HEBY-REQUEST-LIFECYCLE and WORK-UPDATE V1 — the same set heby-nav-0 and agent-id-0-1-acceptance pin. */
+  "src/app/(dashboard)/heby/ai-plan-actions.ts",
+  "src/app/(dashboard)/heby/knowledge-origination-actions.ts",
+  "src/app/(dashboard)/heby/origination-availability-actions.ts",
+  "src/app/(dashboard)/heby/request-lifecycle-actions.ts",
+  "src/app/(dashboard)/heby/work-state-origination-actions.ts",
   /* PROVIDER ACCOUNT LIFECYCLE added one server-action boundary: the Instagram disconnect. It is a
    * THIN caller of `provider-connection-lifecycle` — a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`, so the composition lives in the feature module. */
+  /* SUITE-RECOVERY-1: YOUTUBE-WRITE-1's channel-identity action. */
+  "src/app/(dashboard)/integrations/google/actions.ts",
   "src/app/(dashboard)/integrations/instagram/actions.ts",
   /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
   "src/app/(dashboard)/intelligence/social/actions.ts",

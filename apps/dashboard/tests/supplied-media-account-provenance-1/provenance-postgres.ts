@@ -295,7 +295,27 @@ async function main(): Promise<void> {
         { status: "recorded", integrationId: A.id, providerKey: GOOGLE_PROVIDER_KEY, externalAccountId: ACCOUNT_1.sub, currentConnectionState: "revoked" },
         "a revoked connection still answers which account supplied the asset",
       );
-      await assert.rejects(client.query(`delete from integrations where id=$1`, [A.id]), /media_assets_supplied_source_integration_fk|violates foreign key/, "the connection row cannot be deleted while an asset names it");
+      /*
+       * SUITE-RECOVERY-1: the delete was refused, but by INT-2's credential FK first (23001,
+       * PostgreSQL 18 words a RESTRICT violation "violates RESTRICT setting of foreign key"), so the
+       * media FK this claim is about was never reached. Inside a rolled-back transaction the
+       * connection's credentials are removed first, and the asset's own FK must then refuse.
+       */
+      const isRestrictOrForeignKey = (error: unknown): boolean =>
+        ["23001", "23503"].includes(String((error as { code?: string }).code));
+      await assert.rejects(client.query(`delete from integrations where id=$1`, [A.id]), isRestrictOrForeignKey, "the connection row cannot be deleted while anything names it");
+      await client.query("begin");
+      try {
+        await client.query(`delete from integration_credentials where integration_id=$1`, [A.id]);
+        await assert.rejects(
+          client.query(`delete from integrations where id=$1`, [A.id]),
+          (error: unknown) =>
+            isRestrictOrForeignKey(error) && (error as { constraint?: string }).constraint === "media_assets_supplied_source_integration_fk",
+          "the connection row cannot be deleted while an asset names it",
+        );
+      } finally {
+        await client.query("rollback");
+      }
     }
 
     /* ══ 8b. TENANT ISOLATION ON THE READ ══ */

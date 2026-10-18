@@ -124,6 +124,14 @@ function migrationProof(): void {
   assert.deepEqual([...MEDIA_PROVIDER_FAILURES].sort(), after, "the closed vocabulary in code equals the CHECK");
 }
 
+/*
+ * SUITE-RECOVERY-1: this file predates AP-3's per-tenant daily media dispatch cap (default 5) and
+ * registers more live generations than that for one tenant on one fixed day, so the cap — correctly —
+ * refused them. It raises the cap to the class maximum, exactly as `generation-acceptance.ts` does;
+ * the cap itself is proved by `ap3-dispatch-safety-cap/*`.
+ */
+process.env.HEBUN_AI_DISPATCH_CAP_MEDIA_PER_TENANT_DAY = "100";
+
 async function main(): Promise<void> {
   migrationProof();
   const harness = createDisposablePostgresHarness("hebun_mv6_higgsfield");

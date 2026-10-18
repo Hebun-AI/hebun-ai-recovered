@@ -167,8 +167,9 @@ function nothingElseBecamePossible(): void {
   /* THE EXECUTABLE SET IS EXACTLY UNCHANGED. Declaring a reference is not an executable act. */
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
-    ["send-external-communication", "record-work", "place-human-in-department"],
-    "the closed executable set is exactly what GIA-2 left — WEV-1 added no executable action",
+    /* SUITE-RECOVERY-1: later governed acts, each its own phase — PUBLISH-0 (f2005e84), YOUTUBE-WRITE-2 (e9a715cd), WORK-UPDATE V1 (3ec2fb38). WEV-1 still adds none. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video", "set-work-declared-state"],
+    "the closed executable set is exactly what GIA-2 left plus the later governed acts — WEV-1 added no executable action",
   );
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
@@ -188,7 +189,8 @@ function nothingElseBecamePossible(): void {
   }
   assert.equal(
     HEBY_SOURCE_CLASSES.length,
-    21,
+    /* SUITE-RECOVERY-1: HEBY-MEDIA-1's `content-media` (3328a7f0) is the 22nd; pinned by name in osa4-people-register. */
+    22,
     "no Heby source class was added — the released `work` source carries this",
   );
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"));

@@ -199,9 +199,19 @@ function theSwitchIntentTravelsOnlyInsideTheSignature(): void {
     !/allowAccountChange/.test(AUTHORITY_CODE),
     "the integration authority has NO account-change permission parameter",
   );
+  /*
+   * SUITE-RECOVERY-1: 20811052 extracted the comparison into `isAccountChange` (the same predicate,
+   * now shared with the Google and Instagram grant binders). Both halves are pinned: the helper's
+   * body, and its unconditional use in the authority.
+   */
   assert.match(
     AUTHORITY_CODE,
-    /if \(\s*current\.externalAccountId !== null &&\s*current\.externalAccountId !== facts\.externalAccountId\s*\) \{\s*return \{ status: "refused", reason: "account-changed" \} as const;/,
+    /export function isAccountChange\(boundAccountId: string \| null, observedAccountId: string \| null\): boolean \{\s*return boundAccountId !== null && boundAccountId !== observedAccountId;\s*\}/,
+    "the account-change rule is exactly: a bound account that differs from the observed one",
+  );
+  assert.match(
+    AUTHORITY_CODE,
+    /if \(isAccountChange\(current\.externalAccountId, facts\.externalAccountId\)\) \{\s*return \{ status: "refused", reason: "account-changed" \} as const;/,
     "…and the refusal is unconditional on any caller-supplied permission",
   );
 }

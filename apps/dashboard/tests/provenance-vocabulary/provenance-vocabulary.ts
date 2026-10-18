@@ -32,6 +32,8 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { EXTERNAL_AI_CONTROL_SOURCES_SQL } from "../../src/db/schema/external-ai-data-use";
+import { ATTESTATION_CONTROL_SOURCES } from "../../src/features/external-ai-data-use/contracts";
 import {
   COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR,
   COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR,
@@ -257,8 +259,23 @@ async function main(): Promise<void> {
       );
     };
 
+    /*
+     * SUITE-RECOVERY-1 — EXTERNAL-AI-DATA-USE (601db194) declares the root as one member of a CLOSED
+     * LIST, the attestation control sources: the schema module owns the CHECK
+     * (`EXTERNAL_AI_CONTROL_SOURCES_SQL`), and the contracts module mirrors it
+     * (`ATTESTATION_CONTROL_SOURCES`) under the equality invariant `external-ai-data-use-1a` already
+     * enforces (Director decision, 2026-10-18: preserve that invariant). Both are recognized here by
+     * NAME, only while they spell the same two roots in the same order; any other file still fails.
+     */
+    const EAI_CLOSED_LIST = ["local-operator-ceremony", "production-operator-ceremony"];
+    assert.deepEqual([...EXTERNAL_AI_CONTROL_SOURCES_SQL], EAI_CLOSED_LIST, "the EAI CHECK lists exactly the two operator roots");
+    assert.deepEqual([...ATTESTATION_CONTROL_SOURCES], [...EXTERNAL_AI_CONTROL_SOURCES_SQL], "and its contract mirror spells them identically");
+    const EAI_DECLARERS: ReadonlySet<string> = new Set([
+      "src/db/schema/external-ai-data-use.ts",
+      "src/features/external-ai-data-use/contracts.ts",
+    ]);
     const namers = srcFiles.filter(
-      (f) => !declaresVocabulary(f) && codeOf(read(f)).includes("production-operator-ceremony"),
+      (f) => !declaresVocabulary(f) && !EAI_DECLARERS.has(f) && codeOf(read(f)).includes("production-operator-ceremony"),
     );
     assert.deepEqual(namers, [], "only a declaring schema module may name the production root");
 

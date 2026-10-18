@@ -56,6 +56,8 @@ function walk(dir: string): string[] {
 
 function main(): void {
   const providerFiles = walk(PROVIDER);
+  /* SUITE-RECOVERY-1: the one provider file that coordinates a commit (see the exception below). */
+  const GRANT_BINDER = "src/features/provider-instagram/bind-instagram-grant.server.ts";
 
   /* ═══ 1. IT IS A READ, AND CANNOT BECOME A WRITE ═══════════════════════════ */
   for (const f of providerFiles) {
@@ -290,8 +292,35 @@ function main(): void {
       "drizzle-orm", "@/db/schema",
     ];
     for (const b of banned) {
+      /*
+       * SUITE-RECOVERY-1 — ONE NAMED EXCEPTION, for `db.transaction(` ONLY (Director decision,
+       * 2026-10-18). INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1 (ef83522f) binds the grant in one commit; the
+       * transaction holds only authority-owned operations, pinned below. Every other ban — the ORM,
+       * the schema, every insert/update/delete — still applies to this file.
+       */
+      if (f === GRANT_BINDER && b === "db.transaction(") continue;
       assert.ok(!code.includes(b), `${f} contains no \`${b}\` — it owns no table and no clock`);
     }
+  }
+  {
+    const binder = codeOf(read(GRANT_BINDER));
+    assert.equal(binder.split("db.transaction(").length - 1, 1, "the grant binder opens exactly one transaction");
+    const imported = [...binder.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]).sort();
+    assert.deepEqual(
+      imported,
+      [
+        "@/db/client.server",
+        "@/features/auth/tenant/tenant-context",
+        "@/features/integration-authority/integration-repository.server",
+        "@/features/integration-credentials/credential-repository.server",
+      ],
+      "the grant binder reaches only the integration and credential authorities",
+    );
+    assert.match(binder, /import type \{ ControlPlaneDatabase \} from "@\/db\/client\.server"/, "…and the database client only as a type");
+    for (const op of ["lockConnectionWithin(", "isAccountChange(", "listCredentialMetadata(", "recordVerifiedConnectionWithin("]) {
+      assert.ok(binder.includes(op), `the grant binder's transaction uses the authority's ${op}`);
+    }
+    assert.match(binder, /replaceCredential\(|storeCredential\(/, "…and stores the credential through INT-2");
   }
   assert.ok(
     !codeOf(read(TOKEN_CALL)).includes("withDecryptedSecret"),

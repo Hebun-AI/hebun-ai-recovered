@@ -290,7 +290,8 @@ async function main(): Promise<void> {
     for (const source of DECISION_SOURCE_KEYS) {
       assert.ok(model.includes(`"${source}"`), `${source} is actually read, not merely declared`);
     }
-    assert.equal(DECISION_SOURCE_KEYS.length, 3);
+    /* SUITE-RECOVERY-1: KT-3/4/5 (c95a7e22) added `knowledge-public-use`; the set is pinned, not counted. */
+    assert.deepEqual([...DECISION_SOURCE_KEYS], ["action-requests", "improvement-hypotheses", "knowledge-review", "knowledge-public-use"]);
   }
 
   console.log("PASS dh1-decision-horizon/horizon-firewall");

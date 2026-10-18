@@ -174,7 +174,18 @@ function main(): void {
     "M13 — the CMD-B1 Overview presentation is changed",
     OVERVIEW,
     'CMD-B1 section "Needs your decision" is unchanged',
-    (s) => replaceOnce(s, 'title="Needs your decision"', 'title="Your queue"', "M13"),
+    /*
+     * SUITE-RECOVERY-1: CMD-FINAL (dd20b62d) renders this title twice — the region's (hidden) title
+     * and the visible CardHeading — and the contract reads both, so renaming one copy proved nothing.
+     * The mutation renames the section, i.e. both copies.
+     */
+    (s) =>
+      replaceOnce(
+        replaceOnce(s, 'title="Needs your decision"', 'title="Your queue"', "M13"),
+        'title={"Needs your decision"}',
+        'title={"Your queue"}',
+        "M13",
+      ),
   );
   /*
    * The expected message follows the assertion AGENT-ID-0.1 repaired: the pin stopped being a COUNT

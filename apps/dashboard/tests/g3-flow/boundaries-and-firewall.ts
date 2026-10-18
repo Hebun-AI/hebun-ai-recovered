@@ -337,8 +337,18 @@ function main(): void {
      * grant itself authority", which is the invariant, not a violation of it.
      */
     const commandFiles = srcFiles.filter((file) => file.includes("heby-commands"));
+    /*
+     * SUITE-RECOVERY-1: prose inside a string literal is not a name. `/plan` (877514de) renders the
+     * sentence "it grants no authority", which tripped this as an authority mutation. String
+     * literals are blanked before matching — EXCEPT module specifiers, so importing a delegation or
+     * revocation module still fails here.
+     */
+    const withoutProse = (code: string): string =>
+      code.replace(/(\bfrom\s*|\bimport\s*\(?\s*)?("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, (m, specifier: string | undefined) =>
+        specifier ? m : '""',
+      );
     const naming = commandFiles.filter((file) =>
-      /deleg|revoke.*author|grant.*author/i.test(codeOf(read(file))),
+      /deleg|revoke.*author|grant.*author/i.test(withoutProse(codeOf(read(file)))),
     );
     assert.deepEqual(naming, [], "no Heby command may name an authority mutation");
 

@@ -138,9 +138,15 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B12 paid image generation silently loses its enumerated production decision",
     file: CEREMONY,
     suite: ARMING,
-    find: "  OPENAI_IMAGE_GENERATION_CONTROL_KEY,\n]);\n\n/**\n * The dedicated production ceremony",
-    replace: "]);\n\n/**\n * The dedicated production ceremony",
-    because: "MEDIA-2B's generation decision, enumerated",
+    /*
+     * SUITE-RECOVERY-1: MV-7 (c2905715) appended its own decision after this key, so the old anchor
+     * (the key as the list's last member) matched nothing. The mutation still removes the image key
+     * from GENERIC_PRODUCTION_REACHABLE_KEYS, and the arming suite now names the decision as
+     * "MEDIA-2B's image".
+     */
+    find: "  OPENAI_IMAGE_GENERATION_CONTROL_KEY,\n  /*\n   * MV-7 (Director decision A",
+    replace: "  /*\n   * MV-7 (Director decision A",
+    because: "MEDIA-2B's image",
   },
   {
     label: "B13 the migration admits a third transport kind",

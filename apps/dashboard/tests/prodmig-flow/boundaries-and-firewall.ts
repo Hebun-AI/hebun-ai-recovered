@@ -161,11 +161,50 @@ function itIsNotAGenericSqlExecutor(): void {
   const importers = collect("scripts")
     .filter((f) => f !== MIGRATE_LIB)
     .filter((f) => withoutComments(read(f)).includes("production-migration"));
+  /*
+   * SUITE-RECOVERY-1 — A NAMED-IMPORT ALLOWLIST (Director decision, 2026-10-18). Three later
+   * ceremonies take a validated backup, read the server version, or fingerprint the organization
+   * before they act: IMAGE → VIDEO and MV-7 acceptance (5a130086, c2905715) and processor
+   * attestation (33733cdd). They may import EXACTLY those read/backup helpers, by name. Migration
+   * EXECUTION — `applyPendingMigrations`, the migration lock, the migrator — stays the migration
+   * CLI's alone. Any import form that does not name its members (namespace, default, side-effect,
+   * re-export, require) fails, because it would hand over the executor too.
+   */
+  const READ_ONLY_HELPERS: ReadonlySet<string> = new Set([
+    "BACKUP_ROOT",
+    "createValidatedBackup",
+    "readServerVersion",
+    "organizationalFingerprint",
+    "fingerprintDrift",
+    "OrganizationalFingerprint",
+  ]);
+  const HELPER_IMPORTERS = [
+    "scripts/i2v-production-acceptance.ts",
+    "scripts/lib/processor-attestation.ts",
+    "scripts/mv7-production-acceptance.ts",
+    "scripts/processor-attestation.ts",
+  ];
   assert.deepEqual(
     importers.sort(),
-    [MIGRATE_CLI],
-    "only the migration ceremony may import the migration mechanics",
+    [...HELPER_IMPORTERS, MIGRATE_CLI].sort(),
+    "only the migration ceremony may import the migration mechanics — and the named read-only helper importers",
   );
+  const SPEC = String.raw`["'](?:\.\.?\/)(?:lib\/)?production-migration(?:\.ts)?["']`;
+  for (const f of HELPER_IMPORTERS) {
+    const code = withoutComments(read(f));
+    const named = [
+      ...code.matchAll(new RegExp(String.raw`import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*` + SPEC, "g")),
+      ...code.matchAll(new RegExp(String.raw`(?:const|let|var)\s*\{([^}]*)\}\s*=\s*await\s+import\(\s*` + SPEC + String.raw`\s*\)`, "g")),
+    ];
+    const mentions = code.split("production-migration").length - 1;
+    assert.equal(named.length, mentions, `${f} imports the migration module only through named members`);
+    const members = named.flatMap((m) =>
+      m[1]!.split(",").map((x) => x.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!).filter(Boolean),
+    );
+    for (const member of members) {
+      assert.ok(READ_ONLY_HELPERS.has(member), `${f} may import only read-only/backup helpers, not \`${member}\``);
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

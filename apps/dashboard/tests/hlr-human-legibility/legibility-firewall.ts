@@ -589,6 +589,12 @@ function walk(dir: string): string[] {
        * It passes the server-resolved tenant once and never derives a name from an email.
        */
       COMMAND_PAGE,
+      /*
+       * SUITE-RECOVERY-1: the dashboard layout (0495b901, account menu with Sign out) resolves the
+       * label of the SESSION'S OWN user for the top bar, through the same server-side read, tenant
+       * from the authorized session. It names nobody else.
+       */
+      "src/app/(dashboard)/layout.tsx",
     ].sort(),
     "exactly three pages read legibility, five components receive it, THREE grounding projections " +
       "resolve it for Heby, and Live Map composes it for the map. No other consumer.",
