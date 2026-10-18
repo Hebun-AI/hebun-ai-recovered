@@ -5,7 +5,32 @@ closure `61485c3f`, adds one test-only hardening commit for the two confirmed IN
 measures the result at V3 against the production baseline. This record takes over
 `hebun-suite-recovery-1-findings.md`.
 
-**Status: VERIFIED locally, 2026-10-18. Not released, not deployed, not production-accepted.**
+**Status: VERIFIED locally, 2026-10-19 (stabilized). Not released, not deployed, not production-accepted.**
+
+## Stabilization (2026-10-19)
+
+Branch `stabilize/suite-recovery-1` on `4cb3a433`. Director decisions, 2026-10-18: Instagram narrow
+firewall exception, migration named-import allowlist, provenance equality invariant preserved, R3W
+cleanup and explicit BLOCKED reporting; 2026-10-19: the isolated R3W stand-in accepted for this
+release, and the protected development database is not started.
+
+- `6de7ef37` — test-only: the 21 files above, corrected as triaged (19 files changed). No `src/`,
+  `scripts/`, schema or migration change; `src/` and `scripts/` are byte-identical to `30067b66`.
+- `829ee543` — the test stability contract in `CLAUDE.md` (Faz Sözleşmesi).
+- Full suite at `6de7ef37`, disposable worktree, PostgreSQL 18.6 on 127.0.0.1:55433: 1045 passed,
+  1 failed, 1046 total; the one failure is `r3w-flow/ambient-database-safety`, reporting
+  `R3W BLOCKED … NOT a pass` (canonical 127.0.0.1:55432 unreachable).
+- R3W, separate run: PASS against a stand-in this session created with `initdb` (PostgreSQL 18.6,
+  127.0.0.1:55432 only, `system_identifier` 7698120018072928588 matching its own PGDATA, re-checked
+  before every write), `hebun_r1` migrated to 78; its migration digest and rows unchanged by the run.
+  With the harness's ambient-URL claim disabled in a scratch copy, R3W fails before any write. The
+  protected development database was never started. This is one 1045-file run plus one separate
+  R3W run, not a single 1046-file run.
+- Negative controls, scratch copies, 17/17 as required: Instagram exception (5), account-change (2),
+  migration allowlist (3), provenance (3), g3 (3), R3W harness (1). Bite-proofs bite: int5a 11,
+  prodmig 18, media2a 13, hlr 9, cmdb2 14.
+- `npm run build` exit 0 at `6de7ef37` (TypeScript passed, 175/175 pages); `tsc --noEmit` 0;
+  eslint clean on changed files; continuity PASS at `829ee543`.
 
 ## Integration lineage
 
@@ -187,9 +212,9 @@ Ready for a future controlled release **as a candidate**, with these facts for t
   introduces none; it does not make the suite green.
 - Production source is unchanged by this phase until a push; `origin/main` = `f200eed4`.
 
-Release blockers, exactly: no push or deploy approval; the Director's decision on the 21 (above) and
-on the four boundary decisions; `EHO-1-RED-SUITE-BASELINE-1` stays DEFERRED with its owner. Before any
-push: a local `npm run build`, and after deployment an authenticated read-only look at `/operations`
+Release blockers, exactly (after stabilization): no push or deploy approval;
+`EHO-1-RED-SUITE-BASELINE-1` stays DEFERRED with its owner until a release carries the green suite to
+`main`. After deployment an authenticated read-only look at `/operations`
 (content package, media and video lists, review states) and one Heby answer that grounds on content
 media, since those are the only surfaces that read the moved modules.
 
@@ -198,14 +223,14 @@ media, since those are the only surfaces that read the moved modules.
 - Phase: SUITE-RECOVERY-1
 - Owner: Heby answer read-only firewall (G6C, INT-5A/5B1/5C) and the Media Asset / Work Artifact Review read authorities that own the moved readers; INT-5A test suites
 - Reached state: VERIFIED
-- Implementation commit: 30067b660a998d3932845d5c961927bfbe17d9d6, 63ed7ba101b14e795ae9508b7d4e4f4b0f2c36f0, 3f7d0528ede3571985865419194e2e30285869d2, d31cef37192290331609feb8620ee3c9e119ec8a, c936a394f9cca5658f1bb76c4eebacdbd3d3392f
+- Implementation commit: 30067b660a998d3932845d5c961927bfbe17d9d6, 63ed7ba101b14e795ae9508b7d4e4f4b0f2c36f0, 3f7d0528ede3571985865419194e2e30285869d2, d31cef37192290331609feb8620ee3c9e119ec8a, c936a394f9cca5658f1bb76c4eebacdbd3d3392f, 6de7ef376c1499f584ef0a7de5b5299b68f2d0d6, 829ee5438e52062ee7b3fa2befc7fefb6c123a19
 - Verification level: V3 — the change moves readers across the Heby answer graph's authority and network boundary, so security firewalls, bite-proofs and the full suite against the production baseline were required
-- Verification evidence: full suite f200eed4 999/47/1046 exit 1, c936a394 1025/21/1046 exit 1; introduced 0, fixed 26, pre-existing 21 (re-run alone on f200eed4, c936a394, hybrid src=f200eed4, bebde54f); int5a bite-proofs 11/11 in a disposable copy; M11 and M12 mutation and negative controls; export surface identical; tsc 0; eslint clean; git diff --check clean (2026-10-18)
+- Verification evidence: full suite f200eed4 999/47/1046 exit 1, c936a394 1025/21/1046 exit 1; introduced 0, fixed 26, pre-existing 21 (re-run alone on f200eed4, c936a394, hybrid src=f200eed4, bebde54f); int5a bite-proofs 11/11 in a disposable copy; M11 and M12 mutation and negative controls; export surface identical; tsc 0; eslint clean; git diff --check clean (2026-10-18); stabilization 6de7ef37: 1045/1046 with R3W BLOCKED, R3W PASS separately on an isolated initdb stand-in, 17/17 negative controls, build exit 0 (2026-10-19)
 - Test environment: worktree `.claude/worktrees/suite-recovery-1-v3` (branch `integration/suite-recovery-1-v3`, base 61485c3f); disposable detached worktrees `sr1-v3-baseline-f200eed4`, `sr1-v3-suite-c936a394`, `sr1-v3-hybrid`, `sr1-v3-bebde54f`; disposable scratchpad copies for mutations; `node --import tsx`; PostgreSQL 18.6 on 127.0.0.1:55433; `DATABASE_URL` and model credentials unset
 - Deployment evidence: N/A — not deployed
 - Production acceptance evidence: N/A — not deployed; production remains f200eed4
-- Deferred risks: SR1-INT5A-M11-SURVIVOR-1 (CLOSED); SR1-IMPORT-GRAPH-BLINDSPOTS-1 (DEFERRED); SR1-PRE-EXISTING-21-1 (DEFERRED)
-- Director approvals: SUITE-RECOVERY-1 controlled local integration, 2026-10-18 — new integration worktree, cherry-pick of b378e7b3, 64ee8a7a, 45c1dd34, bebde54f, V3 validation, one test-only hardening commit, this local closure record; push, deployment, production mutation, live provider and live model calls, changes to existing worktrees and a90ae98c NOT approved. Local documentation closure commit and read-only triage of the 21, Director 2026-10-18; source and test changes, push and deployment NOT approved
+- Deferred risks: SR1-INT5A-M11-SURVIVOR-1 (CLOSED); SR1-IMPORT-GRAPH-BLINDSPOTS-1 (DEFERRED); SR1-PRE-EXISTING-21-1 (CLOSED)
+- Director approvals: SUITE-RECOVERY-1 controlled local integration, 2026-10-18 — new integration worktree, cherry-pick of b378e7b3, 64ee8a7a, 45c1dd34, bebde54f, V3 validation, one test-only hardening commit, this local closure record; push, deployment, production mutation, live provider and live model calls, changes to existing worktrees and a90ae98c NOT approved. Local documentation closure commit and read-only triage of the 21, Director 2026-10-18; source and test changes, push and deployment NOT approved. Stabilization: boundary decisions and test-only stabilization with local commits (Director, 2026-10-18); isolated R3W stand-in accepted, protected development database not started, final preparation and local documentation alignment (Director, 2026-10-19); push and deployment NOT approved
 
 ### Deferred risk detail
 
@@ -214,10 +239,9 @@ media, since those are the only surfaces that read the moved modules.
 - **SR1-IMPORT-GRAPH-BLINDSPOTS-1 (DEFERRED).** The INT-5A firewall does not follow dynamic
   `import()`, `require()` or single-quoted specifiers, and recognizes network reach only through the
   `fetch` identity. Acceptance dependency: a Director-selected firewall hardening phase.
-- **SR1-PRE-EXISTING-21-1 (DEFERRED).** 21 test files fail on production and on this candidate for
-  the same reasons. Triaged above: no production defect and no authorization regression found; four
-  need a boundary decision, two are guard gaps, the rest are stale pins, fixtures or environment.
-  Acceptance dependency: a Director-selected test-repair phase, preceded by the four boundary decisions.
+- **SR1-PRE-EXISTING-21-1 (CLOSED).** Resolved by `6de7ef37` under the Director's boundary
+  decisions: 20 files pass, R3W reports BLOCKED without canonical and passes against the isolated
+  stand-in (Stabilization, above).
 
 Preserved unchanged: AP-6a PRODUCTION-ACCEPTED; AP-6b DEFERRED — NOT IMPLEMENTED; AP2-RULE6-RAW-SQL-1
 DEPLOYED; every AP-6a deferred risk; `EHO-1-RED-SUITE-BASELINE-1` DEFERRED (owner EAI-HISTORY-ORIGIN-1;
