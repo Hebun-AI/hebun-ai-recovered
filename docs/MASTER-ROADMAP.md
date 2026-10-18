@@ -5664,7 +5664,9 @@ is not created, no mandate is changed and no ceremony is selected
 > Engineering through the existing AP-2 writer and `/agents`, **PRODUCTION-ACCEPTED** with 8/8
 > before/after invariants. Placement still grants nothing; no agent was executed; **AP-6b**
 > (department-scoped authority) is **NOT IMPLEMENTED** — design only, behind its own Director
-> decision. Record: `hebun-ap6a-engineering-agent-placement-closure.md`.
+> decision. Record: `hebun-ap6a-engineering-agent-placement-closure.md`. The `/approvals` rationale
+> label (AP5-APPROVALS-RATIONALE-LABEL-1) was fixed and deployed with that record in `87274f2c`
+> (`dpl_EJgAdNHV…`); a non-Heby name in the live heading is test-verified only.
 
 ---
 
@@ -5779,5 +5781,6 @@ before §16.1 are not yet indexed (Phase B).
 | WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 | WORK-UPDATE-AGENT-SELECTION-1 | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` | Verification gap | DEFERRED | The first live origination per agent in AP-5 acceptance (A5), or a Director-approved local run with a model |
 | AP5-HEBY-DIRECT-LINEAGE-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Verification gap | DEFERRED | The first Director-authorized Heby execution in a two-agent tenant, read back with its handoff (non-blocking under AP-5 Director Decision 1) |
 | AP5-WORKSTATE-REASON-COPY-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | A copy change naming the actual ceiling for a non-eligible agent in the work-state chooser |
-| AP5-APPROVALS-RATIONALE-LABEL-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | An `/approvals` rationale label that names the proposing agent (implemented locally on `release/ap5-approvals-rationale-label-1`, not deployed) |
+| AP5-APPROVALS-RATIONALE-LABEL-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | CLOSED | — |
 | AP6A-WITHDRAW-UNEXERCISED-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A Director-approved production withdrawal, or a genuine one |
+| AP6A-APPROVALS-LABEL-LIVE-AGENT-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A genuine non-Heby agent proposal observed on `/approvals`, read only; none created for the purpose |

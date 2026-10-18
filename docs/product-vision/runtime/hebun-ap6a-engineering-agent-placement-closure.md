@@ -18,7 +18,7 @@ created or changed for it.
 | Agent execution | **NOT PERFORMED.** No proposal, permit, spend or agent run is part of AP-6a |
 | AP-6b — department-scoped authority | **NOT IMPLEMENTED.** Design question only: whether placement may ever bound an agent, against the invariant "placement grants nothing". Department scope is today expressed by work-domain responsibility (AP-4A/B). Any enforcement needs its own Director decision and a V3 phase |
 | Heby | unplaced, unchanged |
-| `/approvals` rationale label | production (`ee5b5874`) still titles every agent rationale "Heby's" (`AP5-APPROVALS-RATIONALE-LABEL-1`, owned by AP-5) — a UI limitation of the two-agent workforce, not of placement. The fix is implemented locally on `release/ap5-approvals-rationale-label-1`, **not deployed** |
+| `/approvals` rationale label | at `ee5b5874` every agent rationale was titled "Heby's" (`AP5-APPROVALS-RATIONALE-LABEL-1`, owned by AP-5) — a UI limitation of the two-agent workforce, not of placement. **Fixed and deployed** in `87274f2c` (below); CLOSED. A live render of a non-Heby agent's rationale is not yet observed (`AP6A-APPROVALS-LABEL-LIVE-AGENT-1`) |
 
 ## Authority used
 
@@ -76,6 +76,25 @@ source-class census pins that keep `osa3/firewall`, `osa3/placement-truth` and `
 red at `ee5b5874` are repaired on the unreleased branch `fix/suite-recovery-1` (`bebde54f`, B4a),
 where the full OSA3/OSA4/AP-2 set and the osa3 P6 bite-proof pass; that branch is not deployed.
 
+## Approvals rationale label release (2026-10-18, after the placement)
+
+Not part of the placement act; released with this record because AP-6 names the department
+workforce that `/approvals` mislabelled. Release `ee5b5874` → `410f97d5` (this record) →
+`87274f2c` (the fix), one non-force fast-forward to `main`, Director-approved. Deployment
+`dpl_EJgAdNHV15kAE5YvbvXHTe3Z1LBT`: production, READY, PROMOTED, `githubCommitSha`
+`87274f2c1c74645ac9feac53e8cf8efba414d5e2`, `www.hebuntech.com` and `hebuntech.com` aliased to it.
+The fix: both rationale headings (`approvals-dashboard.tsx` RequestSummary,
+`decision-workspace/action-authorizations.tsx` RequestCard) read the existing
+`proposedByAgentName` — the name when the identity authority answered, otherwise the neutral
+"Agent proposal rationale"; never an inferred name, never an id. No authority, persistence,
+schema or provider change.
+
+| Evidence class | What it shows |
+|---|---|
+| PRODUCTION (Director-observed UI, after `87274f2c` was live) | Authenticated `/approvals` rendered an existing record-work request on Engineering work, "Awaiting authorization", badge PROPOSED BY HEBY, heading HEBY'S PROPOSAL RATIONALE, its rationale text visible. No approve, reject or execute was performed. A screenshot is UI evidence only — it proves no database, authorization or execution state |
+| TEST (`87274f2c` tree, 2026-10-18) | `tests/ap5-approvals-rationale-label-1/rationale-label.ts` on both surfaces: Engineering Agent and Heby named, missing name neutral, no UUID, escaped name, unchanged rationale/caption/controls; 37/39 affected suites pass, the 2 failing (`cmdb1/canonical-overview` migration and server-action census pins, `dh1/bite-proofs` M8 via stale `horizon-firewall` pins) fail identically at `ee5b5874` and pass in full with identical results on base and candidate once those pins are corrected in disposable copies; 8/8 mutations (hardcoded Heby on either surface, hardcoded Engineering Agent, Heby or UUID for a missing name, UUID beside the neutral title, rationale gated on name) caught; tsc, scoped eslint, diff-check clean |
+| NOT PRODUCTION VERIFIED | A real Engineering Agent (non-Heby) proposal rendering its own name in the live UI. The Heby observation cannot discriminate the fix: the pre-fix code rendered the same heading for Heby. No proposal is to be created for this purpose (`AP6A-APPROVALS-LABEL-LIVE-AGENT-1`) |
+
 ## Rollback
 
 `withdrawAgentPlacement` from the same `/agents` card, through the same Governance gate and
@@ -93,20 +112,23 @@ rows are append-only; a withdrawal adds history, it does not erase it. Never exe
 - Verification level: V2 — no code changed; the released AP-2 seam and its consumers' suites re-run at the deployed commit, plus production before/after invariant reads of an authority-gated write (full suite not required: no source changed)
 - Verification evidence: 7/7 seam suites exit 0 at ee5b5874 (2026-10-18); production baseline and post-ceremony read-only reads, 8/8 invariants PASS, as recorded above
 - Test environment: detached worktree `.claude/worktrees/b1-m11-baseline-ee5b5874` at ee5b5874, per-file `node --import tsx`, disposable PostgreSQL 18 on 127.0.0.1:55433, `DATABASE_URL` unset
-- Deployment evidence: dpl_7aLjj2kEe5Fn4uKhnWiM17AoC7wb, production, READY, githubCommitSha ee5b58742d640f945b5e8c60c252da19ff1a321b, aliased to www.hebuntech.com and hebuntech.com
+- Deployment evidence: dpl_7aLjj2kEe5Fn4uKhnWiM17AoC7wb, production, READY, githubCommitSha ee5b58742d640f945b5e8c60c252da19ff1a321b, aliased to www.hebuntech.com and hebuntech.com (the placement); this record and the approvals label fix served by dpl_EJgAdNHV15kAE5YvbvXHTe3Z1LBT, production, READY, PROMOTED, githubCommitSha 87274f2c1c74645ac9feac53e8cf8efba414d5e2, same aliases
 - Production acceptance evidence: Director ceremony on `/agents` 2026-10-18 12:07:33Z (result Recorded); read-only baseline 12:00:33Z and post-ceremony 12:08:53Z, ledger 78, 8/8 invariants PASS; accepted by the Director 2026-10-18
-- Deferred risks: AP6A-WITHDRAW-UNEXERCISED-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)
-- Director approvals: AP-6 architecture design review (2026-10-18); scoped read-only production baseline (2026-10-18); the placement ceremony, performed by the Director (2026-10-18); read-only post-ceremony verification (2026-10-18); AP-6a acceptance (2026-10-18); local commit of this record (2026-10-18, `410f97d5`); push NOT yet approved
+- Deferred risks: AP6A-WITHDRAW-UNEXERCISED-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (CLOSED); AP6A-APPROVALS-LABEL-LIVE-AGENT-1 (DEFERRED)
+- Director approvals: AP-6 architecture design review (2026-10-18); scoped read-only production baseline (2026-10-18); the placement ceremony, performed by the Director (2026-10-18); read-only post-ceremony verification (2026-10-18); AP-6a acceptance (2026-10-18); local commit of this record (2026-10-18, `410f97d5`); release `ee5b5874` → `87274f2c` and its push (2026-10-18); the Director's production `/approvals` observation (2026-10-18); local commit of this final closure update (2026-10-18), push NOT yet approved
 
 ## Deferred risks
 
 - **AP6A-WITHDRAW-UNEXERCISED-1 (DEFERRED)** — the rollback path (`withdrawAgentPlacement`) is
   test-verified only; it has never run in production. Closes with a Director-approved production
   withdrawal, or is carried until a placement is genuinely withdrawn.
-- **AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)** — owned by AP-5; restated because the department
-  workforce AP-6 names is mislabelled on `/approvals` until it is fixed and deployed. The fix is
-  implemented locally (`release/ap5-approvals-rationale-label-1`), not deployed; the risk stays
-  DEFERRED until production carries it.
+- **AP5-APPROVALS-RATIONALE-LABEL-1 (CLOSED)** — owned by AP-5; restated because the department
+  workforce AP-6 names was mislabelled on `/approvals`. Closed by `87274f2c`, deployed in
+  `dpl_EJgAdNHV15kAE5YvbvXHTe3Z1LBT`; evidence and its limit above.
+- **AP6A-APPROVALS-LABEL-LIVE-AGENT-1 (DEFERRED)** — the fixed heading is production-observed only for
+  Heby, which the pre-fix code rendered identically; a non-Heby agent's own name in the live heading
+  is test-verified only. Closes when a genuine non-Heby agent proposal is observed on `/approvals`
+  (read only); no proposal is created for the purpose.
 
 ## Three questions
 

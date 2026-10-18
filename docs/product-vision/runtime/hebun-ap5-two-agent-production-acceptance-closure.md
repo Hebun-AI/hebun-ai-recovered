@@ -254,7 +254,7 @@ permit); its execution; A11 acceptance SQL; closure-evidence SQL; historical-lin
 - Test environment: worktree `.claude/worktrees/work-update-agent-selection-1` at 250bf126, `node scripts/run-tests.mjs` and per-file `node --import tsx`, disposable PostgreSQL 18 on 127.0.0.1:55433, `DATABASE_URL` unset; baseline worktree `.claude/worktrees/ap5-suite-baseline-1f8f9a47` (detached, shared node_modules, identical package files)
 - Deployment evidence: dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui, production, READY, githubCommitSha 250bf126bb2ec5de538cdcbd0004fe1aef6087ae, aliased to www.hebuntech.com and hebuntech.com; the chooser code since dpl_9XejFBF38W1utxNs7bmdmWASXvYh (7ad5675b); this record published at e1a5c9b1 (documentation only over 250bf126), production deployment dpl_A4FwDxHPLTfYD4GwkXzpk9YMmsQJ READY serving e1a5c9b1 as stated in Director Decision 3 — the acceptance-preparation re-read of that deployment record was UNAVAILABLE (Vercel 403 for scope hebuntechs-projects)
 - Production acceptance evidence: the production measurements recorded in this record (A1–A5, A7, A8, A10, A11 and the isolation reads, 2026-10-17/18, ledger 78), accepted by Director Decision 3 (2026-10-18) with A7 on the composite interpretation of Decision 1; A6, A9, A12 and A14 remain test-verified and A13, A15 documentation, as classified
-- Deferred risks: AP5-HEBY-DIRECT-LINEAGE-1 (DEFERRED); AP5-WORKSTATE-REASON-COPY-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)
+- Deferred risks: AP5-HEBY-DIRECT-LINEAGE-1 (DEFERRED); AP5-WORKSTATE-REASON-COPY-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (CLOSED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)
 - Director approvals: Decision 1 (A7) and Decision 2 (Section 0), 2026-10-18; every production write and read listed in *Director decisions*, each approved separately; preparation of this record (2026-10-18), published at e1a5c9b1 on main; Decision 3, final AP-5 production acceptance (2026-10-18); commit and push of this acceptance change NOT yet approved
 
 ## Deferred risks
@@ -267,10 +267,12 @@ permit); its execution; A11 acceptance SQL; closure-evidence SQL; historical-lin
   "not responsible for this work domain"; in production Engineering Agent is responsible for Engineering
   and is excluded for lacking `set-work-declared-state`. Authority is correct; the stated reason is not.
   Closes with a copy change that names the actual ceiling.
-- **AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)** — `/approvals` titles every agent rationale "HEBY'S
+- **AP5-APPROVALS-RATIONALE-LABEL-1 (CLOSED)** — `/approvals` titled every agent rationale "HEBY'S
   PROPOSAL RATIONALE", including the Engineering Agent's (the proposer line beside it is correct).
-  Closes with a label that names the proposing agent. *(2026-10-18: implemented locally on
-  `release/ap5-approvals-rationale-label-1`, not deployed; stays DEFERRED until production carries it.)*
+  Closes with a label that names the proposing agent. *(Closed 2026-10-18: `87274f2c`, deployed in
+  `dpl_EJgAdNHV15kAE5YvbvXHTe3Z1LBT`; both headings read `proposedByAgentName`, neutral when absent.
+  Production-observed for Heby only; a non-Heby name in the live heading remains test-verified —
+  `AP6A-APPROVALS-LABEL-LIVE-AGENT-1`, `hebun-ap6a-engineering-agent-placement-closure.md`.)*
 - **EHO-1-RED-SUITE-BASELINE-1 (DEFERRED)** — owned by EAI-HISTORY-ORIGIN-1; restated here because AP-5's
   V3 comparison ran against it.
 - **WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)** — owned by WORK-UPDATE-AGENT-SELECTION-1; it concerns
