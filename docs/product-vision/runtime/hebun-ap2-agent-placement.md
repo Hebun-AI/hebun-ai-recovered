@@ -124,3 +124,11 @@ EAI authorizations 3; `resolveAgentProposer` → Agent #1 with and without selec
    Governance-gated organizational position — or an explicit "unplaced" — owned by the same authority
    that owns departments and human placement. It is the structural prerequisite for department-
    specific agents (AP-4/AP-5).
+
+> **Superseded in part — AP-6a (2026-10-18).** The rows above stating the placement writer was never
+> production-executed, and §5 "First production placement: with the first department-specific
+> agent", were true when recorded and are kept as such. On 2026-10-18 the Director placed the
+> Engineering Agent `670a6889…` in Engineering `e40866a8…` through `/agents`: one
+> `organization.agent-placement.set` audit row, version 1 → 2, every other measured value unchanged.
+> Department ceiling enforcement remains NOT built (AP-6b, design only). Evidence:
+> `hebun-ap6a-engineering-agent-placement-closure.md`.

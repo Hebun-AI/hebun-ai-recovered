@@ -5658,6 +5658,13 @@ is not created, no mandate is changed and no ceremony is selected
 > one Engineering Agent proposal was approved, permitted and executed by the Director. Evidence classes,
 > the A7 composite interpretation and the open risks are as that record holds them:
 > `hebun-ap5-two-agent-production-acceptance-closure.md`, §21, §22. No other row above changes state.
+>
+> **AP-6a (2026-10-18).** The next §20.4 step, department-scoped workforce, was opened by the Director
+> as an architecture review (AP-6). Only **AP-6a** is closed: the Engineering Agent was placed in
+> Engineering through the existing AP-2 writer and `/agents`, **PRODUCTION-ACCEPTED** with 8/8
+> before/after invariants. Placement still grants nothing; no agent was executed; **AP-6b**
+> (department-scoped authority) is **NOT IMPLEMENTED** — design only, behind its own Director
+> decision. Record: `hebun-ap6a-engineering-agent-placement-closure.md`.
 
 ---
 
@@ -5699,6 +5706,7 @@ re-graded here.
 | AP-5-ENTRY-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` |
 | WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
 | AP-5 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
+| AP-6a | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` |
 
 ---
 
@@ -5772,3 +5780,4 @@ before §16.1 are not yet indexed (Phase B).
 | AP5-HEBY-DIRECT-LINEAGE-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Verification gap | DEFERRED | The first Director-authorized Heby execution in a two-agent tenant, read back with its handoff (non-blocking under AP-5 Director Decision 1) |
 | AP5-WORKSTATE-REASON-COPY-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | A copy change naming the actual ceiling for a non-eligible agent in the work-state chooser |
 | AP5-APPROVALS-RATIONALE-LABEL-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | DEFERRED | An `/approvals` rationale label that names the proposing agent |
+| AP6A-WITHDRAW-UNEXERCISED-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A Director-approved production withdrawal, or a genuine one |
