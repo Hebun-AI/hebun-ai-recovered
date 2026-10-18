@@ -86,7 +86,23 @@ async function assetCount(client: Client): Promise<number> {
 function migrationProof(): void {
   const TAG = "20260927064103_mv6_higgsfield_failure_codes";
   const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-  assert.equal(journal.entries.at(-1)!.tag, TAG, "MV-6 authored the newest migration");
+  /* SUITE-RECOVERY-1 B3: MV-6 is migration 67; what follows it is the named later phases', in order. */
+  assert.equal(journal.entries.findIndex((e) => e.tag === TAG), 66, "MV-6 authored migration 67");
+  /* SUITE-RECOVERY-1 B3: the first 67 migrations, then exactly migrations 68–78, each a declared later phase — YOUTUBE-WRITE-2, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, KT-3, EXTERNAL-AI-DATA-USE-1A, SCI-2A, SCI-2B, AP-1, AP-4A, L-1b, D1 work-planning, WORK-UPDATE V1. None is this phase's; any other addition, removal or reordering fails. */
+  const LATER_MIGRATIONS = [
+    "20260928084834_youtube_write2_recipientless_kind",
+    "20260929134334_supplied_media_account_provenance",
+    "20261003074659_knowledge_public_use_domain",
+    "20261004073713_external_ai_data_use_authority",
+    "20261006111812_sci2a_knowledge_version_immutability",
+    "20261006175909_sci2b_knowledge_integrity_at_insert",
+    "20261007064348_ap1_agent_name_in_service_uniqueness",
+    "20261007175237_ap4a_work_domain_foundation",
+    "20261008143657_l1b_agent_lifecycle_domain",
+    "20261013113340_eai_work_planning_purpose",
+    "20261014042643_work_update_v1_mandate_scope",
+  ];
+  assert.deepEqual(journal.entries.slice(67).map((e) => e.tag), LATER_MIGRATIONS, "and only the named later phases follow it");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${TAG}.sql`), "utf8");
   const statements = sql.split("--> statement-breakpoint").map((x) => x.trim()).filter(Boolean);
   assert.equal(statements.length, 2, "exactly two statements");

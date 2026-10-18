@@ -360,8 +360,18 @@ function main(): void {
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
       f.endsWith(".sql"),
     );
+    /*
+     * SUITE-RECOVERY-1 B3: two later migrations carry "lifecycle" in their names and are not R4B's —
+     * MV-4's media generation lifecycle and L-1b's agent lifecycle Governance domain. Excepted by
+     * exact name only; any other r4b / suspend / lifecycle migration still fails.
+     */
+    const UNRELATED_LIFECYCLE_MIGRATIONS = [
+      "20260926140423_mv4_async_generation_lifecycle.sql",
+      "20261008143657_l1b_agent_lifecycle_domain.sql",
+    ];
+    for (const f of UNRELATED_LIFECYCLE_MIGRATIONS) assert.ok(migrations.includes(f), `${f} is the named later migration it excepts`);
     assert.equal(
-      migrations.filter((f) => /r4b|suspend|lifecycle/i.test(f)).length,
+      migrations.filter((f) => /r4b|suspend|lifecycle/i.test(f) && !UNRELATED_LIFECYCLE_MIGRATIONS.includes(f)).length,
       0,
       "R4B adds no migration — every field it writes already existed",
     );

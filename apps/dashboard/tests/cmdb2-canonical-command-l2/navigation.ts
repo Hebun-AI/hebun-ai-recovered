@@ -445,9 +445,25 @@ function navigationOnly(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, LEDGER_COUNT, "no migration was added or removed");
+  /* SUITE-RECOVERY-1 B3: the first 67 migrations, then exactly migrations 68–78, each a declared later phase — YOUTUBE-WRITE-2, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, KT-3, EXTERNAL-AI-DATA-USE-1A, SCI-2A, SCI-2B, AP-1, AP-4A, L-1b, D1 work-planning, WORK-UPDATE V1. None is this phase's; any other addition, removal or reordering fails. */
+  const LATER_MIGRATIONS = [
+    "20260928084834_youtube_write2_recipientless_kind.sql",
+    "20260929134334_supplied_media_account_provenance.sql",
+    "20261003074659_knowledge_public_use_domain.sql",
+    "20261004073713_external_ai_data_use_authority.sql",
+    "20261006111812_sci2a_knowledge_version_immutability.sql",
+    "20261006175909_sci2b_knowledge_integrity_at_insert.sql",
+    "20261007064348_ap1_agent_name_in_service_uniqueness.sql",
+    "20261007175237_ap4a_work_domain_foundation.sql",
+    "20261008143657_l1b_agent_lifecycle_domain.sql",
+    "20261013113340_eai_work_planning_purpose.sql",
+    "20261014042643_work_update_v1_mandate_scope.sql",
+  ];
+  const journal = (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] }).entries.map((e) => `${e.tag}.sql`);
+  assert.deepEqual(journal, migrations, "the journal and the files agree, in order");
+  assert.deepEqual(migrations.slice(LEDGER_COUNT), LATER_MIGRATIONS, "no migration was added or removed");
   assert.equal(
-    createHash("sha256").update(migrations.map((f) => read(`src/db/migrations/${f}`)).join("")).digest("hex").slice(0, 16),
+    createHash("sha256").update(migrations.slice(0, LEDGER_COUNT).map((f) => read(`src/db/migrations/${f}`)).join("")).digest("hex").slice(0, 16),
     LEDGER_DIGEST,
     "and none was edited",
   );

@@ -849,9 +849,23 @@ function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> =
   }
 
   /* Schema untouched. */
-  assert.equal(
-    readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-    LEDGER_COUNT,
+  /* SUITE-RECOVERY-1 B3: the first 67 migrations, then exactly migrations 68–78, each a declared later phase — YOUTUBE-WRITE-2, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, KT-3, EXTERNAL-AI-DATA-USE-1A, SCI-2A, SCI-2B, AP-1, AP-4A, L-1b, D1 work-planning, WORK-UPDATE V1. None is this phase's; any other addition, removal or reordering fails. */
+  const LATER_MIGRATIONS = [
+    "20260928084834_youtube_write2_recipientless_kind",
+    "20260929134334_supplied_media_account_provenance",
+    "20261003074659_knowledge_public_use_domain",
+    "20261004073713_external_ai_data_use_authority",
+    "20261006111812_sci2a_knowledge_version_immutability",
+    "20261006175909_sci2b_knowledge_integrity_at_insert",
+    "20261007064348_ap1_agent_name_in_service_uniqueness",
+    "20261007175237_ap4a_work_domain_foundation",
+    "20261008143657_l1b_agent_lifecycle_domain",
+    "20261013113340_eai_work_planning_purpose",
+    "20261014042643_work_update_v1_mandate_scope",
+  ];
+  assert.deepEqual(
+    [...readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"))].sort().slice(LEDGER_COUNT).map((f) => f.replace(/\.sql$/, "")),
+    LATER_MIGRATIONS,
     "no migration was added or removed",
   );
 
