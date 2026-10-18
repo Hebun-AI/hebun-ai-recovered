@@ -105,7 +105,12 @@ function reachableFrom(entry: string): Set<string> {
     if (seen.has(file)) continue;
     seen.add(file);
     const code = codeOf(read(file));
-    for (const match of code.matchAll(/from\s+"([^"]+)"/g)) {
+    /*
+     * SUITE-RECOVERY-1 — side-effect imports (`import "module";`) are edges too: they evaluate the
+     * module, and everything it imports, exactly as a named import does. The `from` arm is unchanged.
+     * Still not followed: dynamic `import()`, `require()`, single-quoted specifiers.
+     */
+    for (const match of code.matchAll(/(?:from\s+|^\s*import\s+)"([^"]+)"/gm)) {
       const target = resolveImport(match[1]!, file);
       if (target) stack.push(target);
     }

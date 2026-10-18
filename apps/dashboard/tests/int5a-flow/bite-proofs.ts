@@ -182,6 +182,20 @@ const MUTATIONS: readonly Mutation[] = [
     replace: "  const integrationResolutions = governanceResolutions;",
     expect: "withIntegrations is not wired",
   },
+  {
+    /*
+     * SUITE-RECOVERY-1 — M9 again, as a bare side-effect import. The firewall used to follow only
+     * `from "…"`, so this edge was invisible while it still evaluated the Google transport.
+     */
+    label: "M12 the grounding path gains provider I/O through a side-effect import",
+    file: SOURCE,
+    suite: FIREWALL_SUITE,
+    find: 'import { getCapabilityAvailability } from "./capability-availability.server";',
+    replace:
+      'import { getCapabilityAvailability } from "./capability-availability.server";\n' +
+      'import "@/features/provider-google/read-drive-metadata.server";',
+    expect: "may perform network I/O",
+  },
 ];
 
 function withMutation(mutation: Mutation, body: () => void): void {

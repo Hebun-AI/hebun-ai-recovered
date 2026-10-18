@@ -349,7 +349,7 @@ async function main(): Promise<void> {
      * are all injected.
      */
     let captured: ModelGenerationRequest | undefined;
-    await answerHebyModelRequest(
+    const result = await answerHebyModelRequest(
       { prompt: "Which organizational systems are connected?", route: "/platform" },
       {
         resolveTenant: async () => TENANT,
@@ -385,6 +385,22 @@ async function main(): Promise<void> {
      */
     assert.match(grounding, /^\[integrations\] withheld — not disclosed to the external model$/m, "withIntegrations is wired, and withheld");
     assert.ok(!/drive\.metadata|state available/.test(grounding), "no capability state reaches the model");
+
+    /*
+     * SUITE-RECOVERY-1 — THE WITHHELD LINE CANNOT PROVE WIRING, SO THE HUMAN-FACING EVIDENCE DOES.
+     *
+     * B2 renders the same withheld line for the resolved read and for the pure resolver's
+     * unavailable placeholder, so an unwired `withIntegrations` still produced it and M11 survived.
+     * The answer's own evidence — what the Director is shown, and what B2 leaves unchanged — differs:
+     * only the real tenant-scoped read yields a citable integration identity. Nothing new reaches
+     * the model; the assertion above still holds.
+     */
+    assert.equal(result.status, "answered", "the answer flow must answer");
+    const evidence = result.status === "answered" ? result.outcome.response.evidence : [];
+    assert.ok(
+      evidence.some((e) => e.sourceClass === "integrations" && e.recordRef === "google-workspace/drive.metadata"),
+      `withIntegrations is not wired — the answer's evidence carries no resolved integration capability: ${JSON.stringify(evidence)}`,
+    );
   }
 
   console.log("int5a-flow/connection-grounding: OK");
