@@ -117,6 +117,30 @@ her seviyede aynıdır.
 Eski closure kayıtlarındaki "L1–L3" bu test seviyeleridir; roadmap §10'daki Era I milestone'ları
 `L1`–`L4` ile ilgisi yoktur.
 
+**Test kararlılığı — her değişiklikte, seviyeden bağımsız.**
+
+1. **Önce baseline.** Değişiklikten önce dokunulan authority'nin ve dosyaların testleri (firewall,
+   bite-proof, Postgres) değişmemiş ağaçta koşulur; kırmızı olanlar gerçek nedeniyle yazılır.
+2. **Test, özellikle aynı commit'te değişir.** Bir özellik bir pin'i veya census'u meşru biçimde
+   değiştiriyorsa pin aynı değişiklikte, gerekçesi ve commit'iyle güncellenir. Kırmızı bırakılmaz.
+3. **Güvenlik assertion'ı yeşil için zayıflatılmaz.** Güvenlik, tenant veya yetki assertion'ı
+   gevşetilmez, silinmez, atlanmaz. İstisna yalnızca Director kararıyla, dosya ve kalıp adıyla,
+   kendi negatif kontrolüyle eklenir.
+4. **Mutasyon izole koşar.** Kaynağı yerinde değiştiren bite-proof'lar ve tam suite yalnızca
+   disposable detached worktree'de veya scratch kopyada koşar. DB mutasyonu yalnızca oturumun
+   yarattığını kanıtlayabildiği hedefe yapılır (harness `created` kanıtı ya da kendi `initdb`'sinin
+   `system_identifier`'ı). `hebun_r1` yerel diye güvenli sayılmaz.
+5. **Üç sınıf ayrı yazılır.** Kırmızı her dosya `REGRESSION` (bu değişiklikle geldi), `PRE-EXISTING`
+   (değişmemiş kaynakta aynı nedenle kırmızı, ölçülmüş) veya `BLOCKED` (ortam yüzünden koşamadı)
+   olarak sınıflanır. `BLOCKED` asla PASS sayılmaz; aynı ilk hata mesajı regresyon yokluğunu kanıtlamaz.
+6. **Tamamlandı = sıfır REGRESSION.** Seviyenin testleri, `tsc --noEmit`, değişen dosyalarda `eslint`
+   ve `src/`'ye dokunan her değişiklikte `npm run build` koşmadan iş tamamlandı denmez (Turbopack,
+   kök dışını gösteren `node_modules` symlink'ini reddeder; build ağacında gerçek dizin gerekir).
+7. **Sahiplik korunur, kapsam kaymaz.** Test düzeltmesi yeni authority, persistence veya istisna
+   sistemi yaratmaz. İlgisiz kırmızılar için kendiliğinden remediation fazı açılmaz; raporlanır.
+8. **Release iddiası release kanıtı ister.** Yerel PASS, push veya deploy kanıtı değildir; durum
+   §16.1 ve aşağıdaki Kritik Kurallar'ın istediği ölçümle yazılır.
+
 **Kapanış:** Bir faz §16.1 sözleşmesini taşıyan closure kaydı olmadan "tamamlandı" diye
 raporlanmaz. Reached state kanıtın desteklediği en yüksek durumdur. Eksik kanıt `N/A` /
 `UNAVAILABLE` / `PENDING` yazılır ve asla PASS sayılmaz. Closure, §21 satırı, varsa §22 satırları
