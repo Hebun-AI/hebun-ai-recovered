@@ -156,7 +156,7 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
   const wholeRowReaders = SOURCE.filter((f) =>
     /\.select\(\s*\)\s*\.from\(\s*agents\s*\)|getTableColumns\(\s*agents\s*\)|\bquery\.agents\.|select\s+\*\s+from\s+(public\.)?agents\b|select\s+(a|agents)\.\*/i.test(code(f)),
   );
-  assert.deepEqual(wholeRowReaders, [], "no module reads whole `agents` rows, so placement cannot arrive unnamed");
+  assert.deepEqual(wholeRowReaders, [], "no module uses the whole-row `agents` read shapes this census recognizes (select().from(agents), getTableColumns(agents), db.query.agents, select * / select a.* from agents); joins, aliased tables and composed SQL are not covered");
 }
 
 /* ── 7. AGENT IDENTITY STILL WRITES NO PLACEMENT ──────────────────────────── */

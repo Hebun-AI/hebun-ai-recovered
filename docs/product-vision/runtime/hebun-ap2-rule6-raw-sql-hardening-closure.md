@@ -30,6 +30,27 @@ G4). Test and comment only: no runtime behavior, schema, authority or placement 
 - `tsc --noEmit` 0 errors; eslint clean on both changed files; continuity test and `git diff --check`
   clean.
 
+## Limitations
+
+The census is regression protection for the read shapes it names, not proof that no placement read is
+possible. Known blind spots:
+
+- **File-level allowlist.** An allowlisted file (the display join, the legacy adapter and codec, the
+  two prose files, the schema files) can gain a real read without failing; review of those files is
+  the guard.
+- **Composed or dynamic SQL.** A column name built from parts or passed through `sql.raw` with a
+  variable is not seen.
+- **Aliased table imports.** `import { agents as a }` then `.from(a)` evades the whole-row pattern.
+- **Whole-row joins.** `select()` with `agents` joined in returns its columns and is not recognized
+  (none exists today).
+- **Computed property access.** `agents["departmentId"]` or destructuring evades the Drizzle census.
+- **Sources outside the scan.** Only `src/**/*.ts(x)` outside migrations is read: `scripts/`, SQL
+  views, functions and other database objects are not.
+
+Possible false positives: a legitimate new `department_id` use (for example a work item's) fails until
+allowlisted with its reason; `select a.*` for a non-agent alias `a`; any `db.query.agents.` read, even
+one selecting explicit columns.
+
 ## Closure Contract (v1)
 
 - Phase: AP2-RULE6-RAW-SQL-1

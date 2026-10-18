@@ -54,15 +54,27 @@ Recorded as they are; nothing here changes isolation, locking or the permit life
 | External execution | For an external act (send) the provider call happens after the spend commits; the execution attempt row is written inside the spend | Action Execution (R3B) |
 | Execution success | Recorded by the execution attempt; consumed ≠ succeeded, and a failed act does not return the permit | Action Execution |
 
-- No transaction sets an isolation level, so PostgreSQL's default applies (READ COMMITTED). Production's
-  `default_transaction_isolation` was not measured (UNKNOWN).
+- Isolation, three separate facts:
+  - **Application configuration (verified in code):** no transaction in the repository sets an
+    isolation level, so each runs at the session's `default_transaction_isolation`.
+  - **PostgreSQL semantics:** the built-in default is READ COMMITTED, under which each statement sees
+    the data committed before that statement began — visibility is per statement, not per
+    transaction.
+  - **Production configuration: UNKNOWN.** Production's `default_transaction_isolation` (server,
+    database or role setting) was not measured. Everything below assumes READ COMMITTED until it is.
 - Suspension and retirement take the agent row `FOR UPDATE`, so they serialize with a spend.
-- A mandate revision is **not** serialized with a spend: one that commits after the spend's mandate
-  read and before its commit is not seen, and that spend proceeds under the previous revision (the
-  L-2b residual). The revision writer reads nothing the spend writes, so the outcome is the same as the
-  spend having happened just before the revision. Later spends are checked against the new revision.
-- A mandate revision is **not immediate revocation**: it stops spends that begin after it commits; it
-  does not revoke issued permits, interrupt an external call already in flight, or undo an act.
+- A mandate revision is **not** serialized with a spend. Which revision a spend observes is decided by
+  when its mandate read *statement* starts: a revision committed before that statement starts is
+  read, whenever the spend's transaction began; one that commits after it is not seen, and that spend
+  proceeds under the previous revision (the L-2b residual). A spend is refused only if the revision it
+  observed no longer admits the requested act.
+- By analysis of the two transactions' read and write sets — the revision writer reads nothing the
+  spend writes — a spend that did not observe the revision has an outcome equivalent to the spend
+  having happened just before the revision.
+  This is an analytic conclusion, not an experimentally verified concurrency result.
+- A mandate revision is **not immediate revocation**: it does not revoke issued permits, it does not
+  interrupt an external call already in flight, and it does not undo an act. Permit consumption is not
+  execution success.
 - Classification: expected behavior. No exploit was identified.
 
 ## Related maintenance
