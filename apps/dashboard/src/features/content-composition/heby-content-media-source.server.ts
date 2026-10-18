@@ -45,14 +45,14 @@ import {
   GOOGLE_YOUTUBE_PROVIDER_KEY,
   GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY,
 } from "@/features/provider-google/contracts";
-import { listArtifactVideoGenerations } from "@/features/media-assets/async-generation-lifecycle.server";
-import { listArtifactMediaAssets } from "@/features/media-assets/read-media-assets.server";
-import { listArtifactMediaVideos } from "@/features/media-assets/read-media-videos.server";
+import { listArtifactVideoGenerations } from "@/features/media-assets/read-video-generations.server";
+import { listArtifactMediaAssets } from "@/features/media-assets/media-asset-records.server";
+import { listArtifactMediaVideos } from "@/features/media-assets/media-video-records.server";
 import {
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 } from "@/features/media-generation-live/higgsfield-video-control";
-import { readMediaAssetReviewStates } from "@/features/media-asset-review/review-media-asset.server";
+import { readMediaAssetReviewStates } from "@/features/media-asset-review/read-media-asset-review-states.server";
 import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
 import {
   CONTENT_PUBLICATION_NON_CLAIM,

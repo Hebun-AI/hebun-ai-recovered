@@ -147,11 +147,13 @@ async function main(): Promise<void> {
     /* HEBY-TRUTH-UX-REPAIR-1: the I1 capability read (writer-free) and the two YouTube identifiers. */
     "@/features/integration-authority/capability-availability.server": ["getCapabilityAvailability"],
     "@/features/provider-google/contracts": ["GOOGLE_YOUTUBE_PROVIDER_KEY", "GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY"],
-    "@/features/media-assets/async-generation-lifecycle.server": ["listArtifactVideoGenerations"],
-    "@/features/media-assets/read-media-assets.server": ["listArtifactMediaAssets"],
-    "@/features/media-assets/read-media-videos.server": ["listArtifactMediaVideos"],
+    /* SUITE-RECOVERY-1 (RC-A): the same three listings, read from their store- and transport-free modules. */
+    "@/features/media-assets/read-video-generations.server": ["listArtifactVideoGenerations"],
+    "@/features/media-assets/media-asset-records.server": ["listArtifactMediaAssets"],
+    "@/features/media-assets/media-video-records.server": ["listArtifactMediaVideos"],
     "@/features/media-generation-live/higgsfield-video-control": ["HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY", "HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY"],
-    "@/features/media-asset-review/review-media-asset.server": ["readMediaAssetReviewStates"],
+    /* SUITE-RECOVERY-1 (RC-A): the same review read, from its writer-free module. */
+    "@/features/media-asset-review/read-media-asset-review-states.server": ["readMediaAssetReviewStates"],
     "@/features/work-artifacts/read-work-artifacts.server": ["listWorkArtifacts"],
     "@/features/work-artifacts/artifact-ref": ["formatWorkArtifactRef"],
     "@/features/work-artifacts/contracts": ["CONTENT_DRAFT_TYPE"],

@@ -42,8 +42,8 @@ import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact"
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isUuid } from "@/features/media-assets/contracts";
 import { resolveMediaDbOrNull } from "@/features/media-assets/media-db.server";
-import { readMediaAssetReviewStates } from "@/features/media-asset-review/review-media-asset.server";
-import { readArtifactRevisionReviewStates } from "@/features/work-artifact-review/review-revision.server";
+import { readMediaAssetReviewStates } from "@/features/media-asset-review/read-media-asset-review-states.server";
+import { readArtifactRevisionReviewStates } from "@/features/work-artifact-review/read-revision-review-states.server";
 import { isContentDestination } from "@/features/work-artifacts/contracts";
 import type {
   ContentPackageBlocker,

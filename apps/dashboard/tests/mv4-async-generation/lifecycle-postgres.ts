@@ -14,7 +14,7 @@
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client } from "pg";
@@ -149,13 +149,72 @@ async function checkProof(client: Client, id: string): Promise<void> {
   }
 }
 
+/*
+ * SUITE-RECOVERY-1 B1: the read-only lifecycle observer OBSERVES the asynchronous lifecycle and
+ * never moves it — no write, no transition, no writer, transport, store or network in reach.
+ */
+function readerObservesOnly(reader: string, owner: string): void {
+  const codeOf = (f: string) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  /* Static, re-export, side-effect, dynamic and require imports alike. */
+  const specs = (c: string) => [...c.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["']([^"']+)["']/g)].map((m) => m[1]!);
+  const code = codeOf(reader);
+  for (const m of code.matchAll(/^.*\b(providerOutputRef|providerAcceptedAt|providerCompletedAt|lastPolledAt|pollCount)\s*:.*$/gm)) {
+    const f = m[1]!;
+    const line = m[0].trim();
+    assert.ok(
+      line.startsWith(`readonly ${f}:`) || [`${f}: t.${f},`, `${f}: r.${f},`, `${f}: iso(r.${f}),`].includes(line),
+      `the reader names ${f} only as a view type, a select projection or a view mapping: ${line}`,
+    );
+  }
+  assert.ok(!/state:\s*"/.test(code), "the reader names no lifecycle state to move to");
+  assert.ok(!/\.(insert|update|delete|set|values|returning|execute|transaction|onConflict\w*)\s*\(/.test(code), "the reader makes no database write");
+  assert.ok(!/\b(insert|update|delete|truncate|alter)\b/i.test(code), "nor one in raw SQL");
+  assert.deepEqual([...code.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)].map((m) => m[1]), ["listArtifactVideoGenerations"], "the reader exports one read and no transition");
+  assert.deepEqual(
+    specs(code),
+    ["drizzle-orm", "@/db/client.server", "@/db/schema/media-asset", "@/features/auth/tenant/tenant-context", "./contracts", "./media-db.server"],
+    "the reader's imports are pinned",
+  );
+  const resolve = (spec: string, from: string): string | null => {
+    const base = spec.startsWith("@/") ? path.join(SRC, spec.slice(2)) : spec.startsWith(".") ? path.join(path.dirname(from), spec) : null;
+    if (!base) return null;
+    for (const ext of ["", ".ts", ".tsx", "/index.ts", "/index.tsx"]) if (existsSync(base + ext) && statSync(base + ext).isFile()) return base + ext;
+    return null;
+  };
+  const reached = new Set([reader]);
+  const queue = [reader];
+  while (queue.length) {
+    const f = queue.shift()!;
+    for (const s of specs(codeOf(f))) {
+      const t = resolve(s, f);
+      if (t && !reached.has(t)) {
+        reached.add(t);
+        queue.push(t);
+      }
+    }
+  }
+  for (const f of reached) {
+    const rel = path.relative(SRC, f);
+    assert.ok(f !== owner && !/transport|object-store|storage|media-generation-live|lifecycle/.test(rel), `the reader reaches no writer, transport or store: ${rel}`);
+    assert.ok(!/\bfetch\s*\(|\.(insert|update|delete|execute|transaction)\s*\(/.test(codeOf(f)), `nothing the reader reaches writes or calls the network: ${rel}`);
+  }
+}
+
 function firewallProof(): void {
   const files = walk(SRC).filter((f) => /\.(ts|tsx)$/.test(f));
   const owner = path.join(SRC, "features/media-assets/async-generation-lifecycle.server.ts");
   const writes = /\b(providerOutputRef|providerAcceptedAt|providerCompletedAt|lastPolledAt|pollCount)\s*:|state:\s*"(dispatching|dispatch-unknown|provider-pending)"/;
-  const offenders = files.filter((f) => f !== owner && !f.includes("/db/schema/") && writes.test(readFileSync(f, "utf8")));
+  /*
+   * SUITE-RECOVERY-1 B1: ONE named read-only module may NAME lifecycle fields, because it observes
+   * them (select projection, view mapping, view type). It is proven below to observe only; no other
+   * file gains the exception, and the pattern every other file is held to is unchanged.
+   */
+  const reader = path.join(SRC, "features/media-assets/read-video-generations.server.ts");
+  const offenders = files.filter((f) => f !== owner && f !== reader && !f.includes("/db/schema/") && writes.test(readFileSync(f, "utf8")));
   assert.deepEqual(offenders, [], "only the lifecycle writer writes the asynchronous lifecycle");
   const ownerText = readFileSync(owner, "utf8");
+  assert.ok(writes.test(ownerText) && /\.update\(mediaGenerationInvocations\)/.test(ownerText), "the lifecycle writer remains the writer");
+  readerObservesOnly(reader, owner);
   assert.ok(!/mediaAssets\b/.test(ownerText), "the lifecycle writer never names media_assets");
   assert.ok(!/admissionOutcome\s*:\s*"/.test(ownerText) && !/admissionFailure/.test(ownerText), "and never writes admission_outcome");
   assert.ok(!/fake-async-video-transport|SIMULATED/.test(readFileSync(path.join(SRC, "features/media-assets/async-generation-transport.server.ts"), "utf8")), "the production resolver cannot reach the simulated transport");

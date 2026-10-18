@@ -31,7 +31,7 @@
  * Server-only.
  */
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
+import type { ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
 import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -43,9 +43,7 @@ import {
 } from "@/features/governance-decision/authority-read.server";
 import { validateJustification } from "@/features/governance-decision/persistence.server";
 import {
-  ARTIFACT_REVIEW_ACCEPTED_OUTCOME,
   ARTIFACT_REVIEW_ACCEPT_TYPE,
-  ARTIFACT_REVIEW_REJECTED_OUTCOME,
   ARTIFACT_REVIEW_REJECT_TYPE,
   ARTIFACT_REVIEW_SUBJECT_TYPE,
   type ArtifactCurrentReviewStates,
@@ -54,20 +52,16 @@ import {
   type ArtifactReviewRefusal,
   type ArtifactReviewResult,
 } from "./contracts";
+import {
+  deriveReviewStates,
+  readArtifactRevisionReviewStates,
+  resolveReviewDbOrNull,
+  type ArtifactReviewDeps,
+  type RevisionRow,
+} from "./read-revision-review-states.server";
 
-export interface ArtifactReviewDeps {
-  readonly getDb?: () => ControlPlaneDatabase | null;
-  readonly now?: () => Date;
-}
-
-export function resolveReviewDbOrNull(): ControlPlaneDatabase | null {
-  if (!process.env.DATABASE_URL?.trim()) return null;
-  try {
-    return getControlPlaneDb();
-  } catch {
-    return null;
-  }
-}
+/* TRH-10 readers — moved to their own writer-free module (SUITE-RECOVERY-1, RC-A); re-exported unchanged. */
+export { readArtifactRevisionReviewStates, resolveReviewDbOrNull, type ArtifactReviewDeps };
 
 /** Aborts the transaction when a governed rule refuses mid-flight. */
 class ReviewAbort extends Error {
@@ -291,100 +285,6 @@ export async function requestArtifactRevisionChanges(
   deps: ArtifactReviewDeps = {},
 ): Promise<ArtifactReviewResult> {
   return review(tenant, input, "changes-requested", deps);
-}
-
-/**
- * The DERIVED review state of the revisions of one artifact — read from the Governance ledger, not
- * from any column on the artifact.
- *
- * "Current" means the LATEST decision for that exact revision, by `decided_at`. Earlier decisions
- * are not hidden: `decisionCount` reports how many exist, so a reader can see that an organization
- * reversed itself rather than being shown only the answer.
- */
-export async function readArtifactRevisionReviewStates(
-  tenant: TenantContext | null,
-  artifactId: string,
-  deps: ArtifactReviewDeps = {},
-): Promise<readonly ArtifactRevisionReviewState[]> {
-  if (!tenant?.tenantId) return [];
-  const db = (deps.getDb ?? resolveReviewDbOrNull)();
-  if (!db) return [];
-
-  try {
-    const revisions = await db
-      .select({ id: workArtifactRevisions.id, revisionNo: workArtifactRevisions.revisionNo })
-      .from(workArtifactRevisions)
-      .where(
-        and(
-          eq(workArtifactRevisions.artifactId, artifactId),
-          eq(workArtifactRevisions.tenantId, tenant.tenantId),
-        ),
-      )
-      .orderBy(desc(workArtifactRevisions.revisionNo));
-    if (revisions.length === 0) return [];
-
-    const decisions = await db
-      .select({
-        subjectId: decisionRecords.subjectId,
-        decisionId: decisionRecords.id,
-        outcome: decisionRecords.outcome,
-        decidedAt: decisionRecords.decidedAt,
-      })
-      .from(decisionRecords)
-      .where(
-        and(
-          eq(decisionRecords.tenantId, tenant.tenantId),
-          eq(decisionRecords.subjectType, ARTIFACT_REVIEW_SUBJECT_TYPE),
-          sql`${decisionRecords.subjectId} in ${revisions.map((r) => r.id)}`,
-        ),
-      )
-      .orderBy(desc(decisionRecords.decidedAt));
-
-    return deriveReviewStates(revisions, decisions);
-  } catch {
-    return [];
-  }
-}
-
-interface RevisionRow {
-  readonly id: string;
-  readonly revisionNo: number;
-}
-
-interface DecisionRow {
-  readonly subjectId: string | null;
-  readonly decisionId: string;
-  readonly outcome: string | null;
-  readonly decidedAt: Date | string | null;
-}
-
-/**
- * THE ONE DERIVATION. Both readers call it, so "the current review state of a revision" cannot mean
- * two things. `decisions` must be ordered newest-first; the latest decision for a revision wins and
- * every earlier one is still counted.
- */
-function deriveReviewStates(
-  revisions: readonly RevisionRow[],
-  decisions: readonly DecisionRow[],
-): readonly ArtifactRevisionReviewState[] {
-  return revisions.map((revision) => {
-    const mine = decisions.filter((d) => d.subjectId === revision.id);
-    const latest = mine[0];
-    return {
-      revisionId: revision.id,
-      revisionNo: revision.revisionNo,
-      decision: latest
-        ? latest.outcome === ARTIFACT_REVIEW_ACCEPTED_OUTCOME
-          ? ("accepted" as const)
-          : latest.outcome === ARTIFACT_REVIEW_REJECTED_OUTCOME
-            ? ("changes-requested" as const)
-            : null
-        : null,
-      decidedAt: latest?.decidedAt ? new Date(latest.decidedAt).toISOString() : null,
-      decisionId: latest?.decisionId ?? null,
-      decisionCount: mine.length,
-    };
-  });
 }
 
 /**

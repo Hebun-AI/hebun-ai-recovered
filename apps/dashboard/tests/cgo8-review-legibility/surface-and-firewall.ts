@@ -95,7 +95,10 @@ function fourClosedAnswers(): void {
 function writersUnchangedAndReaderWritesNothing(): void {
   const source = read(REVIEW);
   const start = source.indexOf("async function review(");
-  const end = source.indexOf("/**\n * The DERIVED review state of the revisions of one artifact");
+  /* SUITE-RECOVERY-1 (RC-A): the per-artifact reader moved to read-revision-review-states.server.ts;
+   * the writer region now ends where the CGO-8 batched reader begins. Its bytes — and so the released
+   * digest below — are unchanged. */
+  const end = source.indexOf("/**\n * CGO-8 — the derived review state of the CURRENT revision");
   assert.ok(start > 0 && end > start, "the writer region is present to pin");
   assert.equal(
     createHash("sha256").update(source.slice(start, end)).digest("hex"),

@@ -15,7 +15,8 @@ const read = (f: string): string => readFileSync(f, "utf8");
 const strip = (c: string): string =>
   c.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-const READER = "src/features/media-assets/read-media-assets.server.ts";
+/* SUITE-RECOVERY-1 (RC-A): the MEDIA-4A listing moved, verbatim, to the store-free record module. */
+const READER = "src/features/media-assets/media-asset-records.server.ts";
 const ACTIONS = "src/app/(dashboard)/operations/actions.ts";
 const COMPOSER = "src/components/operations-preparation/operations-preparation.tsx";
 const CARD = "src/components/operations-preparation/revision-media-assets.tsx";
