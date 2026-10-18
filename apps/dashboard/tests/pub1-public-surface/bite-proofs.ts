@@ -139,13 +139,14 @@ function main(): void {
     '        read: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),\n        write: Object.freeze(["https://www.googleapis.com/auth/drive.file"]),',
   );
 
+  /* KNOWLEDGE-SEARCH-V1 connected `search`; the same proof now guards the semantic denial the site still publishes. */
   bites(
-    "Knowledge search is connected while the site still publishes that no search surface exists",
+    "semantic retrieval is connected while the site still publishes that there is no semantic matching",
     KNOWLEDGE_MAP,
     CLAIM_SUITE,
-    'the published limit denies "search"',
-    '    capability: "search" as const,\n    label: "Knowledge search",\n    state: "not-connected" as const,',
-    '    capability: "search" as const,\n    label: "Knowledge search",\n    state: "connected" as const,',
+    'the published limit denies "semantic-retrieval"',
+    '    capability: "semantic-retrieval" as const,\n    label: "Semantic retrieval",\n    state: "not-connected" as const,',
+    '    capability: "semantic-retrieval" as const,\n    label: "Semantic retrieval",\n    state: "connected" as const,',
   );
 
   bites(

@@ -27,10 +27,10 @@
  *   the filter matched none  → an inline note. The corpus is NOT empty; the query is narrow.
  *
  * The filter is client-side ON PURPOSE. `searchKnowledge` exists in `knowledge-read.server.ts` with
- * richer semantics (`empty-query` / `empty-corpus` / `no-match` / `matched`) and exactly one
- * consumer — Heby's evidence resolver. Adding a second server consumer would be a new seam this
- * phase was not asked for; narrowing a list the viewer has already been served is not a read at
- * all. The distinction is stated in the UI rather than implied.
+ * richer semantics (`empty-query` / `empty-corpus` / `no-match` / `matched`); its consumers are
+ * Heby's evidence resolver and Heby's `/search` (KNOWLEDGE-SEARCH-V1). Wiring it here would be a new
+ * seam this phase was not asked for; narrowing a list the viewer has already been served is not a
+ * read at all. The distinction is stated in the UI rather than implied.
  *
  * Content is rendered as TEXT through React's escaping; a statement containing markup or a command
  * is displayed, never executed.

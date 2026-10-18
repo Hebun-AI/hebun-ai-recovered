@@ -3,8 +3,8 @@
  *
  * The rule this file defends is that the registry states CAPABILITY, not ambition. K1 activated
  * exactly the two Knowledge commands whose authority it proved (/knowledge, /source) and left
- * /search unavailable, because search has no authority at all. A later phase that flips /search
- * without building a search authority fails here.
+ * /search unavailable. KNOWLEDGE-SEARCH-V1 then built the search product over the same authority
+ * and flipped it; the pins below moved with it, and still forbid any claim of semantic search.
  *
  * It also proves Knowledge enters natural-language answers as EVIDENCE through the existing
  * deterministic assembly — and only for a workspace that already declares the knowledge source
@@ -143,26 +143,16 @@ async function main(): Promise<void> {
 
     assert.equal(knowledge.availability, "available", "/knowledge has a proven read authority");
     assert.equal(source.availability, "available", "/source has a proven read authority");
-    assert.equal(search.availability, "requires-source", "/search has none, and stays unavailable");
     /*
-     * KR3 FALSIFIED THE OLD PREMISE, so this assertion had to move with it. The reason used to be
-     * "no index, no ranking model, and no relevance authority" — a ranking model and a relevance
-     * computation now exist. The VERDICT is unchanged and still pinned above: /search stays
-     * unavailable. What changed is why, and a test that kept pinning a dead premise would have been
-     * green precisely because a stale claim survived.
+     * KNOWLEDGE-SEARCH-V1 moved /search to available. It was pinned unavailable here, with a reason
+     * naming the missing search PRODUCT; that product phase was authorized and built over the same
+     * canonical authority, so the verdict moved — and the claim it must never make moved with it.
      */
-    assert.match(
-      search.unavailableReason!,
-      /no search product|no search surface/i,
-      "/search names what is actually missing — the product, not the ranking",
-    );
-    assert.ok(
-      !/no ranking model|no relevance authority/i.test(search.unavailableReason!),
-      "and no longer claims Hebun cannot rank, because after KR3 it can",
-    );
+    assert.equal(search.availability, "available", "/search reads the canonical Knowledge authority");
+    assert.match(search.description, /lexical, not semantic/i, "/search never claims to understand meaning");
 
     // Both activated commands are READS: they cannot reach the model, and cannot execute.
-    for (const command of [knowledge, source]) {
+    for (const command of [knowledge, source, search]) {
       assert.equal(command.kind, "read");
       assert.equal(command.requiresModel, false, `${command.slash} never requires the model`);
       assert.equal(command.requiresExecution, false, `${command.slash} never requires execution`);
@@ -174,27 +164,22 @@ async function main(): Promise<void> {
     const family = HEBY_COMMANDS.filter((command) => command.category === "knowledge");
     assert.deepEqual(
       family.map((command) => [command.id, command.availability]),
-      [["knowledge", "available"], ["search", "requires-source"], ["source", "available"]],
+      [["knowledge", "available"], ["search", "available"], ["source", "available"]],
     );
   }
 
   /* ── 21. DISPATCH: A READ PLAN, NEVER A PROMPT ───────────────────────────── */
   {
-    for (const [id, args] of [["knowledge", []], ["source", ["security-policy"]]] as const) {
+    for (const [id, args] of [["knowledge", []], ["source", ["security-policy"]], ["search", ["anything"]]] as const) {
       const plan = planHebyCommand(findHebyCommandById(id)!, args, CONTEXT);
       assert.equal(plan.kind, "read", `/${id} plans a server read`);
       assert.ok(!("prompt" in plan), `/${id} can never carry a model prompt`);
     }
-    // /search is refused BEFORE any server call, with its own reason.
-    const searchPlan = planHebyCommand(findHebyCommandById("search")!, ["anything"], CONTEXT);
-    assert.equal(searchPlan.kind, "unavailable");
-    assert.equal(searchPlan.result.tone, "unavailable");
-    assert.match(searchPlan.result.lines[0]!, /no search product|no search surface/i);
   }
 
   /* ── 22. THE SERVER READ: UNAUTHORIZED FAILS CLOSED ──────────────────────── */
   {
-    for (const commandId of ["knowledge", "source"]) {
+    for (const commandId of ["knowledge", "source", "search"]) {
       const result = await runHebyReadCommand(
         { commandId, args: ["security-policy"], route: "/knowledge" },
         { resolveTenant: async () => null },
@@ -221,9 +206,10 @@ async function main(): Promise<void> {
      * because `pg_trgm` is not installed. Search, semantic retrieval and embeddings are unchanged
      * and still named. The assertions pin the reason rather than accepting any number.
      */
-    assert.match(body, /Not connected \(4\)/, "the four unconnected capabilities are named");
+    // KNOWLEDGE-SEARCH-V1 connected `search`, so three remain — each still named.
+    assert.match(body, /Not connected \(3\)/, "the three unconnected capabilities are named");
+    assert.match(body, /Knowledge search — can show:/, "search is reported as CONNECTED");
     for (const stillAbsent of [
-      /Knowledge search/,
       /Semantic retrieval/,
       /Embeddings/,
       /Typo and near-miss tolerance/,
@@ -267,8 +253,8 @@ async function main(): Promise<void> {
     );
     assert.match(
       body,
-      /no search, embedding or semantic retrieval/i,
-      "and still states that readable is not findable",
+      /no embedding or semantic retrieval/i,
+      "and still states that knowledge is not findable by meaning",
     );
     assert.ok(
       !body.toLowerCase().includes("knowledge connected."),

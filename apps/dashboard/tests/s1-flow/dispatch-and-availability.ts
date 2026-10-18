@@ -254,9 +254,7 @@ async function main(): Promise<void> {
       permissions: /authorization analysis/i,
       // R2F.1: /usage gained a real aggregation authority and moved to the available set below.
       // K1: /knowledge and /source gained a real read authority and moved to the available set
-      // below. /search did NOT — after KR3 Hebun can rank, but there is still no search
-      // authority, so it stays blocked and now names that gap precisely.
-      search: /no search product|no search surface/i,
+      // below. KNOWLEDGE-SEARCH-V1: /search followed them — the KR3 seam with a result list.
       tasks: /task read model/i,
       activity: /activity stream/i,
     };
@@ -309,7 +307,8 @@ async function main(): Promise<void> {
     // K1: Knowledge listing and named-source read ARE available — the canonical Knowledge
     // authority (knowledge_facts → knowledge_nodes, tenant-scoped) backs them. They remain READS:
     // no model, no execution, and safe with the provider off.
-    for (const [id, args] of [["knowledge", []], ["source", ["security-policy"]]] as const) {
+    // KNOWLEDGE-SEARCH-V1: /search joins them on the same terms.
+    for (const [id, args] of [["knowledge", []], ["source", ["security-policy"]], ["search", ["return policy"]]] as const) {
       const command = findHebyCommandById(id)!;
       assert.equal(command.availability, "available", `/${id} is backed by the Knowledge authority`);
       assert.equal(command.kind, "read", `/${id} is a read`);

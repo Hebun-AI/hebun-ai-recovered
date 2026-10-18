@@ -5717,6 +5717,7 @@ re-graded here.
 | AP-6a | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` |
 | AP2-RULE6-RAW-SQL-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ap2-rule6-raw-sql-hardening-closure.md` |
 | SUITE-RECOVERY-1 | VERIFIED | `docs/product-vision/runtime/hebun-suite-recovery-1-closure.md` |
+| KNOWLEDGE-SEARCH-V1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` |
 
 ---
 
@@ -5795,3 +5796,4 @@ before §16.1 are not yet indexed (Phase B).
 | AP5-APPROVALS-RATIONALE-LABEL-1 | AP-5 | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` | Legibility | CLOSED | — |
 | AP6A-WITHDRAW-UNEXERCISED-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A Director-approved production withdrawal, or a genuine one |
 | AP6A-APPROVALS-LABEL-LIVE-AGENT-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A genuine non-Heby agent proposal observed on `/approvals`, read only; none created for the purpose |
+| KS1-BROWSER-UNVERIFIED-1 | KNOWLEDGE-SEARCH-V1 | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` | Verification gap | DEFERRED | A signed-in local or production render of `/search`, read only |

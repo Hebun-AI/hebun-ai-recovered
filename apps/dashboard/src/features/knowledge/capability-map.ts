@@ -109,23 +109,23 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
   Object.freeze({
     capability: "search" as const,
     label: "Knowledge search",
-    state: "not-connected" as const,
+    state: "connected" as const,
     /*
-     * KR3 falsified the previous wording, which claimed no ranking model or relevance authority
-     * existed anywhere. One does now. What is still absent is the SEARCH PRODUCT, and that is what
-     * this entry must say — a capability that reports a reason which has stopped being true is worse
-     * than one that reports nothing, because the reason is what a reader trusts.
+     * KNOWLEDGE-SEARCH-V1 connected this through Heby's `/search`: the separate product phase the
+     * previous wording said it would take. It is the KR3 retrieval seam with a result presentation,
+     * not a second retrieval — so everything `retrieval` cannot prove, this cannot either.
      */
     authority:
-      "None. Knowledge retrieval exists (see `retrieval`), but no search PRODUCT does: there is no search surface, no result presentation, and no citation experience. Enabling one is a separate, explicitly authorized product phase.",
-    canProve: "Nothing — no search runtime exists for a person to search with.",
+      "Heby's `/search` command over the KR3 retrieval seam — the same tenant-scoped, read-only match `retrieval` uses — with Governance's standing read per result. It owns no table and persists nothing.",
+    canProve:
+      "Which of your organization's knowledge records share words with a query a person typed, best text match first, each with its key, title, Knowledge status, Governance standing, an excerpt and the `/source` command that opens it; and how many matching records were not served, by reason.",
     cannotProve:
-      "That Hebun offers a place to go searching. Retrieval selects evidence for a question Heby is already answering; it is not a browse or discovery surface, and it returns no user-facing result list, ranking explanation, or citation.",
+      "That a record is relevant by MEANING: matching is lexical, so different wording or another language may find nothing. That a top result is true, current or approved — order is a text-match score. There is no search page, filter, saved search or citation export; only Heby's command exists.",
   }),
   /*
    * KR3. Distinct from `search`, and the distinction is the product boundary, not a hedge: this
-   * selects evidence for a question Heby is already answering. It is not an enterprise search
-   * capability, it has no user-facing search surface, and `/search` stays unavailable.
+   * selects evidence for a question Heby is already answering. `search` is the person-facing result
+   * list built on this same seam (KNOWLEDGE-SEARCH-V1); this entry is the evidence path itself.
    */
   Object.freeze({
     capability: "retrieval" as const,
@@ -189,7 +189,7 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
     canProve:
       "That text a permitted human supplied — pasted, read from a UTF-8 .txt or .md file, or extracted from a text-bearing PDF they selected — is now held as canonical knowledge records, split deterministically, attributed to its source title, its source type and the person who ingested it, and standing as PROVISIONAL drafts. That the same authority can WITHDRAW everything one source produced, in one governed act: the records move to a terminal lifecycle, stop reaching Heby and stop counting toward company coverage, and keep their text, versions and history — nothing is deleted, and a source containing ratified Knowledge is refused because withdrawing it would reverse a Governance decision.",
     cannotProve:
-      "That anything ingested was reviewed, approved or ratified — ingesting is not ratifying. That a PDF was UNDERSTOOD rather than read: its text is extracted as prose, so tables are flattened, multi-column pages may interleave, headers and page numbers are not removed, and no answer can cite a page. That a scanned or image-only PDF can be read at all — there is no OCR, and such a file is refused rather than ingested empty. That an encrypted or password-protected PDF can be opened: Hebun accepts no document password. That DOCX, HTML, CSV, spreadsheets, images or archives can be read at all, or that a file in a non-UTF-8 encoding is converted rather than refused. That any uploaded file was KEPT: the bytes end with the request, nothing is written to storage or to a filesystem, no object store exists, and the `documents` table still has no consumer. That any URL, connector, scheduled import or automated sync exists — every ingestion is one deliberate human act. That ingested knowledge is findable by meaning, which needs the search, semantic-retrieval and embedding capabilities this map still reports as not connected.",
+      "That anything ingested was reviewed, approved or ratified — ingesting is not ratifying. That a PDF was UNDERSTOOD rather than read: its text is extracted as prose, so tables are flattened, multi-column pages may interleave, headers and page numbers are not removed, and no answer can cite a page. That a scanned or image-only PDF can be read at all — there is no OCR, and such a file is refused rather than ingested empty. That an encrypted or password-protected PDF can be opened: Hebun accepts no document password. That DOCX, HTML, CSV, spreadsheets, images or archives can be read at all, or that a file in a non-UTF-8 encoding is converted rather than refused. That any uploaded file was KEPT: the bytes end with the request, nothing is written to storage or to a filesystem, no object store exists, and the `documents` table still has no consumer. That any URL, connector, scheduled import or automated sync exists — every ingestion is one deliberate human act. That ingested knowledge is findable by meaning, which needs the semantic-retrieval and embedding capabilities this map still reports as not connected — `search` finds it by its words only.",
   }),
   Object.freeze({
     capability: "embeddings" as const,

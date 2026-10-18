@@ -304,7 +304,7 @@ async function main(): Promise<void> {
         assert.ok(!JSON.stringify(aList).includes(USER_B));
       }
 
-      /* ── 25. /knowledge AND /source SEE IT; /search STAYS UNAVAILABLE ─────── */
+      /* ── 25. /knowledge, /source AND /search SEE IT ─────────────────────────── */
       {
         const commandDeps = {
           resolveTenant: async () => tenantContext(TENANT_A, USER_A),
@@ -328,13 +328,15 @@ async function main(): Promise<void> {
         assert.equal(source.result.tone, "info");
         assert.match(source.result.lines.join("\n"), /race-fact/, "/source retrieves it by identity");
 
-        // Creating Knowledge did not create a search authority.
-        assert.equal(findHebyCommandById("search")!.availability, "requires-source");
+        // KNOWLEDGE-SEARCH-V1: /search is available, reads the same tenant's records, and points at /source.
+        assert.equal(findHebyCommandById("search")!.availability, "available");
         const search = await runHebyReadCommand(
-          { commandId: "search", args: ["policy"], route: "/knowledge" },
+          { commandId: "search", args: ["Güvenlik"], route: "/knowledge" },
           commandDeps,
         );
-        assert.equal(search.status, "rejected");
+        assert.equal(search.status, "ok");
+        if (search.status !== "ok") throw new Error("unreachable");
+        assert.match(search.result.lines.join("\n"), /Read it: \/source security-policy/, "/search finds it and names its /source key");
       }
 
       /* ── 26. HEBY GROUNDS ON IT — AS EVIDENCE, WITH ZERO DISPATCH ────────── */

@@ -388,9 +388,13 @@ export function run(): void {
     }
   }
 
-  /* ── 10. /SEARCH, SEMANTIC RETRIEVAL AND EMBEDDINGS STAY UNAVAILABLE ───── */
+  /* ── 10. SEMANTIC RETRIEVAL AND EMBEDDINGS STAY UNAVAILABLE ─────────────
+   * `search` left this list with KNOWLEDGE-SEARCH-V1: lexical search is Heby's `/search` command,
+   * not this evidence panel, and the panel below is still pinned as no search surface.
+   */
   {
-    for (const capability of ["search", "semantic-retrieval", "embeddings"] as const) {
+    assert.equal(findKnowledgeCapability("search").state, "connected", "KNOWLEDGE-SEARCH-V1 — Heby's /search");
+    for (const capability of ["semantic-retrieval", "embeddings"] as const) {
       assert.equal(
         findKnowledgeCapability(capability).state,
         "not-connected",

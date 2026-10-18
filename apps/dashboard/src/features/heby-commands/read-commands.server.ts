@@ -23,6 +23,9 @@
  *                                         what each security source can and cannot prove. It
  *                                         reports the ABSENCE of a live feed as the finding it is.
  *   /history                               the durable conversation the operator is actually in.
+ *   /search                                (KNOWLEDGE-SEARCH-V1) the KR3 retrieval seam, the same one
+ *                                         Heby's evidence uses, as a ranked list of the tenant's own
+ *                                         records — lexical, each pointing at /source.
  *   /knowledge /source                     (K1) the canonical Knowledge authority — knowledge_facts
  *                                         joined to its active knowledge_nodes row, read
  *                                         tenant-scoped over the durable control-plane database. It
@@ -79,9 +82,18 @@ import {
   describeKnowledgeRecord,
   readKnowledgeAvailability,
   readKnowledgeSourceByName,
+  searchKnowledge,
   type KnowledgeReadDeps,
 } from "@/features/knowledge/knowledge-read.server";
 import { KNOWLEDGE_PROVENANCE, type KnowledgeSourceRecord } from "@/features/knowledge/contracts";
+import {
+  RETRIEVAL_PROVENANCE,
+  type RetrievalExclusionReason,
+} from "@/features/knowledge-retrieval";
+import {
+  describeKnowledgeGovernanceStanding,
+  readKnowledgeGovernanceStandings,
+} from "@/features/heby-answer/knowledge-evidence.server";
 import { findHebyCommandById } from "./registry";
 import { readWorkRegister, type WorkRegister } from "@/features/organizational-work/read-work.server";
 import type { AgentOriginationAvailability } from "@/features/origination-availability/contracts";
@@ -142,6 +154,8 @@ export interface HebyReadCommandDeps {
   readonly getConversationRepo?: () => DurableConversationRepository | null;
   /** K1 — the canonical Knowledge read seam. Injectable so the flow is provable with no database. */
   readonly knowledge?: KnowledgeReadDeps;
+  /** KNOWLEDGE-SEARCH-V1 — Governance's standing per result. Injectable so fail-closed is provable. */
+  readonly readKnowledgeStandings?: typeof readKnowledgeGovernanceStandings;
   /**
    * R7.1.1 — the recorded act history seam. THE SAME reader the Governance Activity observation
    * uses, reached through the projection that owns it rather than through any audit writer: the
@@ -209,7 +223,7 @@ const OVERVIEW_PROVENANCE =
  */
 const KNOWLEDGE_CLOSING = [
   "Plain text is ingested through the Knowledge workspace and lands as a provisional draft — stored is not reviewed, and nobody has endorsed it by putting it there. An empty result means your organization has none stored, not that a read failed.",
-  "There is no search, embedding or semantic retrieval over it: knowledge here is readable, not findable by meaning.",
+  "/search finds it by its words only. There is no embedding or semantic retrieval over it: knowledge here is findable by wording, not by meaning.",
   "Knowledge describes its own subject. It never states what the system is doing now; for that, the live read models remain the source.",
 ] as const;
 
@@ -242,6 +256,41 @@ function knowledgeRecordLines(record: KnowledgeSourceRecord): readonly string[] 
   if (record.nextReviewAt) lines.push(`  Next review: ${record.nextReviewAt}.`);
   if (record.health) lines.push(`  Declared health: ${record.health}.`);
   return lines;
+}
+
+/*
+ * KNOWLEDGE-SEARCH-V1 — what a search result is, and what it is not. Stated on every search so a
+ * ranked list is never read as a judgement about the knowledge.
+ */
+const SEARCH_EXCERPT_LIMIT = 200;
+const SEARCH_CLOSING = [
+  "Lexical search: records are matched and ordered by the words they share with your query, not by meaning. A record worded differently — or in another language — may not be found.",
+  "Order is a text-match score only. It does not say a record is true, current or approved; each result states its own standing.",
+] as const;
+const SEARCH_EXCLUSION_LABELS: Readonly<Record<RetrievalExclusionReason, string>> = {
+  "lifecycle-archived": "archived",
+  "lifecycle-retired": "retired",
+  "governance-rejected": "a version Governance declined",
+  expired: "expired",
+  "not-yet-effective": "not yet effective",
+  deleted: "deleted",
+};
+
+/** Counts per reason only — never the key or text of a record that was not served. */
+function exclusionLines(excluded: readonly { readonly reason: RetrievalExclusionReason }[]): readonly string[] {
+  if (excluded.length === 0) return [];
+  const counts = new Map<RetrievalExclusionReason, number>();
+  for (const { reason } of excluded) counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  return [
+    "",
+    `Matched but not served: ${excluded.length} — ${[...counts].map(([reason, n]) => `${n} ${SEARCH_EXCLUSION_LABELS[reason]}`).join(", ")}.`,
+  ];
+}
+
+function excerptOf(statement: string | null): string {
+  if (!statement) return "(no statement recorded)";
+  const flat = statement.replace(/\s+/g, " ").trim();
+  return flat.length > SEARCH_EXCERPT_LIMIT ? `${flat.slice(0, SEARCH_EXCERPT_LIMIT)}…` : flat;
 }
 
 function assertServerRuntime(): void {
@@ -780,6 +829,77 @@ export async function runHebyReadCommand(
      * read and plain-text ingestion are connected, search, semantic retrieval and embeddings are
      * not, and collapsing those into one word would be the lie this command exists to avoid.
      */
+    /* ── Knowledge search (KNOWLEDGE-SEARCH-V1) ───────────────────────────
+     * The query is TEXT matched against the tenant's own records — never a key, path or URL. The
+     * seam keeps its outcomes apart and fails closed on Governance's rejections; this adds
+     * Governance's standing per result and fails closed on that too. Nothing is persisted.
+     */
+    case "search": {
+      const query = input.args.join(" ").trim();
+      const title = query ? `Knowledge search — “${query}”` : "Knowledge search";
+      if (!query) {
+        return unavailable(slash, title, [
+          "/search needs words to look for. Nothing was read.",
+        ], "Local — the command was incomplete, so no read was performed.");
+      }
+
+      const result = await searchKnowledge(tenant, { queryText: query }, deps.knowledge);
+      switch (result.status) {
+        case "unavailable":
+          return unavailable(slash, title, [
+            `Knowledge could not be searched — ${result.reason}.`,
+            result.detail ?? "Nothing was substituted for it.",
+            "No result is shown rather than a partial one.",
+          ], RETRIEVAL_PROVENANCE);
+
+        case "empty-query":
+          return ok(slash, title, [
+            `“${query}” has no searchable word in it, so nothing was searched.`,
+          ], RETRIEVAL_PROVENANCE);
+
+        case "empty-corpus":
+          return ok(slash, title, [
+            "Your organization holds no knowledge records, so there is nothing to search. That is the real state, not a read failure.",
+          ], RETRIEVAL_PROVENANCE);
+
+        case "no-match":
+          return ok(slash, title, [
+            `No knowledge record matched “${query}”. Your organization does hold knowledge — none of it shares these words.`,
+            ...exclusionLines(result.excluded),
+            "",
+            ...SEARCH_CLOSING,
+            "/knowledge lists everything your organization holds.",
+          ], RETRIEVAL_PROVENANCE);
+
+        case "matched": {
+          const read = deps.readKnowledgeStandings ?? readKnowledgeGovernanceStandings;
+          const standings = await read(tenant, result.candidates.map(({ record }) => record));
+          if (standings.status !== "read") {
+            return unavailable(slash, title, [
+              "Records matched, but Governance's standing for them could not be read, so no result is shown.",
+              "A missing answer is never presented as approval.",
+            ], RETRIEVAL_PROVENANCE);
+          }
+          const more = result.truncated || result.diversityPruned > 0;
+          return ok(slash, title, [
+            `Results: ${result.candidates.length}, best text match first.${more ? " More records matched than are shown — narrow the query to see them." : ""}`,
+            ...(result.capability.degradedReason ? [result.capability.degradedReason] : []),
+            ...result.candidates.flatMap(({ record }, index) => [
+              "",
+              `${index + 1}. ${record.factKey} — ${record.title}`,
+              `  ${record.domainKey} · ${record.scope} · Knowledge status: ${record.lifecycleStatus ?? "not stated"} · ${record.authorityClass ?? "authority not stated"}`,
+              `  ${describeKnowledgeGovernanceStanding(standings.standings[index]!)}`,
+              `  “${excerptOf(record.statement)}”`,
+              `  Read it: /source ${record.factKey}`,
+            ]),
+            ...exclusionLines(result.excluded),
+            "",
+            ...SEARCH_CLOSING,
+          ], RETRIEVAL_PROVENANCE);
+        }
+      }
+    }
+
     case "knowledge": {
       const report = await readKnowledgeAvailability(tenant, deps.knowledge);
       const connected = report.capabilities.filter((entry) => entry.state === "connected");

@@ -336,8 +336,12 @@ function main(): void {
       /capability: "ingestion" as const,\s*\n\s*label: "Knowledge ingestion",\s*\n\s*state: "connected" as const,/,
       "the capability map states ingestion as connected",
     );
-    /* Connected is not a licence: search, semantic retrieval and embeddings stay absent. */
-    for (const stillAbsent of ["search", "semantic-retrieval", "embeddings"]) {
+    /*
+     * Connected is not a licence: semantic retrieval and embeddings stay absent. `search` left this
+     * list with KNOWLEDGE-SEARCH-V1 (lexical, Heby's /search), not because ingestion widened.
+     */
+    assert.match(map, /capability: "search" as const,[\s\S]{0,120}state: "connected" as const/);
+    for (const stillAbsent of ["semantic-retrieval", "embeddings"]) {
       assert.match(
         map,
         new RegExp(`capability: "${stillAbsent}" as const,[\\s\\S]{0,120}state: "not-connected" as const`),

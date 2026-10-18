@@ -16,10 +16,10 @@
  *                             conversation repository backs the current thread's own facts; and
  *                             (K1) the canonical Knowledge authority — knowledge_facts joined to
  *                             its active knowledge_nodes row, read tenant-scoped — backs
- *                             Knowledge listing and named-source read.
- *   NOT CONNECTED, so these   Knowledge SEARCH (no search surface, no result presentation, no
- *   are unavailable:          citation experience — ranking itself now exists, see below),
- *                             Memory retrieval, live policy evaluation, persisted audit history,
+ *                             Knowledge listing, named-source read and (KNOWLEDGE-SEARCH-V1)
+ *                             lexical search over the KR3 retrieval seam.
+ *   NOT CONNECTED, so these   Memory retrieval,
+ *   are unavailable:           live policy evaluation, persisted audit history,
  *                             incident feed, network telemetry, per-tenant permission analysis,
  *                             usage/spend aggregation, task and activity streams. Each says
  *                             exactly which source it is missing.
@@ -72,29 +72,6 @@ export const HEBY_CATEGORY_LABELS: Readonly<Record<HebyCommandCategory, string>>
  */
 const NO_EXECUTION_RUNTIME =
   "This command needs Hebun's execution/approval runtime, which does not exist yet. Nothing was run.";
-/*
- * K1 audited the Knowledge subsystem capability by capability, and they are NOT in the same state.
- * Listing and reading a named fact are backed by the canonical authority, so /knowledge and /source
- * read. /search stays unavailable — but KR3 changed WHY, and the reason had to be repaired rather
- * than left standing.
- *
- * THE OLD REASON IS NOW FALSE. It said there was "no ranking model, and no relevance authority
- * anywhere in this repository". KR3 built exactly that: a relevance ranking over the canonical
- * Knowledge authority, question-aware, tenant-scoped. Leaving the old sentence in place would have
- * been a true conclusion resting on a dead premise — the same record-integrity defect this codebase
- * has had to repair before, where a green suite stays green BECAUSE a stale claim survives.
- *
- * THE CONCLUSION IS UNCHANGED, and for a reason that has nothing to do with ranking: selecting
- * evidence for a question Heby is already answering is not an enterprise search PRODUCT. There is no
- * search surface, no result presentation, no citation UX, and no browse scope. Marking /search
- * available because retrieval now exists would be exactly the collapse ("Knowledge connected") that
- * K1 forbids — one capability standing in for a different one.
- */
-const NO_SEARCH_AUTHORITY =
-  "Hebun has no search product: there is no search surface, no result presentation, and no citation " +
-  "experience — enabling one is a separate product phase. Knowledge retrieval does exist, but it " +
-  "selects evidence for a question Heby is already answering; it is not a place to go searching. " +
-  "/knowledge lists what your organization actually holds, and /source reads one of them by name.";
 
 /** Local defaults for a plain, argument-free command. */
 function base(
@@ -326,8 +303,11 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
    * to its active knowledge_nodes row, tenant-scoped over the durable control-plane database.
    * That path is real, so these commands run; what they report is the tenant's REAL state, which
    * is empty until somebody ingests plain text through the Knowledge workspace. Reporting an empty
-   * organization honestly is the point. `/search` stays unavailable because search has no
-   * authority at all — being readable is not being findable — see NO_SEARCH_AUTHORITY.
+   * organization honestly is the point.
+   *
+   * KNOWLEDGE-SEARCH-V1 — `/search` is the separate product phase KR3 said it would take: a
+   * person's query through the SAME KR3 retrieval seam Heby's evidence uses, presented as a ranked
+   * result list that points at `/source`. Lexical only; no model, no new retrieval.
    */
   {
     id: "knowledge", slash: "/knowledge", label: "Knowledge", category: "knowledge", kind: "read",
@@ -336,10 +316,9 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
   },
   {
     id: "search", slash: "/search", label: "Search knowledge", category: "knowledge", kind: "read",
-    description: "Search organizational knowledge.",
-    availability: "requires-source", handler: "search", ...base("read"),
+    description: "Search your organization's knowledge by its words (lexical, not semantic).",
+    availability: "available", handler: "search", ...base("read"),
     args: [{ name: "query", required: true, description: "What to search for." }],
-    unavailableReason: NO_SEARCH_AUTHORITY,
   },
   {
     id: "source", slash: "/source", label: "Inspect a source", category: "knowledge", kind: "read",

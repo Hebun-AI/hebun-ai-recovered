@@ -219,11 +219,13 @@ function main(): void {
     );
 
     /*
-     * The DENIALS are load-bearing too. The published limit says there is no search surface, no
-     * semantic matching and no embeddings; if any of those becomes connected, the limit is stale
-     * and this fails — which is exactly when the sentence must be rewritten.
+     * The DENIALS are load-bearing too. The published limit says there is no semantic matching and
+     * no embeddings; if any of those becomes connected, the limit is stale and this fails — which is
+     * exactly when the sentence must be rewritten. KNOWLEDGE-SEARCH-V1 connected lexical `search`,
+     * which is what happened to the "no search surface" denial: it was removed, not left standing.
+     * Search itself stays withheld as a published claim (section 8).
      */
-    for (const denied of ["search", "semantic-retrieval", "fuzzy-matching", "embeddings"] as const) {
+    for (const denied of ["semantic-retrieval", "fuzzy-matching", "embeddings"] as const) {
       assert.equal(
         findKnowledgeCapability(denied).state,
         "not-connected",
@@ -232,7 +234,7 @@ function main(): void {
     }
 
     const answers = claim("evidence-backed-answers");
-    assert.match(answers.limit, /no search surface/i, "the search denial must be published");
+    assert.ok(!/no search surface/i.test(answers.limit), "a connected search is no longer denied in public");
     assert.match(answers.limit, /no semantic matching/i, "the semantic denial must be published");
 
     const ingestion = claim("knowledge-ingestion");

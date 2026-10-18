@@ -441,6 +441,56 @@ const RATIFICATION_UNAVAILABLE: RetrievalResult = {
   detail: "Governance's record of ratified Knowledge versions could not be read, so no Knowledge was served.",
 };
 
+/*
+ * KNOWLEDGE-SEARCH-V1 — the same Governance check, per record, for a human reading search results.
+ *
+ *   ratified       the record claims a ratification decision and Governance holds exactly that
+ *                  `ratify` decision for exactly this version, in this tenant.
+ *   unconfirmed    the record claims one and Governance does NOT hold it. Shown, never counted.
+ *   none           the record claims none (or has no active version to bind one to).
+ *
+ * Any read that cannot be answered makes the WHOLE read `unavailable`: a missing answer is never
+ * read as "none" and never as "ratified". Lives here, beside the Heby grounding rule it shares,
+ * so there is one implementation of what "ratified" means — and outside `heby-commands`, whose
+ * firewalls forbid those files from naming the ratification mutation at all.
+ */
+export type KnowledgeGovernanceStanding = "ratified" | "unconfirmed" | "none";
+
+export type KnowledgeGovernanceStandingsRead =
+  | { readonly status: "read"; readonly standings: readonly KnowledgeGovernanceStanding[] }
+  | { readonly status: "unavailable" };
+
+export async function readKnowledgeGovernanceStandings(
+  tenant: KnowledgeTenant,
+  records: readonly KnowledgeSourceRecord[],
+  read: RatifiedKnowledgeDeps["readRatificationDecisions"] = (t, id) => readKnowledgeRatificationDecisions(t, id),
+): Promise<KnowledgeGovernanceStandingsRead> {
+  const standings = await Promise.all(
+    records.map(async (record): Promise<KnowledgeGovernanceStanding | null> => {
+      const claimed = record.ratificationDecisionId;
+      if (claimed === null || record.activeKnowledgeNodeId === null) return "none";
+      const decisions = await read(tenant, record.activeKnowledgeNodeId).catch(() => ({ status: "unavailable" }) as const);
+      if (decisions.status !== "read") return null;
+      return decisions.ratifyDecisionIds.has(claimed) ? "ratified" : "unconfirmed";
+    }),
+  );
+  return standings.includes(null)
+    ? { status: "unavailable" }
+    : { status: "read", standings: standings as KnowledgeGovernanceStanding[] };
+}
+
+/** One line per standing, worded so a claim Governance does not hold is never read as approval. */
+export function describeKnowledgeGovernanceStanding(standing: KnowledgeGovernanceStanding): string {
+  switch (standing) {
+    case "ratified":
+      return "Ratification: ratified — Governance holds the decision for this version.";
+    case "unconfirmed":
+      return "Ratification: NOT confirmed — the record names a decision Governance does not hold for this version, so it is not treated as ratified.";
+    case "none":
+      return "Ratification: none recorded.";
+  }
+}
+
 export async function resolveRatifiedKnowledgeEvidence(
   tenant: KnowledgeTenant | null,
   query: string,
@@ -448,21 +498,16 @@ export async function resolveRatifiedKnowledgeEvidence(
 ): Promise<KnowledgeEvidenceOutcome> {
   let result = await searchKnowledge(tenant, { queryText: query }, deps);
   if (result.status === "matched" && tenant) {
-    const read = deps.readRatificationDecisions ?? ((t: KnowledgeTenant, id: string) => readKnowledgeRatificationDecisions(t, id));
     // ponytail: ratification filters AFTER the retrieval limit, so unratified matches can crowd out ratified ones; filter inside the ranked pool if that bites.
-    const verdicts = await Promise.all(
-      result.candidates.map(async ({ record }) => {
-        const claimed = record.ratificationDecisionId;
-        if (claimed === null || record.activeKnowledgeNodeId === null) return false;
-        const decisions = await read(tenant, record.activeKnowledgeNodeId).catch(() => ({ status: "unavailable" }) as const);
-        if (decisions.status !== "read") return null;
-        return decisions.ratifyDecisionIds.has(claimed);
-      }),
+    const standings = await readKnowledgeGovernanceStandings(
+      tenant,
+      result.candidates.map(({ record }) => record),
+      deps.readRatificationDecisions,
     );
-    if (verdicts.includes(null)) {
+    if (standings.status !== "read") {
       result = RATIFICATION_UNAVAILABLE;
     } else {
-      const kept = result.candidates.filter((_, index) => verdicts[index] === true);
+      const kept = result.candidates.filter((_, index) => standings.standings[index] === "ratified");
       result =
         kept.length > 0
           ? { ...result, candidates: kept, excluded: [] }

@@ -212,26 +212,24 @@ function main(): void {
     assert.match(fuzzy.authority, /pg_trgm/);
   }
 
-  /* ── 5. /SEARCH STAYS UNAVAILABLE — internal retrieval is not a search product ── */
+  /* ── 5. /SEARCH IS A SEPARATE PRODUCT PHASE, NOT KR3 ─────────────────────
+   * KR3 pinned /search unavailable because internal retrieval is not a search product. That phase
+   * now exists — KNOWLEDGE-SEARCH-V1 — and it is the KR3 seam presented as a Heby command, so the
+   * pin moves from "unavailable" to "available, lexical, and still no semantic retrieval".
+   */
   {
     const search = HEBY_COMMANDS.find((command) => command.id === "search");
     assert.ok(search, "the /search command is still registered");
-    assert.equal(search!.availability, "requires-source", "and is still NOT available");
-    /*
-     * The reason must name the missing PRODUCT, not a missing ranking — KR3 built the ranking, so
-     * a reason claiming otherwise would be false while the verdict it supports stays true.
-     */
-    assert.match(search!.unavailableReason ?? "", /no search product|no search surface/i);
-    assert.ok(
-      !/no ranking model|no relevance authority/i.test(search!.unavailableReason ?? ""),
-      "the retired premise must not come back",
-    );
+    assert.equal(search!.availability, "available", "KNOWLEDGE-SEARCH-V1 made it available");
+    assert.equal(search!.unavailableReason, undefined, "an available command carries no unavailable reason");
+    assert.match(search!.description, /lexical, not semantic/i, "and says what kind of search it is");
+    assert.equal(findKnowledgeCapability("search").state, "connected");
 
-    for (const capability of ["search", "semantic-retrieval", "embeddings"] as const) {
+    for (const capability of ["semantic-retrieval", "embeddings"] as const) {
       assert.equal(
         findKnowledgeCapability(capability).state,
         "not-connected",
-        `${capability} must remain not-connected — KR3 authorized evidence retrieval, not enterprise search`,
+        `${capability} must remain not-connected — search is lexical`,
       );
     }
     /* No search route was created. */

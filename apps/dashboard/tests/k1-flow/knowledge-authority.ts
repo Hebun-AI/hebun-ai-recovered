@@ -286,8 +286,9 @@ function main(): void {
      * imply upload, connectors or retrieval.
      */
     assert.equal(findKnowledgeCapability("ingestion").state, "connected");
+    // KNOWLEDGE-SEARCH-V1 connected lexical search (Heby's /search) over the same authority.
+    assert.equal(findKnowledgeCapability("search").state, "connected");
     // These are the claims K1 must STILL NOT make.
-    assert.equal(findKnowledgeCapability("search").state, "not-connected");
     assert.equal(findKnowledgeCapability("semantic-retrieval").state, "not-connected");
     assert.equal(findKnowledgeCapability("embeddings").state, "not-connected");
 

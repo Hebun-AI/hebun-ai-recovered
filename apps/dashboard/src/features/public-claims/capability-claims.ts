@@ -81,9 +81,9 @@ export const PUBLIC_CAPABILITY_CLAIMS: readonly PublicCapabilityClaim[] = Object
     capability: "Evidence-backed answers",
     state: "available" as const,
     limit:
-      "Evidence is selected for a question being answered. There is no search surface, no semantic matching and no embeddings.",
+      "Evidence is selected for a question being answered, by the words it shares with it. There is no semantic matching and no embeddings.",
     provenance:
-      "src/features/knowledge/capability-map.ts — `retrieval` connected; `search`, `semantic-retrieval`, `fuzzy-matching` and `embeddings` not-connected",
+      "src/features/knowledge/capability-map.ts — `retrieval` connected; `semantic-retrieval`, `fuzzy-matching` and `embeddings` not-connected",
   }),
   Object.freeze({
     id: "coverage-view" as const,
