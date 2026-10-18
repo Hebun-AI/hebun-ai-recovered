@@ -269,7 +269,8 @@ permit); its execution; A11 acceptance SQL; closure-evidence SQL; historical-lin
   Closes with a copy change that names the actual ceiling.
 - **AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)** — `/approvals` titles every agent rationale "HEBY'S
   PROPOSAL RATIONALE", including the Engineering Agent's (the proposer line beside it is correct).
-  Closes with a label that names the proposing agent.
+  Closes with a label that names the proposing agent. *(2026-10-18: implemented locally on
+  `release/ap5-approvals-rationale-label-1`, not deployed; stays DEFERRED until production carries it.)*
 - **EHO-1-RED-SUITE-BASELINE-1 (DEFERRED)** — owned by EAI-HISTORY-ORIGIN-1; restated here because AP-5's
   V3 comparison ran against it.
 - **WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)** — owned by WORK-UPDATE-AGENT-SELECTION-1; it concerns

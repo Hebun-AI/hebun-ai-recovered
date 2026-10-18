@@ -18,7 +18,7 @@ created or changed for it.
 | Agent execution | **NOT PERFORMED.** No proposal, permit, spend or agent run is part of AP-6a |
 | AP-6b — department-scoped authority | **NOT IMPLEMENTED.** Design question only: whether placement may ever bound an agent, against the invariant "placement grants nothing". Department scope is today expressed by work-domain responsibility (AP-4A/B). Any enforcement needs its own Director decision and a V3 phase |
 | Heby | unplaced, unchanged |
-| `/approvals` rationale label | still titles every agent rationale "Heby's" (`AP5-APPROVALS-RATIONALE-LABEL-1`, owned by AP-5) — a UI limitation of the two-agent workforce, not of placement |
+| `/approvals` rationale label | production (`ee5b5874`) still titles every agent rationale "Heby's" (`AP5-APPROVALS-RATIONALE-LABEL-1`, owned by AP-5) — a UI limitation of the two-agent workforce, not of placement. The fix is implemented locally on `release/ap5-approvals-rationale-label-1`, **not deployed** |
 
 ## Authority used
 
@@ -96,7 +96,7 @@ rows are append-only; a withdrawal adds history, it does not erase it. Never exe
 - Deployment evidence: dpl_7aLjj2kEe5Fn4uKhnWiM17AoC7wb, production, READY, githubCommitSha ee5b58742d640f945b5e8c60c252da19ff1a321b, aliased to www.hebuntech.com and hebuntech.com
 - Production acceptance evidence: Director ceremony on `/agents` 2026-10-18 12:07:33Z (result Recorded); read-only baseline 12:00:33Z and post-ceremony 12:08:53Z, ledger 78, 8/8 invariants PASS; accepted by the Director 2026-10-18
 - Deferred risks: AP6A-WITHDRAW-UNEXERCISED-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)
-- Director approvals: AP-6 architecture design review (2026-10-18); scoped read-only production baseline (2026-10-18); the placement ceremony, performed by the Director (2026-10-18); read-only post-ceremony verification (2026-10-18); AP-6a acceptance (2026-10-18); commit and push of this record NOT yet approved
+- Director approvals: AP-6 architecture design review (2026-10-18); scoped read-only production baseline (2026-10-18); the placement ceremony, performed by the Director (2026-10-18); read-only post-ceremony verification (2026-10-18); AP-6a acceptance (2026-10-18); local commit of this record (2026-10-18, `410f97d5`); push NOT yet approved
 
 ## Deferred risks
 
@@ -104,7 +104,9 @@ rows are append-only; a withdrawal adds history, it does not erase it. Never exe
   test-verified only; it has never run in production. Closes with a Director-approved production
   withdrawal, or is carried until a placement is genuinely withdrawn.
 - **AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED)** — owned by AP-5; restated because the department
-  workforce AP-6 names is mislabelled on `/approvals` until it is fixed and deployed.
+  workforce AP-6 names is mislabelled on `/approvals` until it is fixed and deployed. The fix is
+  implemented locally (`release/ap5-approvals-rationale-label-1`), not deployed; the risk stays
+  DEFERRED until production carries it.
 
 ## Three questions
 

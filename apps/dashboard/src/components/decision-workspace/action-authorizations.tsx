@@ -380,7 +380,8 @@ function RequestCard({
       {item.proposedByActorType === "agent" ? (
         <div className="rounded-md border border-border bg-bg px-2.5 py-2">
           <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
-            Heby&rsquo;s proposal rationale
+            {/* AP5-APPROVALS-RATIONALE-LABEL-1 — the authoritative proposer name, or a neutral label; never a guess, never an id. */}
+            {item.proposedByAgentName !== null ? <>{item.proposedByAgentName}&rsquo;s proposal rationale</> : "Agent proposal rationale"}
           </p>
           <p className="mt-0.5 whitespace-pre-wrap text-sm leading-6 text-fg-primary">
             {item.proposalRationale ?? "Proposal rationale unavailable"}
