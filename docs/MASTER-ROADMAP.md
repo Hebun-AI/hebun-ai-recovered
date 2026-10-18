@@ -5715,7 +5715,7 @@ re-graded here.
 | WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
 | AP-5 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
 | AP-6a | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` |
-| AP2-RULE6-RAW-SQL-1 | VERIFIED | `docs/product-vision/runtime/hebun-ap2-rule6-raw-sql-hardening-closure.md` |
+| AP2-RULE6-RAW-SQL-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ap2-rule6-raw-sql-hardening-closure.md` |
 
 ---
 

@@ -3,7 +3,20 @@
 Maintenance found by the AP-6b review (`hebun-ap6b-placement-aware-authorization-decision.md`, G2 and
 G4). Test and comment only: no runtime behavior, schema, authority or placement changed.
 
-**Status: VERIFIED, local, not released.**
+**Status: RELEASED — production deployment verified (reached state DEPLOYED), 2026-10-18.**
+
+## Release and deployment
+
+| What | State | Evidence |
+|---|---|---|
+| Regression test implemented | `0ebf2d5e` (census + whole-row ban, executor comment); `f200eed4` (whole-row message narrowed, Limitations below) | git history |
+| Test behavior verified | Repository-time only: the firewall runs when the suite is run, never in production | Verification, below |
+| Commit released | `main` = `f200eed47de797ca5584237ef49b9188d6121f94`, one non-force fast-forward `87274f2c..f200eed4` (with `e54cfa46`), Director-approved, 2026-10-18 16:57:37Z | `git ls-remote origin refs/heads/main` before and after the push |
+| Deployment | `dpl_EzZ1qbQYtgiSQisZXMVzvD6biomR`: production, READY, PROMOTED, `githubCommitSha` `f200eed4`, ready 16:59:14Z; `www.hebuntech.com` and `hebuntech.com` aliased to it | Vercel deployment record and alias inspection |
+| Production runtime behavior | **Unchanged.** The release changed a test, one comment and documentation; executable code is byte-identical to `87274f2c` after comment stripping. Read-only smoke: `/login` 200, unauthenticated `/approvals` 307 → `/login`, `/` 200, apex 308 → www; no 5xx on those routes | curl, no session |
+
+The firewall is not a production authorization control. Production authorization behavior is what
+`87274f2c` already ran; this release makes a regression in it more likely to fail a test, nothing more.
 
 ## What changed
 
@@ -55,15 +68,15 @@ one selecting explicit columns.
 
 - Phase: AP2-RULE6-RAW-SQL-1
 - Owner: Organization Authority (AP-2 placement firewall, `tests/ap2-agent-placement/firewall.ts`); Governed Machine Execution (comment in `execute-record-work-as-machine.server.ts`)
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Reached state: DEPLOYED
+- Implementation commit: 0ebf2d5e76af83d4a784e7c3ab9741be41af295a, f200eed47de797ca5584237ef49b9188d6121f94
 - Verification level: V1 — one test seam and one comment; no runtime code changed (comment-stripped executable diff empty); the AP-2 firewall, its bite-proofs, and every suite naming the changed executor were run
 - Verification evidence: AP-2 firewall PASS; 6/6 positive mutations caught, 2/2 negative controls pass; gap reproduced at e54cfa46; original rule 6 assertions still bite; 21/21 suites exit 0 on candidate and e54cfa46 copy; tsc 0; eslint clean (2026-10-18)
 - Test environment: worktree `.claude/worktrees/ap6b-decision` (branch `maint/ap6b-decision-ap2-rule6`, base e54cfa46), disposable copies under the session scratchpad, per-file `node --import tsx`, disposable PostgreSQL 18 on 127.0.0.1:55433, `DATABASE_URL` unset
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed; test and comment only
+- Deployment evidence: dpl_EzZ1qbQYtgiSQisZXMVzvD6biomR, production, READY, PROMOTED, githubCommitSha f200eed47de797ca5584237ef49b9188d6121f94, aliased to www.hebuntech.com and hebuntech.com (2026-10-18)
+- Production acceptance evidence: N/A — a repository test and a comment have no production behavior to measure; read-only smoke after deployment showed no 5xx on /login, /approvals, /
 - Deferred risks: none
-- Director approvals: AP-6b decision and the two maintenance changes, Director 2026-10-18; local commit only — push and deployment NOT approved
+- Director approvals: AP-6b decision and the two maintenance changes, Director 2026-10-18; local commits 0ebf2d5e and f200eed4; release of f200eed4 and its production deployment (Director, 2026-10-18); documentation closure of this record (Director, 2026-10-18), local commit, push NOT approved
 
 ## Three questions
 
