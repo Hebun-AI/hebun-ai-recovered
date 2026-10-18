@@ -5651,6 +5651,14 @@ existing Heby identity, Agent #2 an Engineering-focused candidate holding `recor
 is not created, no mandate is changed and no ceremony is selected
 (`hebun-ap5-two-agent-acceptance-contract.md` §6).
 
+> **Superseded in part — AP-5 (2026-10-18).** The table and the three paragraphs above are the
+> reconciliation at `f9ae3b4c` and are kept as such. Since then AP-5 reached **PRODUCTION-ACCEPTED**
+> (Director Decision 3, 2026-10-18): Engineering Agent `670a6889…` was registered beside Heby in tenant
+> Hebun AI with mandate `{record-work}`, Engineering only; the two-agent chooser rendered in production;
+> one Engineering Agent proposal was approved, permitted and executed by the Director. Evidence classes,
+> the A7 composite interpretation and the open risks are as that record holds them:
+> `hebun-ap5-two-agent-production-acceptance-closure.md`, §21, §22. No other row above changes state.
+
 ---
 
 ## 21. Phase Closure Index — Closure Contract v1
@@ -5690,7 +5698,7 @@ re-graded here.
 | CONTENT-AGENT-2 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-2-closure.md` |
 | AP-5-ENTRY-RECONCILIATION | VERIFIED | `docs/product-vision/runtime/hebun-ap5-entry-reconciliation-closure.md` |
 | WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
-| AP-5 | DEPLOYED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
+| AP-5 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
 
 ---
 

@@ -4,11 +4,12 @@ Authority for what AP-5 must prove: `hebun-ap5-two-agent-acceptance-contract.md`
 invariants I1–I17, §5 limits). This record states what was measured against it, how, and what was not.
 It creates no authority and changes no criterion.
 
-**Status: DEPLOYED, not PRODUCTION-ACCEPTED.** DEPLOYED describes the production implementation AP-5
-rests on — `b5784119` (the work-state chooser) running in `dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui` at
-`250bf126` — not this record, which is unpublished until it is pushed. Every production fact below was
-measured, and the Director has taken the two acceptance decisions recorded in *Director decisions*.
-Final AP-5 production acceptance is a separate Director act that this record does not take.
+**Status: PRODUCTION-ACCEPTED (Director Decision 3, 2026-10-18).** The production implementation AP-5
+rests on is `b5784119` (the work-state chooser), measured in `dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui` at
+`250bf126`. This record was published at `e1a5c9b1` (documentation only over `250bf126`), served by
+production deployment `dpl_A4FwDxHPLTfYD4GwkXzpk9YMmsQJ`. Acceptance rests on the measurements below
+and keeps every evidence class, limitation and deferred risk as written; it adds no measurement and
+changes no criterion.
 
 Production baseline throughout: `main` = `250bf126bb2ec5de538cdcbd0004fe1aef6087ae`, Vercel production
 deployment `dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui` (project `hebun-ai-recovered`), migration ledger 78.
@@ -229,6 +230,13 @@ choice.
 2. **Section 0 (2026-10-18): APPROVED IN PRINCIPLE** — the evidence classifications of A5–A12 and A14
    as documented, keeping production-verified, test-verified, Director-interpreted,
    documentation-pending and release-pending distinct. Not final AP-5 production acceptance.
+3. **Final AP-5 production acceptance (2026-10-18): APPROVED**, subject to preservation of all
+   documented evidence limitations and deferred risks. Basis as the Director stated it: A1–A15 evidence
+   documented; A7 composite interpretation (Decision 1); GIA-1 internal execution semantics preserved;
+   all 48 scoped test files passed; full-suite comparison found zero new regressions, the 47 baseline
+   failures remain documented; production deployment `dpl_A4FwDxHPLTfYD4GwkXzpk9YMmsQJ` READY and
+   serving `e1a5c9b1`. The acceptance does not execute, reject or otherwise touch Heby's pending request
+   `bb6e707e`, changes no Governance or execution boundary and introduces no runtime capability.
 
 Earlier, each separately: A1–A4, A13, A15 adopted as registration prerequisites and A2 read-only
 evidence (2026-10-17); registration; mandate revision 1; A8/A9 read-only verification; PROBE 1, PROBE 1b,
@@ -239,15 +247,15 @@ permit); its execution; A11 acceptance SQL; closure-evidence SQL; historical-lin
 
 - Phase: AP-5
 - Owner: Agent Platform acceptance — `hebun-ap5-two-agent-acceptance-contract.md`; seams: Agent Identity, Agent Mandate, Action Authorization, Governed Internal Action, Organizational Work
-- Reached state: DEPLOYED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: b57841190d0dccd249f116ae82902db73b4f7dea (WORK-UPDATE-AGENT-SELECTION-1, the one code prerequisite AP-5 named; AP-5 itself changed no code), on `main` in 250bf126bb2ec5de538cdcbd0004fe1aef6087ae
 - Verification level: V3 — agent identity, Governance authority, tenant isolation and a production execution boundary
 - Verification evidence: full suite at 250bf126 998 passed / 47 failed / 1045, baseline 1f8f9a47 996 / 47 / 1043, the same 47 files with identical first messages and no file failing only at release (2026-10-18); 48 AP-5 seam files exit 0 at 250bf126 (2026-10-18); production read-only SQL and UI reads as recorded above
 - Test environment: worktree `.claude/worktrees/work-update-agent-selection-1` at 250bf126, `node scripts/run-tests.mjs` and per-file `node --import tsx`, disposable PostgreSQL 18 on 127.0.0.1:55433, `DATABASE_URL` unset; baseline worktree `.claude/worktrees/ap5-suite-baseline-1f8f9a47` (detached, shared node_modules, identical package files)
-- Deployment evidence: dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui, production, READY, githubCommitSha 250bf126bb2ec5de538cdcbd0004fe1aef6087ae, aliased to www.hebuntech.com and hebuntech.com; the chooser code since dpl_9XejFBF38W1utxNs7bmdmWASXvYh (7ad5675b)
-- Production acceptance evidence: N/A — final Director AP-5 production acceptance not yet taken; the production measurements it would rest on are recorded in this record
+- Deployment evidence: dpl_476kC4ASTHZ4Lpt7ARLGmvcjeFui, production, READY, githubCommitSha 250bf126bb2ec5de538cdcbd0004fe1aef6087ae, aliased to www.hebuntech.com and hebuntech.com; the chooser code since dpl_9XejFBF38W1utxNs7bmdmWASXvYh (7ad5675b); this record published at e1a5c9b1 (documentation only over 250bf126), production deployment dpl_A4FwDxHPLTfYD4GwkXzpk9YMmsQJ READY serving e1a5c9b1 as stated in Director Decision 3 — the acceptance-preparation re-read of that deployment record was UNAVAILABLE (Vercel 403 for scope hebuntechs-projects)
+- Production acceptance evidence: the production measurements recorded in this record (A1–A5, A7, A8, A10, A11 and the isolation reads, 2026-10-17/18, ledger 78), accepted by Director Decision 3 (2026-10-18) with A7 on the composite interpretation of Decision 1; A6, A9, A12 and A14 remain test-verified and A13, A15 documentation, as classified
 - Deferred risks: AP5-HEBY-DIRECT-LINEAGE-1 (DEFERRED); AP5-WORKSTATE-REASON-COPY-1 (DEFERRED); AP5-APPROVALS-RATIONALE-LABEL-1 (DEFERRED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); WUAS-1-PROPOSAL-TEXT-UNVERIFIED-1 (DEFERRED)
-- Director approvals: Decision 1 (A7) and Decision 2 (Section 0), 2026-10-18; every production write and read listed in *Director decisions*, each approved separately; preparation of this record (2026-10-18); commit, push and final production acceptance NOT approved
+- Director approvals: Decision 1 (A7) and Decision 2 (Section 0), 2026-10-18; every production write and read listed in *Director decisions*, each approved separately; preparation of this record (2026-10-18), published at e1a5c9b1 on main; Decision 3, final AP-5 production acceptance (2026-10-18); commit and push of this acceptance change NOT yet approved
 
 ## Deferred risks
 
