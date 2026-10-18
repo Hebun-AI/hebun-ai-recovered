@@ -7,7 +7,8 @@
  *   4. `.update(agents)` exists in exactly two modules: retirement (Agent Identity) and this writer.
  *   5. The legacy generic adapter stays quarantined: no product path constructs it for `agents`.
  *   6. PLACEMENT GRANTS NOTHING: the placement modules are reachable only from the `/agents`
- *      surface, and `agents.departmentId` is read by no module but the placement reader and writer.
+ *      surface, and `agents.departmentId` is read by no module but the placement reader and writer;
+ *      its SQL name appears only in reviewed non-authority files, and no module reads whole agent rows.
  *   7. Agent Identity still writes no `department_id` (genesis firewall unchanged; retirement here).
  */
 import assert from "node:assert/strict";
@@ -132,6 +133,30 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
   const columnReaders = SOURCE.filter((f) => /\bagents\.departmentId\b/.test(code(f))).sort();
   assert.deepEqual(columnReaders, [READER, WRITER].sort(),
     "`agents.departmentId` is read by the placement reader and writer and nothing else");
+
+  /*
+   * AP2-RULE6-RAW-SQL-1 — the column, by its SQL name. The Drizzle census above cannot see raw SQL
+   * (`a.department_id`) or a whole-row read, so either could feed placement into authority unseen.
+   * Every file whose code names `department_id` is listed with why; a new one fails until reviewed.
+   */
+  const SQL_NAME_ALLOWED: Readonly<Record<string, string>> = {
+    "src/db/schema/agent.ts": "the column's own declaration",
+    "src/db/schema/department-placement.ts": "human placement's column, not the agent's",
+    "src/db/schema/work-item.ts": "a work item's department, not the agent's",
+    [CONTRACTS]: "the placement writer's writable-column list",
+    "src/features/agent-identity/ceremony-disclosure.ts": "disclosure text naming the column; reads nothing",
+    "src/features/live-map/read-live-map.server.ts": "prose naming the column; reads nothing",
+    "src/features/canonical-read/actor-resolution.ts": "diagnostics/shadow display join; feeds no authority",
+    "src/features/persistence/agent-postgres-codec.ts": "quarantined legacy adapter codec (rule 5)",
+    "src/features/persistence/supabase-postgres-adapter.ts": "quarantined legacy adapter (rule 5)",
+  };
+  const sqlNameReaders = SOURCE.filter((f) => /\bdepartment_id\b/.test(code(f))).sort();
+  assert.deepEqual(sqlNameReaders, Object.keys(SQL_NAME_ALLOWED).sort(),
+    "`department_id` is named only where each use is a declaration, prose, display or the quarantined adapter — never in an authority module");
+  const wholeRowReaders = SOURCE.filter((f) =>
+    /\.select\(\s*\)\s*\.from\(\s*agents\s*\)|getTableColumns\(\s*agents\s*\)|\bquery\.agents\.|select\s+\*\s+from\s+(public\.)?agents\b|select\s+(a|agents)\.\*/i.test(code(f)),
+  );
+  assert.deepEqual(wholeRowReaders, [], "no module reads whole `agents` rows, so placement cannot arrive unnamed");
 }
 
 /* ── 7. AGENT IDENTITY STILL WRITES NO PLACEMENT ──────────────────────────── */

@@ -132,3 +132,8 @@ EAI authorizations 3; `resolveAgentProposer` → Agent #1 with and without selec
 > `organization.agent-placement.set` audit row, version 1 → 2, every other measured value unchanged.
 > Department ceiling enforcement remains NOT built (AP-6b, design only). Evidence:
 > `hebun-ap6a-engineering-agent-placement-closure.md`.
+
+> **AP-6b and rule 6 (2026-10-18).** §5 "Department ceiling enforcement" is DEFERRED by Director
+> decision — implementation not justified (`hebun-ap6b-placement-aware-authorization-decision.md`).
+> Rule 6 now also covers raw-SQL use of `department_id` and whole-row `agents` reads
+> (AP2-RULE6-RAW-SQL-1, `hebun-ap2-rule6-raw-sql-hardening-closure.md`).

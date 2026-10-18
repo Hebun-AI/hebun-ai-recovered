@@ -5667,6 +5667,12 @@ is not created, no mandate is changed and no ceremony is selected
 > decision. Record: `hebun-ap6a-engineering-agent-placement-closure.md`. The `/approvals` rationale
 > label (AP5-APPROVALS-RATIONALE-LABEL-1) was fixed and deployed with that record in `87274f2c`
 > (`dpl_EJgAdNHV…`); a non-Heby name in the live heading is test-verified only.
+>
+> **AP-6b (2026-10-18): DEFERRED — implementation not justified.** No placement-aware authorization
+> is authorized; mandates and responsibilities stay authoritative; current controls do not guarantee
+> department isolation in a multi-department tenant, and no approved policy asks for it. Reopen only on
+> a concrete department-scoped policy or demonstrated requirement; neither a mandate-based nor a
+> placement-based restriction is pre-approved. Record: `hebun-ap6b-placement-aware-authorization-decision.md`.
 
 ---
 
@@ -5709,6 +5715,7 @@ re-graded here.
 | WORK-UPDATE-AGENT-SELECTION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-agent-selection-1-closure.md` |
 | AP-5 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap5-two-agent-production-acceptance-closure.md` |
 | AP-6a | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` |
+| AP2-RULE6-RAW-SQL-1 | VERIFIED | `docs/product-vision/runtime/hebun-ap2-rule6-raw-sql-hardening-closure.md` |
 
 ---
 

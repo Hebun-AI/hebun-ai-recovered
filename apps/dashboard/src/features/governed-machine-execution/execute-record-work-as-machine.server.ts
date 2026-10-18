@@ -256,9 +256,9 @@ export async function executeRecordWorkAsMachine(
    *
    * HERE, AND NOT AT THE MINT. The mint runs before the tenant boundary and well before the spend;
    * checking liveness there would widen the window in which a retirement could be outrun. This is
-   * the last read before the permit is consumed. THE RESIDUAL WINDOW IS NOT ZERO — see the phase
-   * report — because the agent row is not read inside the spend's transaction, and this file will
-   * not pretend otherwise by claiming atomicity it does not have.
+   * the last read before the permit is consumed, and it is an EARLY refusal, not the binding one:
+   * the spend itself (L-2b) re-reads liveness with the agent row held `FOR SHARE` inside its own
+   * transaction, then the mandate and responsibility, so suspension and retirement serialize with it.
    */
   const liveness = await (deps.agentLiveness ?? readDurableAgentRuntimeLiveness)(
     principal.tenantId,
@@ -275,8 +275,9 @@ export async function executeRecordWorkAsMachine(
    * The mandate was consulted once, when the proposal was filed. Before APF-1 that was the only
    * time: a human who withdrew the agent's mandate after a permit existed did not stop that permit.
    * AUTHORIZED != STILL PERMITTED. Read from the Agent Mandate Authority with ids off the permit,
-   * decided by the one shared ceiling; same residual window as liveness above — read before the
-   * spend, not inside it.
+   * decided by the one shared ceiling. Also an early refusal: the spend re-checks the ceiling and the
+   * responsibility inside its transaction. That mandate read is unlocked, so a revision committing
+   * during the spend is not seen by it (L-2b residual, unchanged).
    */
   const ceiling: AgentMandateCeilingRefusal | null = refuseOutsideAgentMandate(
     await (deps.readMandate ?? readEffectiveAgentMandateForRuntime)(
