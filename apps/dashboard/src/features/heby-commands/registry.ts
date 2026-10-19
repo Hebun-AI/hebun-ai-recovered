@@ -320,6 +320,17 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "search", ...base("read"),
     args: [{ name: "query", required: true, description: "What to search for." }],
   },
+  /*
+   * EVIDENCE-DECISION-BRIEF-1. `/search`'s reads arranged as a decision brief — verified, limited and
+   * missing evidence, rule-derived considerations, limitations. Deterministic: no model is asked, so
+   * no organizational evidence leaves Hebun and no external AI data-use authorization is needed.
+   */
+  {
+    id: "brief", slash: "/brief", label: "Decision brief", category: "knowledge", kind: "read",
+    description: "Assemble a decision brief from your organization's Knowledge: verified, limited and missing evidence (deterministic, no AI).",
+    availability: "available", handler: "brief", ...base("read"),
+    args: [{ name: "question", required: true, description: "The business question to evaluate." }],
+  },
   {
     id: "source", slash: "/source", label: "Inspect a source", category: "knowledge", kind: "read",
     description: "Read one named knowledge source your organization owns, with its provenance and standing.",

@@ -5719,6 +5719,7 @@ re-graded here.
 | SUITE-RECOVERY-1 | VERIFIED | `docs/product-vision/runtime/hebun-suite-recovery-1-closure.md` |
 | KNOWLEDGE-SEARCH-V1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` |
 | KNOWLEDGE-EVIDENCE-STANDING-1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` |
+| EVIDENCE-DECISION-BRIEF-1 | VERIFIED | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` |
 
 ---
 
@@ -5801,3 +5802,5 @@ before §16.1 are not yet indexed (Phase B).
 | KES1-BROWSER-UNVERIFIED-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Verification gap | DEFERRED | A signed-in render of a Knowledge-workspace answer's evidence card |
 | KES1-STANDING-UNPERSISTED-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Historical record integrity | DEFERRED | A Director decision to persist the Governance reading (schema) or accept the limit |
 | KES1-CLAIM-LABEL-OTHER-PATHS-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Authority legibility | DEFERRED | A Director-selected phase applying the Governance read to /knowledge, /source, work evidence and the public-content label |
+| EDB1-BROWSER-UNVERIFIED-1 | EVIDENCE-DECISION-BRIEF-1 | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` | Verification gap | DEFERRED | A signed-in render of `/brief`, read only |
+| EDB1-AI-INTERPRETATION-DECISION-1 | EVIDENCE-DECISION-BRIEF-1 | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` | Product decision | DEFERRED | A Director decision on how a brief instruction reaches the model apart from the retrieval query, and on /heby's ratified-only grounding for it |

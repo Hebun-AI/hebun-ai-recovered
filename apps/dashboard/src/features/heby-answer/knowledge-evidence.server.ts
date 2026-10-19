@@ -517,6 +517,11 @@ export async function readKnowledgeGovernanceStandings(
     : { status: "read", standings: standings as KnowledgeGovernanceStanding[] };
 }
 
+/** True only when Governance holds the decision the record claims. A neutral name for heby-commands (g2/k4). */
+export function isGovernanceConfirmed(standing: KnowledgeGovernanceStanding): boolean {
+  return standing === "ratified";
+}
+
 /** One line per standing, worded so a claim Governance does not hold is never read as approval. */
 export function describeKnowledgeGovernanceStanding(standing: KnowledgeGovernanceStanding): string {
   switch (standing) {

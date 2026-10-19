@@ -140,6 +140,8 @@ async function main(): Promise<void> {
     const knowledge = findHebyCommandById("knowledge")!;
     const source = findHebyCommandById("source")!;
     const search = findHebyCommandById("search")!;
+    /* EVIDENCE-DECISION-BRIEF-1: the same Knowledge reads as /search, arranged as a brief. */
+    const brief = findHebyCommandById("brief")!;
 
     assert.equal(knowledge.availability, "available", "/knowledge has a proven read authority");
     assert.equal(source.availability, "available", "/source has a proven read authority");
@@ -152,7 +154,7 @@ async function main(): Promise<void> {
     assert.match(search.description, /lexical, not semantic/i, "/search never claims to understand meaning");
 
     // Both activated commands are READS: they cannot reach the model, and cannot execute.
-    for (const command of [knowledge, source, search]) {
+    for (const command of [knowledge, source, search, brief]) {
       assert.equal(command.kind, "read");
       assert.equal(command.requiresModel, false, `${command.slash} never requires the model`);
       assert.equal(command.requiresExecution, false, `${command.slash} never requires execution`);
@@ -164,7 +166,7 @@ async function main(): Promise<void> {
     const family = HEBY_COMMANDS.filter((command) => command.category === "knowledge");
     assert.deepEqual(
       family.map((command) => [command.id, command.availability]),
-      [["knowledge", "available"], ["search", "available"], ["source", "available"]],
+      [["knowledge", "available"], ["search", "available"], ["brief", "available"], ["source", "available"]],
     );
   }
 

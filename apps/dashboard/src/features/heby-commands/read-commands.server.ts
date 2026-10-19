@@ -26,6 +26,9 @@
  *   /search                                (KNOWLEDGE-SEARCH-V1) the KR3 retrieval seam, the same one
  *                                         Heby's evidence uses, as a ranked list of the tenant's own
  *                                         records — lexical, each pointing at /source.
+ *   /brief                                 (EVIDENCE-DECISION-BRIEF-1) the same search and Governance
+ *                                         reading, arranged as a decision brief by fixed rules — no
+ *                                         model, no AI interpretation.
  *   /knowledge /source                     (K1) the canonical Knowledge authority — knowledge_facts
  *                                         joined to its active knowledge_nodes row, read
  *                                         tenant-scoped over the durable control-plane database. It
@@ -86,14 +89,13 @@ import {
   type KnowledgeReadDeps,
 } from "@/features/knowledge/knowledge-read.server";
 import { KNOWLEDGE_PROVENANCE, type KnowledgeSourceRecord } from "@/features/knowledge/contracts";
-import {
-  RETRIEVAL_PROVENANCE,
-  type RetrievalExclusionReason,
-} from "@/features/knowledge-retrieval";
+import { RETRIEVAL_PROVENANCE, buildRetrievalEvidence } from "@/features/knowledge-retrieval";
 import {
   describeKnowledgeGovernanceStanding,
+  isGovernanceConfirmed,
   readKnowledgeGovernanceStandings,
 } from "@/features/heby-answer/knowledge-evidence.server";
+import { excerptOf, exclusionLines, renderDecisionBrief } from "./decision-brief";
 import { findHebyCommandById } from "./registry";
 import { readWorkRegister, type WorkRegister } from "@/features/organizational-work/read-work.server";
 import type { AgentOriginationAvailability } from "@/features/origination-availability/contracts";
@@ -262,37 +264,10 @@ function knowledgeRecordLines(record: KnowledgeSourceRecord): readonly string[] 
  * KNOWLEDGE-SEARCH-V1 — what a search result is, and what it is not. Stated on every search so a
  * ranked list is never read as a judgement about the knowledge.
  */
-const SEARCH_EXCERPT_LIMIT = 200;
 const SEARCH_CLOSING = [
   "Lexical search: records are matched and ordered by the words they share with your query, not by meaning. A record worded differently — or in another language — may not be found.",
   "Order is a text-match score only. It does not say a record is true, current or approved; each result states its own standing.",
 ] as const;
-const SEARCH_EXCLUSION_LABELS: Readonly<Record<RetrievalExclusionReason, string>> = {
-  "lifecycle-archived": "archived",
-  "lifecycle-retired": "retired",
-  "governance-rejected": "a version Governance declined",
-  expired: "expired",
-  "not-yet-effective": "not yet effective",
-  deleted: "deleted",
-};
-
-/** Counts per reason only — never the key or text of a record that was not served. */
-function exclusionLines(excluded: readonly { readonly reason: RetrievalExclusionReason }[]): readonly string[] {
-  if (excluded.length === 0) return [];
-  const counts = new Map<RetrievalExclusionReason, number>();
-  for (const { reason } of excluded) counts.set(reason, (counts.get(reason) ?? 0) + 1);
-  return [
-    "",
-    `Matched but not served: ${excluded.length} — ${[...counts].map(([reason, n]) => `${n} ${SEARCH_EXCLUSION_LABELS[reason]}`).join(", ")}.`,
-  ];
-}
-
-function excerptOf(statement: string | null): string {
-  if (!statement) return "(no statement recorded)";
-  const flat = statement.replace(/\s+/g, " ").trim();
-  return flat.length > SEARCH_EXCERPT_LIMIT ? `${flat.slice(0, SEARCH_EXCERPT_LIMIT)}…` : flat;
-}
-
 function assertServerRuntime(): void {
   if (typeof window !== "undefined") {
     throw new Error("Heby read commands are server-only.");
@@ -896,6 +871,71 @@ export async function runHebyReadCommand(
             "",
             ...SEARCH_CLOSING,
           ], RETRIEVAL_PROVENANCE);
+        }
+      }
+    }
+
+    /* ── Decision brief (EVIDENCE-DECISION-BRIEF-1) ──────────────────────
+     * The `/search` reads, unchanged and in the same order, arranged by `decision-brief.ts`. Every
+     * outcome the search keeps apart stays apart; a Governance reading that cannot be answered shows
+     * no evidence at all. Nothing is persisted and no model is asked.
+     */
+    case "brief": {
+      const question = input.args.join(" ").trim();
+      const title = question ? `Decision brief — “${question}”` : "Decision brief";
+      if (!question) {
+        return unavailable(slash, title, [
+          "/brief needs the question to evaluate. Nothing was read.",
+        ], "Local — the command was incomplete, so no read was performed.");
+      }
+      const result = await searchKnowledge(tenant, { queryText: question }, deps.knowledge);
+      switch (result.status) {
+        case "unavailable":
+          return unavailable(slash, title, [
+            `Knowledge could not be read — ${result.reason}.`,
+            result.detail ?? "Nothing was substituted for it.",
+            "No brief is shown rather than a partial one.",
+          ], RETRIEVAL_PROVENANCE);
+        case "empty-query":
+          return ok(slash, title, [
+            `“${question}” has no searchable word in it, so no evidence was read and no brief can be assembled.`,
+          ], RETRIEVAL_PROVENANCE);
+        case "empty-corpus":
+          return ok(slash, title, [
+            "Your organization holds no Knowledge records, so there is no organizational evidence to brief from. That is the real state, not a read failure.",
+          ], RETRIEVAL_PROVENANCE);
+        case "no-match":
+          return ok(slash, title, renderDecisionBrief(question, {
+            kind: "no-match",
+            excluded: result.excluded,
+            degradedReason: result.capability.degradedReason,
+          }), RETRIEVAL_PROVENANCE);
+        case "matched": {
+          const records = result.candidates.map(({ record }) => record);
+          const read = deps.readKnowledgeStandings ?? readKnowledgeGovernanceStandings;
+          const standings = await read(tenant, records);
+          if (standings.status !== "read") {
+            return unavailable(slash, title, [
+              "Records matched, but Governance's standing for them could not be read, so no brief is shown.",
+              "A missing answer is never presented as approval.",
+            ], RETRIEVAL_PROVENANCE);
+          }
+          return ok(slash, title, renderDecisionBrief(question, {
+            kind: "matched",
+            records: records.map((record, index) => {
+              const standing = standings.standings[index]!;
+              return {
+                record,
+                confirmed: isGovernanceConfirmed(standing),
+                unconfirmedClaim: standing === "unconfirmed",
+                standingLine: describeKnowledgeGovernanceStanding(standing),
+              };
+            }),
+            excluded: result.excluded,
+            more: result.truncated || result.diversityPruned > 0,
+            multipleSourcesOneArea: buildRetrievalEvidence(result, question).multipleRelevantSources,
+            degradedReason: result.capability.degradedReason,
+          }), RETRIEVAL_PROVENANCE);
         }
       }
     }
