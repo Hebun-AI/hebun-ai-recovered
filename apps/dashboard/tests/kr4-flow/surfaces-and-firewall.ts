@@ -205,8 +205,15 @@ export function run(): void {
     assert.ok(markup.includes("Multiple relevant organizational sources were found"));
     assert.ok(markup.includes("Hebun does not check whether they agree"), "the limit is stated, not implied");
 
+    /*
+     * KNOWLEDGE-EVIDENCE-STANDING-1 (Director, 2026-10-19) requires the card to state that conflicts
+     * were NOT evaluated. That exact disclaimer is the one permitted use of the word; it is removed
+     * before the scan, and every judgement word is still banned everywhere else on the card.
+     */
+    assert.ok(markup.includes("Conflicts have not been evaluated."), "the card says conflicts were not evaluated");
+    const judged = markup.split("Conflicts have not been evaluated.").join("").toLowerCase();
     for (const banned of ["contradict", "conflict", "disagree with", "is wrong", "correct one", "which is true"]) {
-      assert.ok(!markup.toLowerCase().includes(banned), `"${banned}" claims a judgement nothing computes`);
+      assert.ok(!judged.includes(banned), `"${banned}" claims a judgement nothing computes`);
     }
     // No winner is picked: BOTH sources are rendered, neither is demoted or merged away.
     assert.equal(twoSources.items.length, 2, "both sources survive — the set never resolves a winner");

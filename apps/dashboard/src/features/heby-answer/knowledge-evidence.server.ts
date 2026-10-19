@@ -44,6 +44,7 @@ import {
   RETRIEVAL_PROVENANCE,
   buildBoundedUniverseEvidence,
   buildRetrievalEvidence,
+  type EvidenceGovernanceStanding,
   type RetrievalEvidenceSet,
   type RetrievalResult,
 } from "@/features/knowledge-retrieval";
@@ -170,8 +171,17 @@ export function toKnowledgeResolution(listing: KnowledgeListing): SourceResoluti
  * per-record projection is identical, only the provenance line — which states how the records were
  * chosen — differs.
  */
-function resolutionOf(records: readonly KnowledgeSourceRecord[], provenance: string): SourceResolution {
-  const items = records.map((record) => ({
+function resolutionOf(
+  records: readonly KnowledgeSourceRecord[],
+  provenance: string,
+  /*
+   * KNOWLEDGE-EVIDENCE-STANDING-1 — Governance's reading per record, aligned by index. When present,
+   * the `ratified:` label is Governance's answer and never the record's own claim; absent, the label
+   * is unchanged for the paths that do not read it (public content).
+   */
+  standings?: readonly KnowledgeGovernanceStanding[],
+): SourceResolution {
+  const items = records.map((record, index) => ({
     recordRef: `${record.domainKey}/${record.factKey}`,
     label: record.title,
     /*
@@ -183,7 +193,7 @@ function resolutionOf(records: readonly KnowledgeSourceRecord[], provenance: str
     detail: [
       `authority: ${record.authorityClass ?? "not stated"}`,
       `lifecycle: ${record.lifecycleStatus ?? "not stated"}`,
-      `ratified: ${record.ratified ? "yes" : "no"}`,
+      standings ? `ratified: ${GROUNDING_STANDING_LABEL[standings[index]!]}` : `ratified: ${record.ratified ? "yes" : "no"}`,
       `freshness: ${record.freshness}`,
       `scope: ${record.scope}`,
     ].join(" · "),
@@ -306,14 +316,42 @@ export interface KnowledgeEvidenceOutcome {
 export async function resolveKnowledgeEvidenceDetailed(
   tenant: KnowledgeTenant | null,
   query: string,
-  deps: KnowledgeReadDeps = {},
+  deps: RatifiedKnowledgeDeps = {},
 ): Promise<KnowledgeEvidenceOutcome> {
   const result = await searchKnowledge(tenant, { queryText: query }, deps);
+  if (result.status !== "matched" || !tenant) {
+    return { resolution: toRetrievalResolution(result), evidence: buildRetrievalEvidence(result, query) };
+  }
+  /*
+   * KNOWLEDGE-EVIDENCE-STANDING-1. Every served record's ratification is read from Governance before
+   * anything is served, and the model and the card are given that one reading. Unanswerable → the
+   * Knowledge source is unavailable as a whole; no record is served half-verified.
+   */
+  const records = result.candidates.map(({ record }) => record);
+  const read = await readKnowledgeGovernanceStandings(tenant, records, deps.readRatificationDecisions);
+  if (read.status !== "read") {
+    return { resolution: toRetrievalResolution(RATIFICATION_UNAVAILABLE), evidence: buildRetrievalEvidence(RATIFICATION_UNAVAILABLE, query) };
+  }
   return {
-    resolution: toRetrievalResolution(result),
-    evidence: buildRetrievalEvidence(result, query),
+    resolution: resolutionOf(records, RETRIEVAL_PROVENANCE, read.standings),
+    evidence: withGovernanceStandings(buildRetrievalEvidence(result, query), read.standings),
   };
 }
+
+/** Attach Governance's reading to each evidence item; items and standings share the candidates' order. */
+function withGovernanceStandings(
+  evidence: RetrievalEvidenceSet,
+  standings: readonly KnowledgeGovernanceStanding[],
+): RetrievalEvidenceSet {
+  return { ...evidence, items: evidence.items.map((item, index) => ({ ...item, ratificationStanding: standings[index]! })) };
+}
+
+/** The model-visible `ratified:` value for each Governance reading. */
+const GROUNDING_STANDING_LABEL: Readonly<Record<KnowledgeGovernanceStanding, string>> = {
+  ratified: "yes",
+  none: "no",
+  unconfirmed: "not confirmed by Governance",
+};
 
 /**
  * The pre-KR3 listing path, kept because `/knowledge` and `/source` still need "what do we hold".
@@ -454,7 +492,7 @@ const RATIFICATION_UNAVAILABLE: RetrievalResult = {
  * so there is one implementation of what "ratified" means — and outside `heby-commands`, whose
  * firewalls forbid those files from naming the ratification mutation at all.
  */
-export type KnowledgeGovernanceStanding = "ratified" | "unconfirmed" | "none";
+export type KnowledgeGovernanceStanding = EvidenceGovernanceStanding;
 
 export type KnowledgeGovernanceStandingsRead =
   | { readonly status: "read"; readonly standings: readonly KnowledgeGovernanceStanding[] }
@@ -497,6 +535,7 @@ export async function resolveRatifiedKnowledgeEvidence(
   deps: RatifiedKnowledgeDeps = {},
 ): Promise<KnowledgeEvidenceOutcome> {
   let result = await searchKnowledge(tenant, { queryText: query }, deps);
+  let verifiedKept = false;
   if (result.status === "matched" && tenant) {
     // ponytail: ratification filters AFTER the retrieval limit, so unratified matches can crowd out ratified ones; filter inside the ranked pool if that bites.
     const standings = await readKnowledgeGovernanceStandings(
@@ -508,6 +547,7 @@ export async function resolveRatifiedKnowledgeEvidence(
       result = RATIFICATION_UNAVAILABLE;
     } else {
       const kept = result.candidates.filter((_, index) => standings.standings[index] === "ratified");
+      verifiedKept = kept.length > 0;
       result =
         kept.length > 0
           ? { ...result, candidates: kept, excluded: [] }
@@ -516,5 +556,10 @@ export async function resolveRatifiedKnowledgeEvidence(
   } else if (result.status === "no-match") {
     result = { ...result, excluded: [] };
   }
-  return { resolution: toRetrievalResolution(result), evidence: buildRetrievalEvidence(result, query) };
+  const evidence = buildRetrievalEvidence(result, query);
+  /* Every item served here passed Governance's check, so the card says so rather than "not established". */
+  return {
+    resolution: toRetrievalResolution(result),
+    evidence: verifiedKept ? withGovernanceStandings(evidence, evidence.items.map(() => "ratified" as const)) : evidence,
+  };
 }

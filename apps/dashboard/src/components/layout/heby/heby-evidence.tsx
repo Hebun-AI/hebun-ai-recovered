@@ -29,9 +29,12 @@
  * Presentation only. No fetch, no state, no authority, no database id rendered as a link.
  */
 
-import type {
-  RetrievalEvidenceItem,
-  RetrievalEvidenceSet,
+import {
+  EVIDENCE_ABSENCE_IS_NOT_NONEXISTENCE,
+  EVIDENCE_CONFLICTS_NOT_EVALUATED,
+  summarizeEvidenceStanding,
+  type RetrievalEvidenceItem,
+  type RetrievalEvidenceSet,
 } from "@/features/knowledge-retrieval";
 
 /* ── standing ─────────────────────────────────────────────────────────────── */
@@ -68,9 +71,7 @@ function Standing({ item }: { item: RetrievalEvidenceItem }) {
         {item.authorityClass ?? "authority not stated"}
       </Chip>
       <Chip>{item.lifecycleStatus ?? "lifecycle not stated"}</Chip>
-      <Chip tone={item.ratified ? "info" : "neutral"}>
-        {item.ratified ? "ratified" : "no ratification recorded"}
-      </Chip>
+      <RatificationChip item={item} />
       {/*
         The canonical freshness vocabulary, not a paraphrase of it. `review-overdue` and `expired`
         are the two states a reader should notice; `unknown` is warned on too, because "we do not
@@ -87,6 +88,30 @@ function Standing({ item }: { item: RetrievalEvidenceItem }) {
       </Chip>
     </div>
   );
+}
+
+/**
+ * KNOWLEDGE-EVIDENCE-STANDING-1 — ratification as GOVERNANCE states it, never as the record claims it.
+ *
+ * `ratified` is the record's own claim and its column is writable, so it is shown as a claim only when
+ * no Governance reading travels with the item (an answer recorded before this reading existed, or a
+ * path that does not read it) — and then it says verification was not established.
+ */
+function RatificationChip({ item }: { item: RetrievalEvidenceItem }) {
+  switch (item.ratificationStanding) {
+    case "ratified":
+      return <Chip tone="info">ratified — confirmed by Governance</Chip>;
+    case "unconfirmed":
+      return <Chip tone="warn">ratification claimed, NOT confirmed by Governance</Chip>;
+    case "none":
+      return <Chip>no ratification recorded</Chip>;
+    default:
+      return item.ratified ? (
+        <Chip tone="warn">ratification claimed — Governance verification not established</Chip>
+      ) : (
+        <Chip>no ratification recorded</Chip>
+      );
+  }
 }
 
 /**
@@ -128,7 +153,13 @@ function Provenance({ item }: { item: RetrievalEvidenceItem }) {
   if (item.effectiveFrom) lines.push(`Effective from: ${item.effectiveFrom}`);
   if (item.effectiveUntil) lines.push(`Effective until: ${item.effectiveUntil}`);
   if (item.nextReviewAt) lines.push(`Next review: ${item.nextReviewAt}`);
-  if (item.ratifiedAt) lines.push(`Ratified: ${item.ratifiedAt}`);
+  if (item.ratifiedAt) {
+    lines.push(
+      item.ratificationStanding === "ratified"
+        ? `Ratified: ${item.ratifiedAt}`
+        : `Ratification date stated by the record: ${item.ratifiedAt} (not confirmed by Governance here)`,
+    );
+  }
   /*
    * The most honest line on the card. Hebun knows a person submitted the text; it does not know
    * whether they wrote it. Only shown when the record actually carries the flag — `null` means this
@@ -185,6 +216,33 @@ function Card({ item }: { item: RetrievalEvidenceItem }) {
 /* ── set-level notices ────────────────────────────────────────────────────── */
 
 /**
+ * KNOWLEDGE-EVIDENCE-STANDING-1 — the deterministic summary: counted from the items shown and the
+ * set's own excluded count, followed by the two limits a reader must not have to infer. A category
+ * with no records is left out rather than printed as zero.
+ */
+function StandingSummary({ set }: { set: RetrievalEvidenceSet }) {
+  const s = summarizeEvidenceStanding(set);
+  const parts = [
+    s.ratifiedConfirmed > 0 ? `${s.ratifiedConfirmed} ratified and confirmed by Governance` : null,
+    s.withoutRatification > 0 ? `${s.withoutRatification} without ratification` : null,
+    s.unconfirmedClaims > 0 ? `${s.unconfirmedClaims} with a ratification claim Governance does not confirm` : null,
+    s.verificationNotEstablished > 0 ? `${s.verificationNotEstablished} whose Governance verification was not established` : null,
+  ].filter((part): part is string => part !== null);
+
+  return (
+    <div className="mb-1.5 text-[0.68rem] leading-5 text-fg-muted" data-heby-evidence-summary="">
+      <p>
+        {s.shown} record(s) shown: {parts.join(" · ")}.
+        {s.excludedNotCurrent > 0 ? ` ${s.excludedNotCurrent} matching record(s) were excluded as not current.` : ""}
+      </p>
+      <p>
+        {EVIDENCE_CONFLICTS_NOT_EVALUATED} {EVIDENCE_ABSENCE_IS_NOT_NONEXISTENCE}
+      </p>
+    </div>
+  );
+}
+
+/**
  * The set-level facts KR3 computed and then discarded before the UI.
  *
  * Each is a separate sentence because each is a separate fact. Collapsing truncation, diversity
@@ -239,7 +297,7 @@ function EmptyState({ set }: { set: RetrievalEvidenceSet }) {
     set.status === "empty-corpus"
       ? "Your organization currently holds no Knowledge records. This is your organization's real state, not a read failure."
       : set.status === "no-match"
-        ? "Your organization holds Knowledge, but nothing in it matched this question."
+        ? `Your organization holds Knowledge, but nothing in it matched this question. ${EVIDENCE_ABSENCE_IS_NOT_NONEXISTENCE}`
         : set.status === "empty-query"
           ? "No searchable term was found in the question, so no Knowledge was retrieved. This says nothing about what your organization knows."
           : `Knowledge could not be read for this answer.${set.unavailableReason ? ` ${set.unavailableReason}` : ""}`;
@@ -278,6 +336,7 @@ export function HebyEvidencePanel({
       {historical ? <HistoricalNotice /> : null}
       {set.status === "matched" ? (
         <>
+          <StandingSummary set={set} />
           <ul className="flex flex-col gap-1.5">
             {set.items.map((item) => (
               <Card key={item.recordRef} item={item} />
@@ -291,6 +350,7 @@ export function HebyEvidencePanel({
         </>
       ) : set.status === "bounded-universe" ? (
         <>
+          <StandingSummary set={set} />
           <ul className="flex flex-col gap-1.5">
             {set.items.map((item) => (
               <Card key={item.recordRef} item={item} />

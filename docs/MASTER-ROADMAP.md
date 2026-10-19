@@ -5718,6 +5718,7 @@ re-graded here.
 | AP2-RULE6-RAW-SQL-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ap2-rule6-raw-sql-hardening-closure.md` |
 | SUITE-RECOVERY-1 | VERIFIED | `docs/product-vision/runtime/hebun-suite-recovery-1-closure.md` |
 | KNOWLEDGE-SEARCH-V1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` |
+| KNOWLEDGE-EVIDENCE-STANDING-1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` |
 
 ---
 
@@ -5797,3 +5798,6 @@ before §16.1 are not yet indexed (Phase B).
 | AP6A-WITHDRAW-UNEXERCISED-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A Director-approved production withdrawal, or a genuine one |
 | AP6A-APPROVALS-LABEL-LIVE-AGENT-1 | AP-6a | `docs/product-vision/runtime/hebun-ap6a-engineering-agent-placement-closure.md` | Verification gap | DEFERRED | A genuine non-Heby agent proposal observed on `/approvals`, read only; none created for the purpose |
 | KS1-BROWSER-UNVERIFIED-1 | KNOWLEDGE-SEARCH-V1 | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` | Verification gap | DEFERRED | A signed-in local or production render of `/search`, read only |
+| KES1-BROWSER-UNVERIFIED-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Verification gap | DEFERRED | A signed-in render of a Knowledge-workspace answer's evidence card |
+| KES1-STANDING-UNPERSISTED-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Historical record integrity | DEFERRED | A Director decision to persist the Governance reading (schema) or accept the limit |
+| KES1-CLAIM-LABEL-OTHER-PATHS-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Authority legibility | DEFERRED | A Director-selected phase applying the Governance read to /knowledge, /source, work evidence and the public-content label |

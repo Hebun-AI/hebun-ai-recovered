@@ -91,6 +91,16 @@ export interface RetrievalExplanation {
 
 /* ── item ─────────────────────────────────────────────────────────────────── */
 
+/**
+ * Governance's answer about a record's ratification claim.
+ *
+ *   ratified     the record claims a decision and Governance holds exactly that `ratify` decision
+ *                for exactly this version, in this tenant.
+ *   unconfirmed  the record claims one; Governance does not hold it. Never counted as ratified.
+ *   none         the record claims none.
+ */
+export type EvidenceGovernanceStanding = "ratified" | "unconfirmed" | "none";
+
 /** One piece of evidence, as a reader should meet it. */
 export interface RetrievalEvidenceItem {
   /* IDENTITY — the same reference the evidence validator knows, never a new one. */
@@ -123,8 +133,19 @@ export interface RetrievalEvidenceItem {
   /* STANDING — structured, never a pre-joined display string. */
   readonly authorityClass: KnowledgeSourceRecord["authorityClass"];
   readonly lifecycleStatus: KnowledgeSourceRecord["lifecycleStatus"];
+  /**
+   * The RECORD'S OWN claim: its active version names a ratification decision. Never proof of one —
+   * `ratification_decision_id` is writable (SCI-2A). Unchanged in meaning, because it is persisted.
+   */
   readonly ratified: boolean;
   readonly ratifiedAt: string | null;
+  /**
+   * KNOWLEDGE-EVIDENCE-STANDING-1 — what Governance itself says about that claim, read for this
+   * answer. OPTIONAL and never persisted (no column holds it): a set built before this field, or
+   * rebuilt from stored rows, has none, and the card then says verification was not established
+   * rather than promoting `ratified` into a Governance confirmation.
+   */
+  readonly ratificationStanding?: EvidenceGovernanceStanding;
   readonly freshness: KnowledgeSourceRecord["freshness"];
   readonly knowledgeVersion: number;
   readonly factVersion: number;
@@ -411,5 +432,46 @@ export function buildBoundedUniverseEvidence(records: readonly KnowledgeSourceRe
     degradedReason: null,
     multipleRelevantSources: false,
     unavailableReason: null,
+  };
+}
+
+/* ── KNOWLEDGE-EVIDENCE-STANDING-1: the deterministic summary of a set ─────────
+ *
+ * Counted from the items the reader is shown and the set's own `excludedCount` — nothing else. No
+ * figure here is estimated, and nothing judges the records against each other.
+ */
+export const EVIDENCE_CONFLICTS_NOT_EVALUATED = "Conflicts have not been evaluated.";
+export const EVIDENCE_ABSENCE_IS_NOT_NONEXISTENCE =
+  "Missing evidence does not establish that the information does not exist.";
+
+export interface EvidenceStandingSummary {
+  readonly shown: number;
+  /** Governance holds the decision the record claims. */
+  readonly ratifiedConfirmed: number;
+  /** The record claims no ratification. */
+  readonly withoutRatification: number;
+  /** The record claims a ratification Governance does not hold. */
+  readonly unconfirmedClaims: number;
+  /** No Governance reading travels with the item (recorded before it existed, or never read). */
+  readonly verificationNotEstablished: number;
+  /** Matched but not in force — the retrieval's own count, never inferred. */
+  readonly excludedNotCurrent: number;
+}
+
+export function summarizeEvidenceStanding(set: RetrievalEvidenceSet): EvidenceStandingSummary {
+  /*
+   * Without a Governance reading, a record that claims NO ratification is still "none" — it claims
+   * nothing to verify. Only a claim with no reading is "not established". The card labels the same way.
+   */
+  const effective = (item: RetrievalEvidenceItem) => item.ratificationStanding ?? (item.ratified ? undefined : "none");
+  const count = (standing: EvidenceGovernanceStanding | undefined) =>
+    set.items.filter((item) => effective(item) === standing).length;
+  return {
+    shown: set.items.length,
+    ratifiedConfirmed: count("ratified"),
+    withoutRatification: count("none"),
+    unconfirmedClaims: count("unconfirmed"),
+    verificationNotEstablished: count(undefined),
+    excludedNotCurrent: set.excludedCount,
   };
 }
