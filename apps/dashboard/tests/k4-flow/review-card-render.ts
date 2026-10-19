@@ -89,12 +89,13 @@ function record(overrides: Record<string, unknown> = {}) {
 }
 
 /** Render the card exactly as the route mounts it, and return the markup a reader would receive. */
-function render(rec: unknown, block: ReviewBlock | undefined): string {
+/* KGSC-1 — `standing` is Governance's reading the route now passes; only "ratified" shows approval. */
+function render(rec: unknown, block: ReviewBlock | undefined, standing?: string): string {
   return renderToStaticMarkup(
     createElement(
       AppRouterContext.Provider as never,
       { value: INERT_ROUTER },
-      createElement(KnowledgeReviewCard as never, { record: rec, block } as never),
+      createElement(KnowledgeReviewCard as never, { record: rec, block, ...(standing ? { standing } : {}) } as never),
     ),
   );
 }
@@ -150,6 +151,7 @@ function main(): void {
     const html = render(
       record({ ratified: true, ratifiedAt: "2026-09-05T10:36:51.165Z" }),
       undefined,
+      "ratified",
     );
     assert.match(html, /ratified/, "a ratified version says so");
     assert.ok(!html.includes("<textarea"), "a ratified version is offered no second justification");

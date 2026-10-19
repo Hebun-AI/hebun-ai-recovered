@@ -118,16 +118,18 @@ function SourceRow({ source, disabled }: { source: IngestedSourceSummary; disabl
       <p className="text-meta text-fg-muted">
         {source.liveFactCount} record{source.liveFactCount === 1 ? "" : "s"} in active Knowledge
         {source.retiredFactCount > 0 ? ` · ${source.retiredFactCount} already retracted` : ""}
-        {source.ratifiedFactCount > 0 ? ` · ${source.ratifiedFactCount} ratified` : ""}
+        {/* KGSC-1 — the count is of records' own claims, which is also what the retraction writer refuses on. */}
+        {source.ratifiedFactCount > 0 ? ` · ${source.ratifiedFactCount} claiming ratification (not verified by Governance)` : ""}
       </p>
 
       {blockedByRatification ? (
         <p className="flex items-start gap-2 text-xs leading-5 text-fg-secondary">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
-            Knowledge from this source has been ratified by your Governance authority. Withdrawing it
-            would reverse a Governance decision, and this act cannot do that. Correct the individual
-            records instead.
+            Knowledge from this source names a Governance ratification decision. Withdrawal is refused
+            while any of its records does, because it could reverse a Governance decision — whether
+            Governance confirms that claim is shown on each record. Correct the individual records
+            instead.
           </span>
         </p>
       ) : (

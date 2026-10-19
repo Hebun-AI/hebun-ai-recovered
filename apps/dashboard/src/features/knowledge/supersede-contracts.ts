@@ -21,6 +21,7 @@
  * Pure. No React, no I/O, no server, no authority.
  */
 
+import type { EvidenceGovernanceStanding } from "@/features/knowledge-retrieval/evidence";
 import {
   KNOWLEDGE_LIMITS,
   normalizeSingleLine,
@@ -129,7 +130,10 @@ export interface KnowledgeVersionView {
   readonly active: boolean;
   readonly lifecycleStatus: string | null;
   readonly authorityClass: string | null;
+  /** The record's own claim (a decision id is bound). Never shown as approval — see `governanceStanding`. */
   readonly ratified: boolean;
+  /** KGSC-1 — Governance's reading of that claim, when the caller asked for it. Absent → not established. */
+  readonly governanceStanding?: EvidenceGovernanceStanding | "unavailable";
   readonly createdAt: string;
   /** The acting principal id, when the record carries one. Never a name or session material. */
   readonly createdBy: string | null;

@@ -36,6 +36,7 @@ import {
 } from "@/features/knowledge/knowledge-file-ingest.server";
 import type { IngestKnowledgeInput } from "@/features/knowledge/ingestion-contracts";
 import { readKnowledgeVersionHistory } from "@/features/knowledge/knowledge-version-history.server";
+import { readKnowledgeGovernanceStandings } from "@/features/governance-decision/knowledge-ratification-read.server";
 import type { KnowledgeVersionHistory } from "@/features/knowledge/supersede-contracts";
 import {
   ratifyKnowledgeVersion,
@@ -269,7 +270,10 @@ export async function readKnowledgeVersionsAction(input: {
   factId: string;
 }): Promise<KnowledgeVersionHistory> {
   const tenant = await resolveTenantContext();
-  return readKnowledgeVersionHistory(tenant, input.factId);
+  /* KGSC-1 — each version's claimed decision is read from Governance through the shared reader. */
+  return readKnowledgeVersionHistory(tenant, input.factId, {
+    readStandings: async (claims) => (tenant ? readKnowledgeGovernanceStandings(tenant, claims) : { status: "unavailable" }),
+  });
 }
 
 /*

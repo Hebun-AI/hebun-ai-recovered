@@ -61,3 +61,44 @@ export async function readKnowledgeRatificationDecisions(
     return { status: "unavailable" };
   }
 }
+
+/*
+ * KNOWLEDGE-SEARCH-V1, moved here by KGSC-1 — Governance's standing for each Knowledge version's
+ * CLAIM, for every surface that shows one (Heby grounding, `/search`, `/brief`, `/source`,
+ * `/knowledge`, the Knowledge workspace and its version history). Re-exported by
+ * `heby-answer/knowledge-evidence.server.ts`.
+ *
+ *   ratified       the version claims a decision and Governance holds exactly that `ratify` decision
+ *                  for exactly this version, in this tenant.
+ *   unconfirmed    the version claims one and Governance does NOT hold it. Shown, never counted.
+ *   none           the version claims none (or has no version to bind one to).
+ *
+ * Any read that cannot be answered makes the WHOLE read `unavailable`: a missing answer is never read
+ * as "none" and never as "ratified".
+ */
+export type KnowledgeVersionGovernanceStanding = "ratified" | "unconfirmed" | "none";
+
+export type KnowledgeGovernanceStandingsRead =
+  | { readonly status: "read"; readonly standings: readonly KnowledgeVersionGovernanceStanding[] }
+  | { readonly status: "unavailable" };
+
+export async function readKnowledgeGovernanceStandings(
+  tenant: Pick<TenantContext, "tenantId">,
+  /* Only the claim and the version it is on are read, so a listing record and a history row both qualify. */
+  claims: readonly { readonly ratificationDecisionId: string | null; readonly activeKnowledgeNodeId: string | null }[],
+  read: (tenant: Pick<TenantContext, "tenantId">, knowledgeNodeId: string) => Promise<KnowledgeRatificationDecisionsRead> = (t, id) =>
+    readKnowledgeRatificationDecisions(t, id),
+): Promise<KnowledgeGovernanceStandingsRead> {
+  const standings = await Promise.all(
+    claims.map(async (claim): Promise<KnowledgeVersionGovernanceStanding | null> => {
+      const claimed = claim.ratificationDecisionId;
+      if (claimed === null || claim.activeKnowledgeNodeId === null) return "none";
+      const decisions = await read(tenant, claim.activeKnowledgeNodeId).catch(() => ({ status: "unavailable" }) as const);
+      if (decisions.status !== "read") return null;
+      return decisions.ratifyDecisionIds.has(claimed) ? "ratified" : "unconfirmed";
+    }),
+  );
+  return standings.includes(null)
+    ? { status: "unavailable" }
+    : { status: "read", standings: standings as KnowledgeVersionGovernanceStanding[] };
+}

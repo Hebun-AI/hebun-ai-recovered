@@ -47,7 +47,8 @@ function Standing({ category }: { category: CompanyUnderstandingCategoryView }) 
   const parts: string[] = [
     `${category.recordCount} record${category.recordCount === 1 ? "" : "s"} in force`,
   ];
-  if (category.ratifiedCount > 0) parts.push(`${category.ratifiedCount} ratified`);
+  /* KGSC-1 — counted from each record's own claim; Governance has not been asked, so it is not "ratified". */
+  if (category.ratifiedCount > 0) parts.push(`${category.ratifiedCount} claiming ratification (not verified by Governance)`);
   if (category.provisionalCount > 0) parts.push(`${category.provisionalCount} provisional`);
   if (category.staleCount > 0) parts.push(`${category.staleCount} past review date`);
   if (category.expiredCount > 0) parts.push(`${category.expiredCount} expired`);

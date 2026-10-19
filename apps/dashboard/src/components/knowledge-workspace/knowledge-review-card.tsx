@@ -44,6 +44,7 @@ import {
   type RatificationRefusal,
 } from "@/features/knowledge-ratification/contracts";
 import { JUSTIFICATION_LIMITS } from "@/features/governance-decision/contracts";
+import type { GovernanceStandingReading } from "@/features/knowledge-ratification/contracts";
 import type { KnowledgeSourceRecord } from "@/features/knowledge/contracts";
 import type { PublicUseState } from "@/features/knowledge-public-use/contracts";
 import { KnowledgePublicUseControl } from "./knowledge-public-use-control";
@@ -77,11 +78,17 @@ const FIELD_STYLE =
 
 export function KnowledgeReviewCard({
   record,
+  standing = "unavailable",
   block,
   truthRejected = false,
   publicUse = "unavailable",
 }: {
   record: KnowledgeSourceRecord;
+  /**
+   * KGSC-1 — Governance's reading of the decision this version claims, read on the server. The
+   * record's own `ratified` is a claim; only `ratified` here is shown as approval.
+   */
+  standing?: GovernanceStandingReading;
   block?: ReviewBlock;
   /**
    * KT-1 — whether Governance rejected THIS version as untrue, read from Governance's own record.
@@ -144,7 +151,7 @@ export function KnowledgeReviewCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        {record.ratified ? (
+        {record.ratified && standing === "ratified" ? (
           <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-muted p-3 text-sm">
             <p className="flex items-start gap-2 text-fg">
               <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -170,6 +177,36 @@ export function KnowledgeReviewCard({
               <div>
                 <dt className="uppercase tracking-wide">Ratified by</dt>
                 <dd className="break-all">{record.ratifiedByActorId}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : record.ratified ? (
+          /*
+           * KGSC-1 — the version NAMES a decision, and Governance does not confirm it: either it holds
+           * no such decision for this version, or its record could not be read. Neither is approval,
+           * and an unanswered read is not a denial.
+           */
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-muted p-3 text-sm">
+            <p className="flex items-start gap-2 text-fg">
+              <CircleSlash className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                {standing === "unconfirmed" ? (
+                  <>
+                    Version {record.knowledgeVersion} names a Governance decision, but Governance does not hold it for
+                    this version. It is <strong>not confirmed</strong> as ratified.
+                  </>
+                ) : (
+                  <>
+                    Version {record.knowledgeVersion} names a Governance decision, but Governance&apos;s record could not
+                    be read. Its ratification is <strong>neither confirmed nor denied</strong>.
+                  </>
+                )}
+              </span>
+            </p>
+            <dl className="grid gap-1 text-xs text-fg-muted">
+              <div>
+                <dt className="uppercase tracking-wide">Decision the record names</dt>
+                <dd className="break-all">{record.ratificationDecisionId}</dd>
               </div>
             </dl>
           </div>

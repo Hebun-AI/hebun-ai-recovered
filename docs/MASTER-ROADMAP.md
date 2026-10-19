@@ -5721,6 +5721,7 @@ re-graded here.
 | KNOWLEDGE-EVIDENCE-STANDING-1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` |
 | EVIDENCE-DECISION-BRIEF-1 | VERIFIED | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` |
 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` |
+| KGSC-1 | VERIFIED | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` |
 
 ---
 
@@ -5809,3 +5810,6 @@ before §16.1 are not yet indexed (Phase B).
 | HPIB1-SINGLE-SYSTEM-STRING-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Security limit | DEFERRED | A provider-enforced instruction/data channel, or a Director decision accepting the limit |
 | HPIB1-RELEVANCE-JUDGE-UNFENCED-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Security gap (unwired path) | DEFERRED | The relevance judge routed through the fenced client, or fenced, before any runtime caller |
 | HPIB1-REFUSAL-AFTER-ADMISSION-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Lifecycle ordering | DEFERRED | The boundary check moved before the EAI decision and dispatch admission |
+| KGSC1-BROWSER-UNVERIFIED-1 | KGSC-1 | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of a confirmed and an unconfirmed record on /knowledge |
+| KGSC1-CLAIM-COUNTS-1 | KGSC-1 | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` | Authority legibility | DEFERRED | An uncapped Governance-verified count, or a Director decision to drop the claim counts |
+| KGSC1-FORGED-CLAIM-BLOCKS-ACTIONS-1 | KGSC-1 | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` | Data integrity | DEFERRED | A Director-authorized repair of forged rows or a writer change |

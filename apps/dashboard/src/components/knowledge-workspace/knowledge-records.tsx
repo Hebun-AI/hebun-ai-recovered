@@ -8,10 +8,10 @@
  * that Heby grounds on. There is no records-specific read: if something appears here, Heby can cite
  * it, and if Heby cannot cite it, it does not appear here.
  *
- * Every record shows its own standing — authority class, lifecycle, whether a ratification is
- * actually recorded, and derived freshness — rather than a single reassuring badge. Nothing here
- * displays a confidence figure, a quality score, or a verification mark, because no authority in
- * Hebun owns one.
+ * Every record shows its own standing — authority class, lifecycle, Governance's reading of its
+ * ratification (KGSC-1: never the record's own claim), and derived freshness — rather than a single
+ * reassuring badge. Nothing here displays a confidence figure, a quality score, or a verification
+ * mark, because no authority in Hebun owns one.
  *
  * ── WHAT STAGE 1 CHANGED, AND WHAT IT DID NOT ────────────────────────────────
  *
@@ -42,8 +42,9 @@ import { StateBlock } from "@/components/ui/state-block";
 import { KnowledgeExternalReferences } from "./knowledge-external-references";
 import { KnowledgeVersionControl } from "./knowledge-version-control";
 import type { KnowledgeListing, KnowledgeSourceRecord } from "@/features/knowledge/contracts";
+import { GOVERNANCE_STANDING_LABEL, type GovernanceStandingReading } from "@/features/knowledge-ratification/contracts";
 
-function Standing({ record }: { record: KnowledgeSourceRecord }) {
+function Standing({ record, standing }: { record: KnowledgeSourceRecord; standing: GovernanceStandingReading }) {
   const authority =
     record.authorityClass === null
       ? "authority not stated"
@@ -62,7 +63,8 @@ function Standing({ record }: { record: KnowledgeSourceRecord }) {
       </div>
       <div className="flex gap-1">
         <dt className="sr-only">Ratification</dt>
-        <dd>{record.ratified ? "ratified" : "no ratification recorded"}</dd>
+        {/* KGSC-1 — Governance's reading, read on the server; the record's own claim is never shown as approval. */}
+        <dd>{GOVERNANCE_STANDING_LABEL[standing]}</dd>
       </div>
       <div className="flex gap-1">
         <dt className="sr-only">Freshness</dt>
@@ -88,9 +90,12 @@ function matches(record: KnowledgeSourceRecord, query: string): boolean {
 
 export function KnowledgeRecords({
   listing,
+  standings = {},
   canAuthor = false,
 }: {
   listing: KnowledgeListing;
+  /** KGSC-1 — Governance's standing per fact id, from the server. A missing entry reads "unavailable". */
+  standings?: Readonly<Record<string, GovernanceStandingReading>>;
   /** Whether the viewer's durable role band permits authoring. Read access does not imply it. */
   canAuthor?: boolean;
 }) {
@@ -205,7 +210,7 @@ export function KnowledgeRecords({
             ) : (
               <p className="text-body italic text-fg-muted">No statement recorded.</p>
             )}
-            <Standing record={record} />
+            <Standing record={record} standing={standings[record.factId] ?? "unavailable"} />
             <KnowledgeVersionControl
               factId={record.factId}
               factKey={record.factKey}

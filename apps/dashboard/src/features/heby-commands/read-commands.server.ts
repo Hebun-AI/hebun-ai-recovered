@@ -94,6 +94,7 @@ import {
   describeKnowledgeGovernanceStanding,
   isGovernanceConfirmed,
   readKnowledgeGovernanceStandings,
+  type KnowledgeGovernanceStanding,
 } from "@/features/heby-answer/knowledge-evidence.server";
 import { excerptOf, exclusionLines, renderDecisionBrief } from "./decision-brief";
 import { findHebyCommandById } from "./registry";
@@ -246,9 +247,17 @@ const USAGE_CLOSING = [
 const USAGE_PROVENANCE =
   "Durable conversation records, scoped to your tenant. Provider-reported token counts only — no price, no currency, no budget.";
 
-/** Render one Knowledge record with its own provenance and standing intact. */
-function knowledgeRecordLines(record: KnowledgeSourceRecord): readonly string[] {
-  const lines = [describeKnowledgeRecord(record)];
+/**
+ * Render one Knowledge record with its own provenance and standing intact.
+ *
+ * KGSC-1 — the approval line is Governance's reading, never the record's own claim: a record that
+ * names a decision Governance does not hold reads NOT confirmed, and an unanswered read says so.
+ */
+function knowledgeRecordLines(
+  record: KnowledgeSourceRecord,
+  standing: KnowledgeGovernanceStanding | "unavailable",
+): readonly string[] {
+  const lines = [describeKnowledgeRecord(record), `  ${describeKnowledgeGovernanceStanding(standing)}`];
   if (record.statement) lines.push(`  ${record.statement}`);
   if (record.effectiveFrom || record.effectiveUntil) {
     lines.push(
@@ -258,6 +267,23 @@ function knowledgeRecordLines(record: KnowledgeSourceRecord): readonly string[] 
   if (record.nextReviewAt) lines.push(`  Next review: ${record.nextReviewAt}.`);
   if (record.health) lines.push(`  Declared health: ${record.health}.`);
   return lines;
+}
+
+/**
+ * KGSC-1 — Governance's standing for each record, through the one shared reader. When it cannot
+ * answer, every record reads `unavailable` and is still shown: a missing answer hides nothing and
+ * decides nothing.
+ */
+async function standingsOf(
+  tenant: TenantContext,
+  records: readonly KnowledgeSourceRecord[],
+  deps: HebyReadCommandDeps,
+): Promise<readonly (KnowledgeGovernanceStanding | "unavailable")[]> {
+  if (records.length === 0) return [];
+  const read = await (deps.readKnowledgeStandings ?? readKnowledgeGovernanceStandings)(tenant, records).catch(
+    () => ({ status: "unavailable" }) as const,
+  );
+  return read.status === "read" ? read.standings : records.map(() => "unavailable" as const);
 }
 
 /*
@@ -958,7 +984,8 @@ export async function runHebyReadCommand(
             ? "Your organization holds no knowledge records. That is the real state, not a read failure — nothing is stored, and nothing was invented to fill the gap."
             : `Knowledge records your organization holds: ${records.length}${truncated ? " (showing the first page; more exist)" : ""}.`,
         );
-        for (const record of records) stateLines.push(...knowledgeRecordLines(record));
+        const standings = await standingsOf(tenant, records, deps);
+        records.forEach((record, index) => stateLines.push(...knowledgeRecordLines(record, standings[index]!)));
         if (incomplete.length > 0) {
           stateLines.push(
             "",
@@ -1003,19 +1030,21 @@ export async function runHebyReadCommand(
       switch (result.status) {
         case "found":
           return ok(slash, `Knowledge source — ${result.record.factKey}`, [
-            ...knowledgeRecordLines(result.record),
+            ...knowledgeRecordLines(result.record, (await standingsOf(tenant, [result.record], deps))[0]!),
             "",
             ...KNOWLEDGE_CLOSING,
           ], KNOWLEDGE_PROVENANCE);
 
-        case "ambiguous":
+        case "ambiguous": {
+          const standings = await standingsOf(tenant, result.candidates, deps);
           return ok(slash, `Knowledge source — ${name}`, [
             `“${name}” matches ${result.candidates.length} facts across different domains or scopes, so none was chosen for you.`,
             "",
-            ...result.candidates.flatMap((candidate) => knowledgeRecordLines(candidate)),
+            ...result.candidates.flatMap((candidate, index) => knowledgeRecordLines(candidate, standings[index]!)),
             "",
             "Name the domain you mean.",
           ], KNOWLEDGE_PROVENANCE);
+        }
 
         case "incomplete":
           return unavailable(slash, `Knowledge source — ${name}`, [

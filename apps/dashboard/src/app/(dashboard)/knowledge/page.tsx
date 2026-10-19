@@ -26,6 +26,8 @@ import {
   KnowledgeReviewCard,
   type ReviewBlock,
 } from "@/components/knowledge-workspace/knowledge-review-card";
+import { readKnowledgeGovernanceStandings } from "@/features/governance-decision/knowledge-ratification-read.server";
+import type { GovernanceStandingReading } from "@/features/knowledge-ratification/contracts";
 
 export const metadata = { title: "Knowledge — Hebun AI" };
 
@@ -122,6 +124,22 @@ export default async function KnowledgePage() {
 
   const reviewable = listing.status === "read" ? listing.records : [];
 
+  /*
+   * KGSC-1 — each record's ratification as GOVERNANCE states it, through the shared reader, never as
+   * the record's own `ratified` claims it. One reading for the listing; when it cannot answer, every
+   * record shows "verification unavailable" and stays listed. Keyed by fact id for the client.
+   */
+  const standingRead =
+    tenant && reviewable.length > 0
+      ? await readKnowledgeGovernanceStandings(tenant, reviewable).catch(() => ({ status: "unavailable" }) as const)
+      : null;
+  const standings: Readonly<Record<string, GovernanceStandingReading>> = Object.fromEntries(
+    reviewable.map((record, index) => [
+      record.factId,
+      standingRead?.status === "read" ? standingRead.standings[index]! : "unavailable",
+    ]),
+  );
+
   // The authoring block states the REAL reason the form is unusable, in resolution order.
   const block: KnowledgeAuthoringBlock | undefined = !tenant
     ? { kind: "unauthenticated" }
@@ -156,7 +174,7 @@ export default async function KnowledgePage() {
           provenanceDetail="canonical Knowledge, scoped to this tenant"
           authority={authoringBand}
         >
-          <KnowledgeRecords listing={listing} canAuthor={block === undefined} />
+          <KnowledgeRecords listing={listing} standings={standings} canAuthor={block === undefined} />
         </WorkspaceSection>
 
         <WorkspaceSection
@@ -208,6 +226,7 @@ export default async function KnowledgePage() {
                 <KnowledgeReviewCard
                   key={record.factId}
                   record={record}
+                  standing={standings[record.factId] ?? "unavailable"}
                   block={reviewBlock}
                   truthRejected={
                     rejection?.status !== "read"

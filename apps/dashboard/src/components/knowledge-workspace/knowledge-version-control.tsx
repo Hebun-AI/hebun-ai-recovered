@@ -28,6 +28,7 @@ import {
 } from "@/app/(dashboard)/knowledge/actions";
 import { KNOWLEDGE_LIMITS, type KnowledgeValidationProblem } from "@/features/knowledge/create-contracts";
 import type { KnowledgeVersionHistory, KnowledgeVersionView } from "@/features/knowledge/supersede-contracts";
+import { GOVERNANCE_STANDING_LABEL } from "@/features/knowledge-ratification/contracts";
 
 const FIELD =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -75,7 +76,8 @@ function VersionRow({ version }: { version: KnowledgeVersionView }) {
       <p className="text-label text-fg-muted">
         {version.authorityClass ?? "authority not stated"} ·{" "}
         {version.lifecycleStatus ?? "lifecycle not stated"} ·{" "}
-        {version.ratified ? "ratified" : "no ratification recorded"}
+        {/* KGSC-1 — Governance's reading of this version's claim; absent means it was not established. */}
+        {GOVERNANCE_STANDING_LABEL[version.governanceStanding ?? "unavailable"]}
         {version.createdAt ? ` · ${version.createdAt}` : ""}
       </p>
     </li>

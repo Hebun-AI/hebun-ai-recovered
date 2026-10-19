@@ -340,6 +340,9 @@ export async function readKnowledgeAvailability(
  * Summarize a record for display in one line. Provenance and classification are PRESERVED:
  * authority class, lifecycle and freshness travel with the record and are never flattened
  * into a single "knowledge result".
+ *
+ * KGSC-1 — ratification is NOT in this line. The record's `ratified` is its own claim, and only
+ * Governance can say whether it holds; the caller states Governance's reading beside this line.
  */
 export function describeKnowledgeRecord(record: KnowledgeSourceRecord): string {
   const authority =
@@ -349,6 +352,5 @@ export function describeKnowledgeRecord(record: KnowledgeSourceRecord): string {
         ? "authoritative"
         : "provisional (NOT settled truth)";
   const lifecycle = record.lifecycleStatus ?? "lifecycle not stated";
-  const ratified = record.ratified ? "ratified" : "no ratification recorded";
-  return `${record.factKey} — ${record.title} · ${record.domainKey} · ${record.scope} · ${authority} · ${lifecycle} · ${ratified} · freshness: ${record.freshness} · v${record.knowledgeVersion}`;
+  return `${record.factKey} — ${record.title} · ${record.domainKey} · ${record.scope} · ${authority} · ${lifecycle} · freshness: ${record.freshness} · v${record.knowledgeVersion}`;
 }

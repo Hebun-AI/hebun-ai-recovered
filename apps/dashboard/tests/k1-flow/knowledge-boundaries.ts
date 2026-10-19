@@ -259,7 +259,9 @@ async function main(): Promise<void> {
     // The one-line description states standing; it never echoes a claim as a status.
     const described = describeKnowledgeRecord(stored);
     assert.match(described, /provisional \(NOT settled truth\)/);
-    assert.match(described, /no ratification recorded/);
+    /* KGSC-1 — ratification left this line: the record's own claim is never a status here. Callers state
+     * Governance's reading beside it (tests/kgsc-1). */
+    assert.doesNotMatch(described, /ratif/);
   }
 
   /* ── 17. THE READ CANNOT EXECUTE, FETCH, OR OPEN A FILE ──────────────────

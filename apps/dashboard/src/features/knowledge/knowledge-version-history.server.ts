@@ -22,6 +22,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { knowledgeFacts } from "@/db/schema/knowledge-fact";
 import { knowledgeNodes } from "@/db/schema/knowledge";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import type { EvidenceGovernanceStanding } from "@/features/knowledge-retrieval/evidence";
 import type {
   KnowledgeVersionChainIntegrity,
   KnowledgeVersionHistory,
@@ -51,6 +52,14 @@ export const KNOWLEDGE_VERSION_CHAIN_LIMIT = 50;
 export interface KnowledgeVersionHistoryDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly limit?: number;
+  /**
+   * KGSC-1 — Governance's reading of each version's claimed decision, INJECTED by the caller (the
+   * Knowledge workspace action passes the shared `readKnowledgeGovernanceStandings`). This module
+   * reads no Governance record itself. Absent → no version carries a standing.
+   */
+  readonly readStandings?: (
+    claims: readonly { readonly ratificationDecisionId: string | null; readonly activeKnowledgeNodeId: string | null }[],
+  ) => Promise<{ readonly status: "read"; readonly standings: readonly EvidenceGovernanceStanding[] } | { readonly status: "unavailable" }>;
 }
 
 function iso(value: Date | string | null): string {
@@ -100,6 +109,7 @@ export async function readKnowledgeVersionHistory(
 
     const bound = Math.max(1, Math.min(deps.limit ?? KNOWLEDGE_VERSION_CHAIN_LIMIT, KNOWLEDGE_VERSION_CHAIN_LIMIT));
     const versions: KnowledgeVersionView[] = [];
+    const claims: { ratificationDecisionId: string | null; activeKnowledgeNodeId: string | null }[] = [];
     const seen = new Set<string>();
     let integrity: KnowledgeVersionChainIntegrity = "complete";
     let cursor: string | null = activeNodeId;
@@ -156,10 +166,18 @@ export async function readKnowledgeVersionHistory(
         createdBy: node.createdBy,
         supersedesEarlier: node.supersedes !== null,
       });
+      claims.push({ ratificationDecisionId: node.ratificationDecisionId, activeKnowledgeNodeId: node.id });
 
       cursor = node.supersedes;
     }
 
+    if (deps.readStandings && versions.length > 0) {
+      /* A reading that cannot be answered decides nothing: every version reads `unavailable`. */
+      const read = await deps.readStandings(claims).catch(() => ({ status: "unavailable" }) as const);
+      const standings: readonly (EvidenceGovernanceStanding | "unavailable")[] =
+        read.status === "read" ? read.standings : versions.map(() => "unavailable" as const);
+      return { status: "read", versions: versions.map((v, i) => ({ ...v, governanceStanding: standings[i]! })), integrity };
+    }
     return { status: "read", versions, integrity };
   } catch (error) {
     return {

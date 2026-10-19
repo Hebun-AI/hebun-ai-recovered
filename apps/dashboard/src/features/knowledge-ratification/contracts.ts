@@ -30,6 +30,8 @@
  * Pure types and frozen values. No React, no I/O, no database, no authority.
  */
 
+import type { EvidenceGovernanceStanding } from "@/features/knowledge-retrieval/evidence";
+
 /** The G2 subject type a ratification decision must carry. A version, never a fact. */
 export const RATIFICATION_SUBJECT_TYPE = "knowledge_node" as const;
 
@@ -153,3 +155,24 @@ export interface RatificationProvenance {
   readonly ratificationDecisionId: string | null;
   readonly governanceSessionId: string | null;
 }
+
+/*
+ * KGSC-1 — HOW A SURFACE SHOWS A VERSION'S GOVERNANCE STANDING.
+ *
+ * The record's own `ratified` / `ratificationDecisionId` is a CLAIM (the column is writable), so no
+ * surface may show it as approval. The standing is Governance's answer, read server-side through
+ * `readKnowledgeGovernanceStandings` (heby-answer/knowledge-evidence.server.ts, the one
+ * implementation), plus the one outcome that reader can also report: it could not answer.
+ * `unavailable` is never "not confirmed" — a failed read decides nothing.
+ *
+ * The words are the Heby evidence card's (`RatificationChip`), so a version reads the same in
+ * Heby's evidence and in the Knowledge workspace.
+ */
+export type GovernanceStandingReading = EvidenceGovernanceStanding | "unavailable";
+
+export const GOVERNANCE_STANDING_LABEL: Readonly<Record<GovernanceStandingReading, string>> = Object.freeze({
+  ratified: "ratified — confirmed by Governance",
+  unconfirmed: "ratification claimed, NOT confirmed by Governance",
+  none: "no ratification recorded",
+  unavailable: "Governance verification unavailable — neither confirmed nor denied",
+});

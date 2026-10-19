@@ -56,7 +56,7 @@ import {
 } from "@/features/governance-decision/knowledge-public-use-read.server";
 import { readRejectedKnowledgeVersions } from "@/features/governance-decision/knowledge-rejection-read.server";
 import {
-  readKnowledgeRatificationDecisions,
+  readKnowledgeGovernanceStandings,
   type KnowledgeRatificationDecisionsRead,
 } from "@/features/governance-decision/knowledge-ratification-read.server";
 
@@ -494,28 +494,14 @@ const RATIFICATION_UNAVAILABLE: RetrievalResult = {
  */
 export type KnowledgeGovernanceStanding = EvidenceGovernanceStanding;
 
-export type KnowledgeGovernanceStandingsRead =
-  | { readonly status: "read"; readonly standings: readonly KnowledgeGovernanceStanding[] }
-  | { readonly status: "unavailable" };
-
-export async function readKnowledgeGovernanceStandings(
-  tenant: KnowledgeTenant,
-  records: readonly KnowledgeSourceRecord[],
-  read: RatifiedKnowledgeDeps["readRatificationDecisions"] = (t, id) => readKnowledgeRatificationDecisions(t, id),
-): Promise<KnowledgeGovernanceStandingsRead> {
-  const standings = await Promise.all(
-    records.map(async (record): Promise<KnowledgeGovernanceStanding | null> => {
-      const claimed = record.ratificationDecisionId;
-      if (claimed === null || record.activeKnowledgeNodeId === null) return "none";
-      const decisions = await read(tenant, record.activeKnowledgeNodeId).catch(() => ({ status: "unavailable" }) as const);
-      if (decisions.status !== "read") return null;
-      return decisions.ratifyDecisionIds.has(claimed) ? "ratified" : "unconfirmed";
-    }),
-  );
-  return standings.includes(null)
-    ? { status: "unavailable" }
-    : { status: "read", standings: standings as KnowledgeGovernanceStanding[] };
-}
+/*
+ * KGSC-1 — the reader itself now lives with the Governance projection it reads
+ * (`governance-decision/knowledge-ratification-read.server.ts`), so a Knowledge workspace module can
+ * ask Governance without reaching Heby. Re-exported here unchanged for every Heby caller: still ONE
+ * implementation of what "ratified" means.
+ */
+export { readKnowledgeGovernanceStandings };
+export type { KnowledgeGovernanceStandingsRead } from "@/features/governance-decision/knowledge-ratification-read.server";
 
 /** True only when Governance holds the decision the record claims. A neutral name for heby-commands (g2/k4). */
 export function isGovernanceConfirmed(standing: KnowledgeGovernanceStanding): boolean {
@@ -523,8 +509,11 @@ export function isGovernanceConfirmed(standing: KnowledgeGovernanceStanding): bo
 }
 
 /** One line per standing, worded so a claim Governance does not hold is never read as approval. */
-export function describeKnowledgeGovernanceStanding(standing: KnowledgeGovernanceStanding): string {
+export function describeKnowledgeGovernanceStanding(standing: KnowledgeGovernanceStanding | "unavailable"): string {
   switch (standing) {
+    /* KGSC-1 — a read that could not answer decides nothing, in either direction. */
+    case "unavailable":
+      return "Ratification: Governance verification unavailable — its record could not be read, so this is neither confirmed nor denied.";
     case "ratified":
       return "Ratification: ratified — Governance holds the decision for this version.";
     case "unconfirmed":
