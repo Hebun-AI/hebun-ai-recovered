@@ -9,7 +9,13 @@
  */
 
 import type { ModelGenerationRequest, ModelGenerationResult } from "@/features/heby-runtime";
-import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";
+import {
+  GROUNDING_CONTEXT_PREFIX,
+  SUPPLIED_MATERIAL_PREFIX,
+  UNTRUSTED_FENCE_NOTE,
+  oneLineGroundingRecord,
+  untrustedFence,
+} from "@/features/heby-runtime";
 import { ModelConnectivityError, toSafeConnectivityError } from "./model-error";
 import {
   unavailableClaudeTransport,
@@ -26,6 +32,8 @@ export interface ClaudeModelClientDeps {
   readonly provider: string;
   /** Defaults to the no-network transport, so a missing transport fails closed. */
   readonly transport?: ClaudeTransport;
+  /** HEBY-PROMPT-INJECTION-BOUNDARY-1 — the per-request fence id. Injectable only so a test can force a collision. */
+  readonly newFenceId?: () => string;
 }
 
 /**
@@ -44,16 +52,30 @@ export interface ClaudeModelClientDeps {
  * Evidence stays in `system`. It must never move into a message turn, where it would sit exactly
  * where the operator's own words go.
  */
-function translate(request: ModelGenerationRequest): ClaudeTransportRequest {
-  const grounded =
-    request.evidence.length > 0
-      ? `${request.systemInstructions}\n\n${GROUNDING_CONTEXT_PREFIX}\n${request.evidence
-          .map((line, index) => `[${index + 1}] ${line}`)
-          .join("\n")}`
-      : request.systemInstructions;
-  /* SCI-1 — preparation material: its own delimited section, AFTER Hebun's instruction and grounding. */
+function translate(request: ModelGenerationRequest, fenceId: string): ClaudeTransportRequest {
+  /*
+   * HEBY-PROMPT-INJECTION-BOUNDARY-1 — each untrusted section is fenced by an id minted for this
+   * request, and grounding records stay one line each (`trust-boundary.ts`). Material keeps its own
+   * line structure: a revision is a document, and the fence alone bounds it. If the id appears inside
+   * the content, the extent of the data cannot be stated, so nothing is sent.
+   */
   const material = request.material ?? [];
-  const system = material.length > 0 ? `${grounded}\n\n${SUPPLIED_MATERIAL_PREFIX}\n${material.join("\n\n")}` : grounded;
+  if ([...request.evidence, ...material].some((text) => text.includes(fenceId))) {
+    throw new ModelConnectivityError("boundary-unavailable", "The data boundary could not be established for this request.");
+  }
+  const sections: string[] = [];
+  if (request.evidence.length > 0) {
+    const fence = untrustedFence("grounding", fenceId);
+    sections.push(
+      [GROUNDING_CONTEXT_PREFIX, fence.open, ...request.evidence.map((line, index) => `[${index + 1}] ${oneLineGroundingRecord(line)}`), fence.close].join("\n"),
+    );
+  }
+  /* SCI-1 — preparation material: its own delimited section, AFTER Hebun's instruction and grounding. */
+  if (material.length > 0) {
+    const fence = untrustedFence("material", fenceId);
+    sections.push([SUPPLIED_MATERIAL_PREFIX, fence.open, material.join("\n\n"), fence.close].join("\n"));
+  }
+  const system = sections.length > 0 ? [request.systemInstructions, UNTRUSTED_FENCE_NOTE, ...sections].join("\n\n") : request.systemInstructions;
 
   // Bounded recent history (oldest→newest) is prepended as prior conversational turns, then the
   // current user request is the final turn. History is DATA for continuity only — the system
@@ -73,6 +95,14 @@ function translate(request: ModelGenerationRequest): ClaudeTransportRequest {
   };
 }
 
+/*
+ * 128 random bits as 32 hex characters. Deliberately NOT UUID-shaped: a UUID on the wire reads as a record
+ * identifier to every leak check, and this is no identifier — it names nothing and is never stored.
+ */
+function newFenceId(): string {
+  return globalThis.crypto.randomUUID().replace(/-/g, "");
+}
+
 export function createClaudeModelClient(
   deps: ClaudeModelClientDeps,
 ): ClaudeModelClient {
@@ -80,7 +110,7 @@ export function createClaudeModelClient(
 
   return {
     async generate(request: ModelGenerationRequest): Promise<ModelGenerationResult> {
-      const transportRequest = translate(request);
+      const transportRequest = translate(request, (deps.newFenceId ?? newFenceId)());
       const startedAt = Date.now();
       let raw;
       try {

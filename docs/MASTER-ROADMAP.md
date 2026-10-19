@@ -5720,6 +5720,7 @@ re-graded here.
 | KNOWLEDGE-SEARCH-V1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-search-v1-closure.md` |
 | KNOWLEDGE-EVIDENCE-STANDING-1 | VERIFIED | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` |
 | EVIDENCE-DECISION-BRIEF-1 | VERIFIED | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` |
+| HEBY-PROMPT-INJECTION-BOUNDARY-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` |
 
 ---
 
@@ -5804,3 +5805,7 @@ before §16.1 are not yet indexed (Phase B).
 | KES1-CLAIM-LABEL-OTHER-PATHS-1 | KNOWLEDGE-EVIDENCE-STANDING-1 | `docs/product-vision/runtime/hebun-knowledge-evidence-standing-1-closure.md` | Authority legibility | DEFERRED | A Director-selected phase applying the Governance read to /knowledge, /source, work evidence and the public-content label |
 | EDB1-BROWSER-UNVERIFIED-1 | EVIDENCE-DECISION-BRIEF-1 | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` | Verification gap | DEFERRED | A signed-in render of `/brief`, read only |
 | EDB1-AI-INTERPRETATION-DECISION-1 | EVIDENCE-DECISION-BRIEF-1 | `docs/product-vision/runtime/hebun-evidence-decision-brief-1-closure.md` | Product decision | DEFERRED | A Director decision on how a brief instruction reaches the model apart from the retrieval query, and on /heby's ratified-only grounding for it |
+| HPIB1-REAL-PROVIDER-UNVERIFIED-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Verification gap | DEFERRED | A Director-authorized real-provider adversarial run over synthetic records, including a multi-line grounding entry |
+| HPIB1-SINGLE-SYSTEM-STRING-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Security limit | DEFERRED | A provider-enforced instruction/data channel, or a Director decision accepting the limit |
+| HPIB1-RELEVANCE-JUDGE-UNFENCED-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Security gap (unwired path) | DEFERRED | The relevance judge routed through the fenced client, or fenced, before any runtime caller |
+| HPIB1-REFUSAL-AFTER-ADMISSION-1 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` | Lifecycle ordering | DEFERRED | The boundary check moved before the EAI decision and dispatch admission |

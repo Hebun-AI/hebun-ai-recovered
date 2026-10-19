@@ -18,6 +18,8 @@ export type ModelConnectivityErrorCode =
   | "rate-limited"
   | "provider-unavailable"
   | "malformed-response"
+  /* HEBY-PROMPT-INJECTION-BOUNDARY-1 — the data boundary of a request could not be stated, so it was not sent. */
+  | "boundary-unavailable"
   | "unknown-provider-error";
 
 const RETRYABLE: ReadonlySet<ModelConnectivityErrorCode> = new Set([

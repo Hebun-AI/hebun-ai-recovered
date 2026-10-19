@@ -213,14 +213,20 @@ async function main(): Promise<void> {
       assert.equal(result.observation.status, "observed", "the observation reached the composition");
 
       const prompt = lastSystem;
-      assert.ok(prompt.includes(growthObservationSupplementFor(OBSERVATION)), "the whole fenced block was sent");
+      /*
+       * HEBY-PROMPT-INJECTION-BOUNDARY-1 — a multi-line grounding entry now travels as ONE JSON string, so
+       * the block is matched in that encoding, losslessly, and every sentence is looked up as it is encoded.
+       */
+      const encoded = (text: string) => JSON.stringify(text).slice(1, -1);
+      assert.ok(prompt.includes(JSON.stringify(growthObservationSupplementFor(OBSERVATION))), "the whole fenced block was sent, as one grounding line");
       const firstNumber = prompt.indexOf("842,031");
       assert.ok(firstNumber > 0, "and it carried the number");
       for (const sentence of GROWTH_OBSERVATION_FENCE) {
-        assert.ok(prompt.indexOf(sentence) < firstNumber, `denial before number, at the real seam: ${sentence}`);
+        const at = prompt.indexOf(encoded(sentence));
+        assert.ok(at >= 0 && at < firstNumber, `denial before number, at the real seam: ${sentence}`);
       }
       assert.ok(
-        prompt.indexOf("CANDIDATE RECIPIENTS") < prompt.indexOf(GROWTH_OBSERVATION_FENCE[0]!),
+        prompt.indexOf("CANDIDATE RECIPIENTS") < prompt.indexOf(encoded(GROWTH_OBSERVATION_FENCE[0]!)),
         "the candidates come first and the observation after — grounding is never a candidate",
       );
 

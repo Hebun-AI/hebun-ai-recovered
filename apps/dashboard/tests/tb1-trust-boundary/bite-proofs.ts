@@ -87,8 +87,9 @@ const MUTATIONS: readonly Mutation[] = [
     /* The boundary marker dropped while "simplifying" the system string. */
     label: "T2 the grounding boundary marker removed from the assembled context",
     file: TRANSPORT,
-    find: "`${request.systemInstructions}\\n\\n${GROUNDING_CONTEXT_PREFIX}\\n${request.evidence",
-    replace: "`${request.systemInstructions}\\n\\n${request.evidence",
+    /* HEBY-PROMPT-INJECTION-BOUNDARY-1 — the grounding section is now assembled as fenced lines. */
+    find: "[GROUNDING_CONTEXT_PREFIX, fence.open, ",
+    replace: "[fence.open, ",
     expect: "the boundary marker is present",
   },
   {
@@ -166,9 +167,10 @@ const MUTATIONS: readonly Mutation[] = [
      */
     label: "T10 an execution authority imported onto the context-assembly path",
     file: TRANSPORT,
-    find: 'import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";',
+    /* HEBY-PROMPT-INJECTION-BOUNDARY-1 — the boundary import now names the fence helpers too. */
+    find: '  untrustedFence,\n} from "@/features/heby-runtime";',
     replace:
-      'import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";\n' +
+      '  untrustedFence,\n} from "@/features/heby-runtime";\n' +
       'import { resolveExternalSendEnabled } from "@/features/action-execution/execution-control.server";',
     expect: "the execution authority",
   },
