@@ -141,6 +141,13 @@ export type ExecutionLedgerRead =
       readonly attentionTruncated: boolean;
       /** The bound actually applied, so the surface states a number it did not invent. */
       readonly pageLimit: number;
+      /**
+       * EXECUTION-RECONCILIATION-V1 — the server instant the reads were issued. The one clock value
+       * on this read, carried as a fact about the READ, so the surface can state an attempt's age and
+       * tell a `pending` that may still be in flight from one that outlived its execution window.
+       * No entry is derived from it; attention membership stays state-only.
+       */
+      readonly readAt: string;
     }
   | { readonly status: "unavailable"; readonly reason: string };
 
@@ -187,6 +194,8 @@ export async function readExecutionLedger(
 
   const limit = deps.limit ?? EXECUTION_LEDGER_PAGE_LIMIT;
   const bounded: ExecutionAttemptReadDeps = { ...deps, limit };
+  /* Taken BEFORE the reads: an attempt started during them is younger, never older, than stated. */
+  const readAt = new Date().toISOString();
 
   const [history, attention] = await Promise.all([
     readExecutionAttempts(tenant, bounded),
@@ -211,5 +220,6 @@ export async function readExecutionLedger(
     historyTruncated: entries.length >= limit,
     attentionTruncated: needsAttention.length >= limit,
     pageLimit: limit,
+    readAt,
   };
 }

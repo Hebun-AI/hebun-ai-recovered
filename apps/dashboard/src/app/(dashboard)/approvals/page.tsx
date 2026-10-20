@@ -223,6 +223,7 @@ export default async function ApprovalsPage() {
             connected={ledger.status === "read"}
             historyTruncated={ledger.status === "read" ? ledger.historyTruncated : false}
             attentionTruncated={ledger.status === "read" ? ledger.attentionTruncated : false}
+            readAt={ledger.status === "read" ? ledger.readAt : ""}
           />
         </>
       }

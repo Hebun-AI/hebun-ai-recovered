@@ -3,6 +3,8 @@ import {
   EXECUTION_LEDGER_WORDING,
   EXECUTION_OUTCOME_WORDING,
   PROVIDER_ACCEPTANCE_NON_CLAIMS,
+  RECONCILIATION_WORDING,
+  reconciliationReasonFor,
   type ExecutionAttemptStatus,
 } from "@/features/action-execution/contracts";
 import type { ExecutionLedgerEntry } from "@/features/action-execution/execution-ledger-projection.server";
@@ -57,7 +59,19 @@ function Correlation({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LedgerRow({ entry }: { entry: ExecutionLedgerEntry }) {
+/** Whole minutes, hours or days — an age to orient a human, not a measurement to act on. */
+function formatAge(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return "under a minute";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} h` : `${Math.floor(hours / 24)} days`;
+}
+
+function LedgerRow({ entry, readAtMs }: { entry: ExecutionLedgerEntry; readAtMs: number }) {
+  /* EXECUTION-RECONCILIATION-V1 — non-null exactly for the attention statuses; age only names WHY. */
+  const reason = reconciliationReasonFor(entry.status, entry.startedAt, readAtMs);
+  const ageMs = readAtMs - Date.parse(entry.startedAt);
   return (
     <li className={`flex flex-col gap-2 rounded-lg border p-3 ${toneFor(entry.status)}`}>
       <div className="flex flex-wrap items-center gap-2">
@@ -66,6 +80,9 @@ function LedgerRow({ entry }: { entry: ExecutionLedgerEntry }) {
         <span className="text-[0.65rem] text-fg-muted">
           started {new Date(entry.startedAt).toLocaleString()}
         </span>
+        {reason && Number.isFinite(ageMs) && ageMs >= 0 ? (
+          <span className="text-[0.65rem] text-fg-muted">age {formatAge(ageMs)}</span>
+        ) : null}
         {entry.completedAt ? (
           <span className="text-[0.65rem] text-fg-muted">
             concluded {new Date(entry.completedAt).toLocaleString()}
@@ -75,8 +92,15 @@ function LedgerRow({ entry }: { entry: ExecutionLedgerEntry }) {
 
       <p className="text-xs leading-5">{EXECUTION_OUTCOME_WORDING[entry.status]}</p>
 
-      {/* An attempt that never concluded says why the row looks the way it does. */}
-      {entry.status === "pending" && entry.completedAt === null ? (
+      {reason ? (
+        <p className="text-xs font-semibold leading-5">{RECONCILIATION_WORDING.reasons[reason]}</p>
+      ) : null}
+      {reason && reason !== "pending-may-be-in-flight" ? (
+        <p className="text-[0.65rem] font-semibold leading-5">{RECONCILIATION_WORDING.doNotRepeat}</p>
+      ) : null}
+
+      {/* An attempt that outlived its window says why the row looks the way it does. */}
+      {reason === "pending-past-execution-window" && entry.completedAt === null ? (
         <p className="text-[0.65rem] leading-5 text-fg-muted">
           {EXECUTION_LEDGER_WORDING.pendingAfterReload}
         </p>
@@ -85,6 +109,10 @@ function LedgerRow({ entry }: { entry: ExecutionLedgerEntry }) {
       {entry.providerMessageId ? (
         <p className="break-all text-[0.65rem] text-fg-muted">
           Provider message id: {entry.providerMessageId}
+        </p>
+      ) : reason ? (
+        <p className="text-[0.65rem] text-fg-muted">
+          {RECONCILIATION_WORDING.providerReferenceUnavailable}
         </p>
       ) : null}
 
@@ -105,6 +133,7 @@ function LedgerRow({ entry }: { entry: ExecutionLedgerEntry }) {
 
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         <Correlation label="attempt" value={entry.attemptId} />
+        <Correlation label="request" value={entry.requestId} />
         <Correlation label="permit" value={entry.permitId} />
         <Correlation label="adapter" value={entry.adapterId} />
       </div>
@@ -118,6 +147,7 @@ export function ExecutionLedger({
   connected,
   historyTruncated = false,
   attentionTruncated = false,
+  readAt,
 }: {
   readonly entries: readonly ExecutionLedgerEntry[];
   readonly needsAttention: readonly ExecutionLedgerEntry[];
@@ -125,7 +155,10 @@ export function ExecutionLedger({
   /** Both default to false so a caller that forgets them under-claims rather than over-claims. */
   readonly historyTruncated?: boolean;
   readonly attentionTruncated?: boolean;
+  /** The ledger read's own instant. Ages and the in-flight window are measured from it. */
+  readonly readAt: string;
 }) {
+  const readAtMs = Date.parse(readAt);
   return (
     <DecisionRegion
       eyebrow="Performed acts"
@@ -162,7 +195,7 @@ export function ExecutionLedger({
                   </p>
                   <ul className="mt-2 flex flex-col gap-2">
                     {needsAttention.map((entry) => (
-                      <LedgerRow key={entry.attemptId} entry={entry} />
+                      <LedgerRow key={entry.attemptId} entry={entry} readAtMs={readAtMs} />
                     ))}
                   </ul>
                   {attentionTruncated ? (
@@ -184,7 +217,7 @@ export function ExecutionLedger({
                 <>
                   <ul className="mt-2 flex flex-col gap-2">
                     {entries.map((entry) => (
-                      <LedgerRow key={entry.attemptId} entry={entry} />
+                      <LedgerRow key={entry.attemptId} entry={entry} readAtMs={readAtMs} />
                     ))}
                   </ul>
                   {historyTruncated ? (

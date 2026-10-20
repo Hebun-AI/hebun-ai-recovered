@@ -40,18 +40,30 @@ const entry = (over: Partial<ExecutionLedgerEntry> = {}): ExecutionLedgerEntry =
   ...over,
 });
 
+/*
+ * EXECUTION-RECONCILIATION-V1 — the ledger read's instant. One hour after the fixtures' start, so a
+ * default `pending` fixture has outlived the 3-minute in-flight window, as a reloaded one would.
+ */
+const READ_AT = new Date(1_700_000_000_000 + 60 * 60_000).toISOString();
+
 const render = (
   entries: readonly ExecutionLedgerEntry[],
   needsAttention: readonly ExecutionLedgerEntry[],
   connected = true,
 ): string =>
-  visible(renderToStaticMarkup(createElement(ExecutionLedger, { entries, needsAttention, connected })));
+  visible(
+    renderToStaticMarkup(
+      createElement(ExecutionLedger, { entries, needsAttention, connected, readAt: READ_AT }),
+    ),
+  );
 
 const rawMarkup = (
   entries: readonly ExecutionLedgerEntry[],
   needsAttention: readonly ExecutionLedgerEntry[],
 ): string =>
-  renderToStaticMarkup(createElement(ExecutionLedger, { entries, needsAttention, connected: true }));
+  renderToStaticMarkup(
+    createElement(ExecutionLedger, { entries, needsAttention, connected: true, readAt: READ_AT }),
+  );
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * 1. UNREADABLE IS NOT EMPTY, AND EMPTY IS NOT UNREADABLE
@@ -278,6 +290,7 @@ function truncationIsDisclosed(): void {
         entries: [entry()],
         needsAttention: [],
         connected: true,
+        readAt: READ_AT,
       }),
     ),
   );
@@ -294,6 +307,7 @@ function truncationIsDisclosed(): void {
         connected: true,
         historyTruncated: true,
         attentionTruncated: true,
+        readAt: READ_AT,
       }),
     ),
   );
@@ -315,6 +329,87 @@ function truncationIsDisclosed(): void {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 9. EXECUTION-RECONCILIATION-V1 — WHY EACH CANDIDATE IS ON THE LIST
+ *
+ * UNKNOWN is not FAILED, PENDING is not necessarily STUCK, and nothing is promoted to success or
+ * failure by elapsed time. Missing provider metadata is stated as missing, never filled in.
+ * ────────────────────────────────────────────────────────────────────────── */
+function reconciliationCandidatesSayWhy(): void {
+  const unknown = entry({
+    status: "unknown",
+    providerResponseClass: "ambiguous",
+    providerMessageId: null,
+    requiresAttention: true,
+  });
+  const u = render([unknown], [unknown]);
+  assert.ok(u.includes("Needs Reconciliation"), "the attention lens is the reconciliation view");
+  assert.ok(u.includes("Outcome requires verification"), "an unknown outcome needs verification");
+  assert.ok(u.includes("Provider outcome is not confirmed"), "and the provider outcome is unconfirmed");
+  assert.ok(
+    u.includes("Do not repeat this operation until its external outcome has been checked"),
+    "and the human is told not to repeat it",
+  );
+  assert.ok(
+    u.includes("Provider operation reference: unavailable"),
+    "a missing provider reference is stated as unavailable",
+  );
+  assert.ok(!u.includes("Provider message id:"), "and no provider reference is fabricated");
+  assert.ok(u.includes("request 33333333-3333-4333-8333-333333333333"), "the request is referenced");
+  assert.ok(u.includes("adapter resend-email-v1"), "and the provider adapter is named");
+  assert.ok(u.includes("age 1 h"), "and its age is stated from the read instant");
+
+  /* PENDING past the window: needs verification, still never called failed. */
+  const stale = entry({
+    status: "pending",
+    providerResponseClass: null,
+    providerMessageId: null,
+    completedAt: null,
+    requiresAttention: true,
+  });
+  const p = render([stale], [stale]);
+  assert.ok(p.includes("has outlived the 3-minute window"), "a stale pending says why it is listed");
+  assert.ok(p.includes("Do not repeat this operation"), "and is not to be repeated");
+  assert.ok(!p.toLowerCase().includes("failed"), "and is never called failed because time passed");
+
+  /* PENDING inside the window: may still be in flight, so no verification claim yet. */
+  const fresh = entry({
+    status: "pending",
+    providerResponseClass: null,
+    providerMessageId: null,
+    startedAt: new Date(Date.parse(READ_AT) - 30_000).toISOString(),
+    completedAt: null,
+    requiresAttention: true,
+  });
+  const f = render([fresh], [fresh]);
+  assert.ok(f.includes("may still be in progress"), "a fresh pending is not stuck");
+  assert.ok(f.includes("not a sign that anything went wrong"), "and is not alarming");
+  assert.ok(!f.includes("Outcome requires verification"), "and is not yet a verification claim");
+  assert.ok(!f.includes("No outcome was ever recorded"), "nor an answer Hebun never received");
+
+  /* An old ACCEPTED attempt is not a candidate merely because it is old. */
+  const oldAccepted = entry({ startedAt: new Date(0).toISOString(), completedAt: new Date(1).toISOString() });
+  const a = render([oldAccepted], []);
+  assert.ok(a.includes("0 needing attention"), "an old acceptance is not counted");
+  assert.ok(!a.includes("Outcome requires verification"), "and carries no reconciliation reason");
+  assert.ok(!/\bage (under|\d)/.test(a), "and no candidate age");
+
+  /* FAILED and REFUSED keep their own outcomes and are never labelled unknown. */
+  for (const status of ["failed", "refused"] as const) {
+    const settled = entry({
+      status,
+      providerResponseClass: status === "failed" ? "rejected" : null,
+      providerMessageId: null,
+      failureClass: status === "failed" ? "provider-rejected" : "credential-unavailable",
+    });
+    const m = render([settled], []);
+    assert.ok(m.includes("0 needing attention"), `${status} is not a reconciliation candidate`);
+    assert.ok(!m.includes("Unknown"), `${status} is never labelled unknown`);
+    assert.ok(!m.includes("Provider outcome is not confirmed"), `${status} is not called unconfirmed`);
+    assert.ok(!m.includes("Provider operation reference"), `${status} gets no reference line`);
+  }
+}
+
 function main(): void {
   threeStatesStayThree();
   unknownIsNotFailedAndNotSafe();
@@ -324,6 +419,7 @@ function main(): void {
   theRenderedSurfaceOffersNothing();
   bothListsRenderTheSameAttempt();
   truncationIsDisclosed();
+  reconciliationCandidatesSayWhy();
 
   console.log("ge1-ledger/surface-rendering: OK");
 }

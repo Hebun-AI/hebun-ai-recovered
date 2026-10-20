@@ -214,6 +214,63 @@ export function attemptRequiresAttention(status: ExecutionAttemptStatus): boolea
 }
 
 /**
+ * EXECUTION-RECONCILIATION-V1 — the longest an execution can legitimately still be in flight.
+ *
+ * The only writer of an attempt row is the `/approvals` server action: it commits the `pending` row
+ * inside the spend transaction, calls the provider, and terminalizes the row in the SAME invocation.
+ * No worker, queue or retry resumes a row later. That invocation is bounded by the route's
+ * `maxDuration` (180 s, `src/app/(dashboard)/approvals/page.tsx`), after which the host ends it.
+ * A `pending` row older than this therefore outlived the only process that could ever settle it.
+ *
+ * This bounds PROGRESS only. It says nothing about the provider: a stale `pending` may still be an
+ * act the provider performed. A test pins this value to the route's `maxDuration`.
+ */
+export const EXECUTION_IN_FLIGHT_WINDOW_MS = 180_000;
+
+/** Why an attempt is on the reconciliation list. Never "failed", never "succeeded". */
+export type ReconciliationReason =
+  | "outcome-unknown"
+  | "pending-past-execution-window"
+  | "pending-may-be-in-flight";
+
+/**
+ * Pure. Non-null exactly when {@link attemptRequiresAttention} is true — membership of the list is
+ * still decided by state alone; age only distinguishes WHY a `pending` row is there. An unparseable
+ * start time never earns the stronger "past the window" claim.
+ */
+export function reconciliationReasonFor(
+  status: ExecutionAttemptStatus,
+  startedAt: string,
+  nowMs: number,
+): ReconciliationReason | null {
+  if (!attemptRequiresAttention(status)) return null;
+  if (status === "unknown") return "outcome-unknown";
+  const started = Date.parse(startedAt);
+  return Number.isFinite(started) && nowMs - started > EXECUTION_IN_FLIGHT_WINDOW_MS
+    ? "pending-past-execution-window"
+    : "pending-may-be-in-flight";
+}
+
+/** What the surface says for each reason, frozen so a test pins it. Statements, never offers. */
+export const RECONCILIATION_WORDING = Object.freeze({
+  reasons: Object.freeze({
+    "outcome-unknown":
+      "Outcome requires verification. Provider outcome is not confirmed: the request left Hebun " +
+      "and no answer was recorded.",
+    "pending-past-execution-window":
+      "Outcome requires verification. No outcome was recorded, and this attempt has outlived the " +
+      "3-minute window in which an execution can run, so it is not expected to still be in " +
+      "progress. Provider outcome is not confirmed.",
+    "pending-may-be-in-flight":
+      "Started less than 3 minutes ago and may still be in progress. This is not a sign that " +
+      "anything went wrong.",
+  } satisfies Record<ReconciliationReason, string>),
+  doNotRepeat: "Do not repeat this operation until its external outcome has been checked.",
+  providerReferenceUnavailable:
+    "Provider operation reference: unavailable — no provider reference was recorded.",
+} as const);
+
+/**
  * THE LEDGER SURFACE'S OWN WORDING, as frozen values for the same reason
  * {@link EXECUTION_OUTCOME_WORDING} is: so a test pins what the Director is told, and a later
  * edit that softens it fails here rather than in front of a human.
@@ -223,7 +280,7 @@ export function attemptRequiresAttention(status: ExecutionAttemptStatus): boolea
  */
 export const EXECUTION_LEDGER_WORDING = Object.freeze({
   regionTitle: "Execution Ledger",
-  attentionTitle: "Needs human attention",
+  attentionTitle: "Needs Reconciliation",
   historyTitle: "Recorded execution attempts",
   /** Said once, above the attention list, so the reading is never left to inference. */
   attentionPreamble:
