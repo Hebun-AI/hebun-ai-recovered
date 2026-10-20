@@ -95,7 +95,8 @@ function LedgerRow({ entry, readAtMs }: { entry: ExecutionLedgerEntry; readAtMs:
       {reason ? (
         <p className="text-xs font-semibold leading-5">{RECONCILIATION_WORDING.reasons[reason]}</p>
       ) : null}
-      {reason && reason !== "pending-may-be-in-flight" ? (
+      {/* Every candidate, in flight or not: no state on this list makes repeating the act safe. */}
+      {reason ? (
         <p className="text-[0.65rem] font-semibold leading-5">{RECONCILIATION_WORDING.doNotRepeat}</p>
       ) : null}
 

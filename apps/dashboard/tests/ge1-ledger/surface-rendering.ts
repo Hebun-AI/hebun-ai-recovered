@@ -368,7 +368,11 @@ function reconciliationCandidatesSayWhy(): void {
     requiresAttention: true,
   });
   const p = render([stale], [stale]);
-  assert.ok(p.includes("has outlived the 3-minute window"), "a stale pending says why it is listed");
+  assert.ok(p.includes("within the 3-minute execution limit"), "a stale pending says why it is listed");
+  assert.ok(
+    p.includes("does not mean the execution stopped") && p.includes("may still have completed"),
+    "and claims neither that execution stopped nor that the provider did nothing",
+  );
   assert.ok(p.includes("Do not repeat this operation"), "and is not to be repeated");
   assert.ok(!p.toLowerCase().includes("failed"), "and is never called failed because time passed");
 
@@ -383,7 +387,8 @@ function reconciliationCandidatesSayWhy(): void {
   });
   const f = render([fresh], [fresh]);
   assert.ok(f.includes("may still be in progress"), "a fresh pending is not stuck");
-  assert.ok(f.includes("not a sign that anything went wrong"), "and is not alarming");
+  assert.ok(f.includes("Its outcome is not yet known"), "and claims no outcome either way");
+  assert.ok(f.includes("Do not repeat this operation"), "and even in flight, repeating is not offered as safe");
   assert.ok(!f.includes("Outcome requires verification"), "and is not yet a verification claim");
   assert.ok(!f.includes("No outcome was ever recorded"), "nor an answer Hebun never received");
 

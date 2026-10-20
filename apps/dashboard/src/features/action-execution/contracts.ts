@@ -214,16 +214,17 @@ export function attemptRequiresAttention(status: ExecutionAttemptStatus): boolea
 }
 
 /**
- * EXECUTION-RECONCILIATION-V1 — the longest an execution can legitimately still be in flight.
+ * EXECUTION-RECONCILIATION-V1 — an ATTENTION threshold for `pending`, not an execution deadline.
  *
  * The only writer of an attempt row is the `/approvals` server action: it commits the `pending` row
  * inside the spend transaction, calls the provider, and terminalizes the row in the SAME invocation.
- * No worker, queue or retry resumes a row later. That invocation is bounded by the route's
- * `maxDuration` (180 s, `src/app/(dashboard)/approvals/page.tsx`), after which the host ends it.
- * A `pending` row older than this therefore outlived the only process that could ever settle it.
+ * No worker, queue, cron or retry resumes a row later. The route that renders that action declares
+ * `maxDuration = 180` (`src/app/(dashboard)/approvals/page.tsx`), so a `pending` row older than this
+ * has outlived the execution bound the product declares — a reason to look, nothing more.
  *
- * This bounds PROGRESS only. It says nothing about the provider: a stale `pending` may still be an
- * act the provider performed. A test pins this value to the route's `maxDuration`.
+ * It is NOT proof that execution stopped (the bound is the host's to enforce, and an action can be
+ * invoked through another route's function), and it says nothing about the provider: a stale
+ * `pending` may be an act the provider completed. A test pins this value to the route's bound.
  */
 export const EXECUTION_IN_FLIGHT_WINDOW_MS = 180_000;
 
@@ -258,12 +259,11 @@ export const RECONCILIATION_WORDING = Object.freeze({
       "Outcome requires verification. Provider outcome is not confirmed: the request left Hebun " +
       "and no answer was recorded.",
     "pending-past-execution-window":
-      "Outcome requires verification. No outcome was recorded, and this attempt has outlived the " +
-      "3-minute window in which an execution can run, so it is not expected to still be in " +
-      "progress. Provider outcome is not confirmed.",
+      "Outcome requires verification. No outcome was recorded within the 3-minute execution limit " +
+      "declared for this request. That does not mean the execution stopped, and the provider may " +
+      "still have completed the operation. Provider outcome is not confirmed.",
     "pending-may-be-in-flight":
-      "Started less than 3 minutes ago and may still be in progress. This is not a sign that " +
-      "anything went wrong.",
+      "Started less than 3 minutes ago and may still be in progress. Its outcome is not yet known.",
   } satisfies Record<ReconciliationReason, string>),
   doNotRepeat: "Do not repeat this operation until its external outcome has been checked.",
   providerReferenceUnavailable:
