@@ -49,6 +49,21 @@ export interface PlanFollowUp {
   readonly binding: string | null;
   /** How many work items the step named. A count only: no title or id reaches the browser here. */
   readonly sourceCount: number;
+  /**
+   * PLAN-FOLLOW-UP-LINEAGE-1 — open follow-ups Work already recorded for the items this step named,
+   * read on the server after the model answered; never sent to a model. Advisory only: the offer
+   * stays. `unknown` when the reads could not establish it — never shown as "none".
+   */
+  readonly existing:
+    | { readonly status: "known"; readonly open: readonly { readonly title: string; readonly declaredState: string }[] }
+    | { readonly status: "unknown" };
+}
+
+/** PLAN-FOLLOW-UP-LINEAGE-1 — the advisory sentence, or `null` when Work records no open follow-up. */
+export function existingFollowUpAdvisory(existing: PlanFollowUp["existing"]): string | null {
+  if (existing.status === "unknown") return "Whether a follow-up is already recorded for these work items could not be read.";
+  if (existing.open.length === 0) return null;
+  return `An existing follow-up is already recorded: ${existing.open.map((f) => `${f.title} (${f.declaredState})`).join("; ")}.`;
 }
 
 /** The label the Director fixed for this control. Never "update" — the original work is untouched. */

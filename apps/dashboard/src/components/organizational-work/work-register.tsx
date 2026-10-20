@@ -1042,6 +1042,7 @@ export function WorkRegisterPanel({
   artifactOptions,
   workScopeChoices,
   followUpLinks = null,
+  followUpLinksTruncated = false,
 }: {
   register: WorkRegister;
   structure: OrganizationStructure;
@@ -1060,9 +1061,17 @@ export function WorkRegisterPanel({
    * claiming there are none.
    */
   followUpLinks?: readonly { readonly workItemId: string; readonly sourceWorkItemId: string }[] | null;
+  /** PLAN-FOLLOW-UP-LINEAGE-1 — the relationship read reached its bound; lines drawn are true, absence is unknown. */
+  followUpLinksTruncated?: boolean;
 }) {
-  const titleOf = new Map(register.status === "available" ? register.items.map((i) => [i.workItemId, i.title]) : []);
-  const titlesFor = (ids: readonly string[]) => ids.map((id) => titleOf.get(id) ?? "a work item not in this register");
+  const itemOf = new Map(register.status === "available" ? register.items.map((i) => [i.workItemId, i]) : []);
+  const titlesFor = (ids: readonly string[]) => ids.map((id) => itemOf.get(id)?.title ?? "a work item not in this register");
+  /* PLAN-FOLLOW-UP-LINEAGE-1 — a follow-up is named with its CURRENT state, read from Work's own row. */
+  const followUpsFor = (ids: readonly string[]) =>
+    ids.map((id) => {
+      const f = itemOf.get(id);
+      return f ? `${f.title} (${f.inService ? `declared ${f.declaredState}` : "retired"})` : "a work item not in this register";
+    });
   return (
     <Card>
       <CardHeader>
@@ -1083,6 +1092,15 @@ export function WorkRegisterPanel({
             <p className="text-xs leading-5 text-fg-secondary">{register.detail}</p>
             <RecordWork structure={structure} members={members} />
             <ProposeRecordWork structure={structure} workScopeChoices={workScopeChoices} />
+            {followUpLinks === null ? (
+              <p className="text-xs leading-5 text-fg-muted" data-work-follow-up-read="unknown">
+                Follow-up relationships could not be read right now, so none are shown; that is not a statement that none exist.
+              </p>
+            ) : followUpLinksTruncated ? (
+              <p className="text-xs leading-5 text-fg-muted" data-work-follow-up-read="truncated">
+                Only the oldest recorded follow-up relationships were read; others may exist and are not shown.
+              </p>
+            ) : null}
             {register.items.length === 0 ? null : (
               <ul className="space-y-2">
                 {register.items.map((item) => (
@@ -1106,7 +1124,7 @@ export function WorkRegisterPanel({
                     </p>
                     <FollowUpLines
                       followsUp={titlesFor(followUpLinks?.filter((l) => l.workItemId === item.workItemId).map((l) => l.sourceWorkItemId) ?? [])}
-                      followUps={titlesFor(followUpLinks?.filter((l) => l.sourceWorkItemId === item.workItemId).map((l) => l.workItemId) ?? [])}
+                      followUps={followUpsFor(followUpLinks?.filter((l) => l.sourceWorkItemId === item.workItemId).map((l) => l.workItemId) ?? [])}
                     />
                     {item.inService ? (
                       <>

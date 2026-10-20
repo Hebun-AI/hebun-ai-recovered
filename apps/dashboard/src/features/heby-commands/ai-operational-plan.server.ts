@@ -43,6 +43,7 @@ import { readWorkRegister, type WorkRegister } from "@/features/organizational-w
 import type { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
 import type { HebyCommandResult } from "./contracts";
 import { mintPlanFollowUpBinding } from "@/features/plan-follow-up-provenance/binding.server";
+import { existingFollowUpsFor, readWorkFollowUpLinks } from "@/features/organizational-work/follow-up-source-work.server";
 import {
   mintPlanRef,
   MAX_PLAN_STEPS,
@@ -105,6 +106,8 @@ export interface AiOperationalPlanDeps {
   readonly now?: () => Date;
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — injected for tests; defaults to the released signer. */
   readonly mintBinding?: typeof mintPlanFollowUpBinding;
+  /** PLAN-FOLLOW-UP-LINEAGE-1 — injected for tests; defaults to Work's tenant-scoped relationship read. */
+  readonly readFollowUpLinks?: typeof readWorkFollowUpLinks;
 }
 
 const PROJECTION_UNAVAILABLE: Readonly<Record<OperationalPlanningUnavailable, string>> = Object.freeze({
@@ -229,13 +232,20 @@ export async function runAiOperationalPlan(input: { readonly message: string }, 
    * id enters it, so the origination model still sees only the fixed sentence.
    */
   const mint = deps.mintBinding ?? mintPlanFollowUpBinding;
+  /*
+   * PLAN-FOLLOW-UP-LINEAGE-1 — Work's recorded follow-ups, read AFTER the model answered, so nothing of
+   * them can reach it. Only a complete register read lets the advisory say anything but "unknown".
+   */
+  const links = await (deps.readFollowUpLinks ?? readWorkFollowUpLinks)(tenant).catch(() => ({ status: "unavailable" }) as const);
+  const registerItems = register?.status === "available" && !register.truncated ? register.items : null;
   const followUps = verdict.plan.steps.map((s) => {
     const ids = s.items.map((alias) => projected.aliases.get(alias));
     const resolved = ids.every((id): id is string => typeof id === "string");
     const binding = resolved
       ? mint(tenant, { planRef, step: s.step, move: s.move, workItemIds: ids }, { env: deps.env ?? process.env })
       : null;
-    return { recommendation: s.step, goal: PLAN_FOLLOW_UP_GOALS[s.move], binding, sourceCount: s.items.length };
+    const existing = resolved ? existingFollowUpsFor(ids, links, registerItems) : ({ status: "unknown" } as const);
+    return { recommendation: s.step, goal: PLAN_FOLLOW_UP_GOALS[s.move], binding, sourceCount: s.items.length, existing };
   });
   return {
     status: "ok",

@@ -33,6 +33,7 @@ import {
 } from "@/features/heby-commands";
 import type { HebyCommandOutput, HebyConversationFacts } from "./use-heby-conversation";
 import { HebyOriginationAffordance } from "./heby-origination-affordance";
+import { existingFollowUpAdvisory, type PlanFollowUp } from "@/features/heby-commands/plan-follow-up";
 
 /** How much room the composer gets. Same language, different density — never a different composer. */
 export type HebyComposerDensity = "workspace" | "panel";
@@ -187,6 +188,7 @@ export function HebyComposer(props: HebyComposerProps) {
               {props.commandOutput.followUps.map((followUp) => (
                 <div key={followUp.recommendation} className="flex flex-col gap-1">
                   <span className="text-[0.68rem] text-fg-muted">Recommendation {followUp.recommendation}</span>
+                  <ExistingFollowUpLine existing={followUp.existing} />
                   <HebyOriginationAffordance
                     goal={followUp.goal}
                     followUp
@@ -356,5 +358,16 @@ export function HebyComposer(props: HebyComposerProps) {
         conversation is context, not organizational fact.
       </p>
     </div>
+  );
+}
+
+/** PLAN-FOLLOW-UP-LINEAGE-1 — advisory only: what Work already recorded; the offer below is unchanged. */
+function ExistingFollowUpLine({ existing }: { readonly existing: PlanFollowUp["existing"] | undefined }) {
+  const advisory = existing ? existingFollowUpAdvisory(existing) : null;
+  if (!advisory || !existing) return null;
+  return (
+    <p className="text-[0.7rem] leading-4 text-fg-secondary" data-plan-existing-follow-up={existing.status}>
+      {advisory}
+    </p>
   );
 }

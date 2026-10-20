@@ -15,7 +15,8 @@ import { workItems } from "@/db/schema/work-item";
 import { workItemFollowUpSources } from "@/db/schema/follow-up-source-work";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
-import { ACTIVE_LIFECYCLE_STATUS } from "./read-work.server";
+import { ACTIVE_LIFECYCLE_STATUS, type WorkItemView } from "./read-work.server";
+import type { WorkDeclaredState } from "./work-contracts";
 
 export type FollowUpSourceReadHandle = Pick<ControlPlaneDatabase, "select">;
 
@@ -82,4 +83,40 @@ export async function readWorkFollowUpLinks(
   } catch {
     return { status: "unavailable" };
   }
+}
+
+/* ── PLAN-FOLLOW-UP-LINEAGE-1 — which recorded follow-ups are still OPEN ──────────────────────── */
+
+/** A recorded follow-up is OPEN while it is in service and not declared complete. Work's rule, said once. */
+export function isOpenFollowUp(item: Pick<WorkItemView, "inService" | "declaredState">): boolean {
+  return item.inService && item.declaredState !== "complete";
+}
+
+export type ExistingFollowUps =
+  | { readonly status: "known"; readonly open: readonly { readonly title: string; readonly declaredState: WorkDeclaredState }[] }
+  | { readonly status: "unknown" };
+
+/**
+ * The OPEN follow-ups Work recorded for any of `sourceWorkItemIds`, from this tenant's own reads.
+ * `unknown` — never "none" — when the relationship read did not answer or was truncated, when the
+ * register is not a complete read, or when a recorded follow-up is not in it: missing evidence is not
+ * a negative claim. Pure; the caller supplies both tenant-scoped reads.
+ */
+export function existingFollowUpsFor(
+  sourceWorkItemIds: readonly string[],
+  links: WorkFollowUpLinksRead,
+  registerItems: readonly WorkItemView[] | null,
+): ExistingFollowUps {
+  if (links.status !== "read" || links.truncated || registerItems === null) return { status: "unknown" };
+  const sources = new Set(sourceWorkItemIds);
+  const followUpIds = [...new Set(links.links.filter((l) => sources.has(l.sourceWorkItemId)).map((l) => l.workItemId))];
+  const byId = new Map(registerItems.map((item) => [item.workItemId, item]));
+  const followUps = followUpIds.map((id) => byId.get(id));
+  if (followUps.some((item) => item === undefined)) return { status: "unknown" };
+  return {
+    status: "known",
+    open: (followUps as WorkItemView[])
+      .filter(isOpenFollowUp)
+      .map((item) => ({ title: item.title, declaredState: item.declaredState })),
+  };
 }

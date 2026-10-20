@@ -150,6 +150,7 @@ export default async function OrganizationalWorkPage() {
         artifactOptions={artifactOptions}
         workScopeChoices={workScopeChoices}
         followUpLinks={followUps.status === "read" ? followUps.links : null}
+        followUpLinksTruncated={followUps.status === "read" && followUps.truncated}
       />
     </div>
   );
