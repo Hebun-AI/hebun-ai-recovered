@@ -209,3 +209,70 @@ export function permitDeliverySentence(band: PermitDeliveryBand, machineDelivery
       return "Revoked before delivery. A person withdrew this authorization; it was not spent and no work was recorded under it.";
   }
 }
+
+/*
+ * OPERATIONAL-OBSERVABILITY-V1 — HAS THIS PERMIT WAITED LONGER THAN SCHEDULED DELIVERY SHOULD TAKE?
+ *
+ * The scheduled delivery scan runs hourly (`vercel.json`, `0 * * * *`); a test pins the interval
+ * below to that schedule. A permit issued at any moment has had at least TWO scheduled chances once
+ * it is older than two intervals, so that is the attention window. It is an attention threshold,
+ * not a deadline: the host may skip or delay a run, the scan may refuse for reasons it records
+ * nowhere, and a refusal leaves the permit active — so nothing here says a delivery failed, was
+ * attempted, or that a scan ran. The age is measured from the page's own read instant
+ * (`evaluatedAt`), never from a client clock, and expiry stays `derivePermitState`'s answer.
+ */
+export const MACHINE_DELIVERY_SCAN_INTERVAL_MINUTES = 60;
+export const MACHINE_DELIVERY_ATTENTION_WINDOW_MS = 2 * MACHINE_DELIVERY_SCAN_INTERVAL_MINUTES * 60_000;
+
+export type MachineDeliveryAttention =
+  /** Enabled, and younger than the window: the next scheduled scan may still pick it up. */
+  | "awaiting-scheduled-delivery"
+  /** Enabled, and unspent past the window. A reason to look — not evidence of a failed delivery. */
+  | "attention-required"
+  /** Automatic delivery is not enabled (disarmed, or this organization is not enrolled). */
+  | "delivery-not-enabled"
+  /** The enabled state or a usable read instant is missing, so lateness cannot be judged. */
+  | "insufficient-evidence";
+
+/** Pure. `null` for every permit that is not active and machine-deliverable. */
+export function deriveMachineDeliveryAttention(
+  band: PermitDeliveryBand,
+  machineDelivery: MachineDeliveryState,
+  issuedAt: string,
+  evaluatedAt: string | null,
+): MachineDeliveryAttention | null {
+  if (band.band !== "awaiting-delivery") return null;
+  if (machineDelivery === "not-enabled") return "delivery-not-enabled";
+  const ageMs = evaluatedAt === null ? Number.NaN : Date.parse(evaluatedAt) - Date.parse(issuedAt);
+  if (machineDelivery !== "enabled" || !Number.isFinite(ageMs) || ageMs < 0) {
+    return "insufficient-evidence";
+  }
+  return ageMs > MACHINE_DELIVERY_ATTENTION_WINDOW_MS
+    ? "attention-required"
+    : "awaiting-scheduled-delivery";
+}
+
+/** What the surface says for each state. Statements, never instructions to a machine. */
+export const MACHINE_DELIVERY_ATTENTION_WORDING: Readonly<
+  Record<MachineDeliveryAttention, { readonly label: string; readonly sentence: string }>
+> = Object.freeze({
+  "awaiting-scheduled-delivery": {
+    label: "Awaiting scheduled delivery",
+    sentence:
+      "Issued less than two hourly scheduled scans ago. The next scheduled scan may still deliver it.",
+  },
+  "attention-required": {
+    label: "Attention required",
+    sentence:
+      "Still unspent after at least two hourly scheduled scans. This is not evidence that a delivery was attempted or that one failed — a refused delivery records nothing. Check whether automatic delivery is still enabled, or decide whether to execute or revoke it before it expires.",
+  },
+  "delivery-not-enabled": {
+    label: "Automatic delivery not enabled",
+    sentence: "No scheduled delivery is expected while automatic delivery is not enabled for your organization.",
+  },
+  "insufficient-evidence": {
+    label: "Delivery timing unknown",
+    sentence:
+      "Whether this authorization is overdue for scheduled delivery cannot be said: the automatic delivery state or the read time was not available.",
+  },
+});

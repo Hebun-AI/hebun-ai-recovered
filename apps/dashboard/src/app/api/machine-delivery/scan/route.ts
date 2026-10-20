@@ -47,6 +47,7 @@
  */
 import { timingSafeEqual } from "node:crypto";
 import { scanDeliverablePermits } from "@/features/machine-delivery-trigger/scan-deliverable-permits.server";
+import { warnUnsuccessfulScan } from "@/features/cron-scan-warning/warn-unsuccessful-scan";
 
 /** Node runtime: the scan reaches the control-plane database through the released `pg` client. */
 export const runtime = "nodejs";
@@ -86,8 +87,13 @@ export async function GET(request: Request): Promise<Response> {
     /* The candidate register could not be read, so nothing was attempted. Reported as a server
      * fault rather than as an empty scan, because "nothing was deliverable" and "we could not find
      * out" are different facts and a scheduler dashboard must be able to tell them apart. */
+    /* OPERATIONAL-OBSERVABILITY-V1 — one log line, status and counts only; the response is unchanged. */
+    warnUnsuccessfulScan("machine-delivery", { status: "unavailable" });
     return Response.json({ status: result.status, reason: result.reason }, { status: 503 });
   }
+
+  const { considered, outcomes } = result;
+  warnUnsuccessfulScan("machine-delivery", { status: "scanned", considered, outcomes });
 
   /*
    * THE BODY CARRIES COUNTS AND OUTCOME CATEGORIES, NEVER SCOPE. No tenant, permit, agent, payload,

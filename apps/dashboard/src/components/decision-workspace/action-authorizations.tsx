@@ -32,6 +32,8 @@ import {
   PERMIT_TTL_CHOICES,
 } from "@/features/action-authorization/contracts";
 import {
+  MACHINE_DELIVERY_ATTENTION_WORDING,
+  deriveMachineDeliveryAttention,
   derivePermitDeliveryBand,
   permitAuthorizationProvenanceSentence,
   permitDeliverySentence,
@@ -685,10 +687,16 @@ export function PermitRow({
   item,
   controlsDisabled = false,
   machineDelivery = "unknown",
+  evaluatedAt,
 }: {
   item: ActionPermitView;
   controlsDisabled?: boolean;
   machineDelivery?: MachineDeliveryState;
+  /**
+   * OPERATIONAL-OBSERVABILITY-V1 — the page's server read instant. Only a caller that passes it gets
+   * the scheduled-delivery timing line; omitted, the row renders exactly as before.
+   */
+  evaluatedAt?: string | null;
 }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -731,6 +739,10 @@ export function PermitRow({
     standingAuthorizationId: item.standingAuthorizationId,
   };
   const delivery = permitDeliverySentence(derivePermitDeliveryBand(shape), machineDelivery);
+  const deliveryTiming =
+    evaluatedAt === undefined
+      ? null
+      : deriveMachineDeliveryAttention(derivePermitDeliveryBand(shape), machineDelivery, item.issuedAt, evaluatedAt);
   /* RUNG 2 — how this authorization came to exist, said only when it is not what a reader assumes. */
   const provenance = permitAuthorizationProvenanceSentence(shape);
 
@@ -808,6 +820,14 @@ export function PermitRow({
        * question about. Silence is the honest rendering of a question that does not apply.
        */}
       {delivery ? <p className="text-[0.65rem] text-fg-muted">{delivery}</p> : null}
+      {deliveryTiming ? (
+        <p
+          className={`text-[0.65rem] ${deliveryTiming === "attention-required" ? "font-semibold text-warning" : "text-fg-muted"}`}
+        >
+          <span className="font-semibold">{MACHINE_DELIVERY_ATTENTION_WORDING[deliveryTiming].label}.</span>{" "}
+          {MACHINE_DELIVERY_ATTENTION_WORDING[deliveryTiming].sentence}
+        </p>
+      ) : null}
 
       {/*
        * RUNG 2 — PROVENANCE, AND ONLY WHEN IT CORRECTS AN ASSUMPTION.
