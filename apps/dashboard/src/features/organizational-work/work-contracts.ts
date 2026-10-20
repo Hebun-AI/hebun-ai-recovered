@@ -209,7 +209,12 @@ export type WorkRefusal =
   /** WEV-1. This work already declares that exact referent, and a declaration is not repeatable. */
   | "reference-already-declared"
   /** WEV-1. No current declaration of this tenant carries that id — absent, or already withdrawn. */
-  | "reference-unresolved";
+  | "reference-unresolved"
+  /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1. A work item the follow-up was approved for is no longer an
+   * in-service work item of this tenant, so the follow-up is not recorded and nothing is written.
+   */
+  | "follow-up-source-ineligible";
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * BOUNDS

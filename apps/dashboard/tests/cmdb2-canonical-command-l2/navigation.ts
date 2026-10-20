@@ -464,6 +464,7 @@ function navigationOnly(): void {
     "20261008143657_l1b_agent_lifecycle_domain.sql",
     "20261013113340_eai_work_planning_purpose.sql",
     "20261014042643_work_update_v1_mandate_scope.sql",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql",
   ];
   const journal = (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] }).entries.map((e) => `${e.tag}.sql`);
   assert.deepEqual(journal, migrations, "the journal and the files agree, in order");

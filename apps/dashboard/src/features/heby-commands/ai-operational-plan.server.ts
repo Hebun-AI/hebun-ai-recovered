@@ -42,6 +42,7 @@ import { ORGANIZATION_STRUCTURE_UNAVAILABLE } from "@/features/organization-auth
 import { readWorkRegister, type WorkRegister } from "@/features/organizational-work/read-work.server";
 import type { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
 import type { HebyCommandResult } from "./contracts";
+import { mintPlanFollowUpBinding } from "@/features/plan-follow-up-provenance/binding.server";
 import {
   mintPlanRef,
   MAX_PLAN_STEPS,
@@ -102,6 +103,8 @@ export interface AiOperationalPlanDeps {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly mintRef?: () => string;
   readonly now?: () => Date;
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — injected for tests; defaults to the released signer. */
+  readonly mintBinding?: typeof mintPlanFollowUpBinding;
 }
 
 const PROJECTION_UNAVAILABLE: Readonly<Record<OperationalPlanningUnavailable, string>> = Object.freeze({
@@ -219,8 +222,21 @@ export async function runAiOperationalPlan(input: { readonly message: string }, 
     return id === undefined ? undefined : items.find((item) => item.workItemId === id)?.title;
   };
   const rendered = renderOperationalPlanCandidate({ plan: verdict.plan, projection: projected.projection, scopeLabel: department, titleOf });
-  /* HEBY-PLAN-DELEGATION-1 — one fixed goal per accepted step, keyed by its closed move only. */
-  const followUps = verdict.plan.steps.map((s) => ({ recommendation: s.step, goal: PLAN_FOLLOW_UP_GOALS[s.move] }));
+  /*
+   * HEBY-PLAN-DELEGATION-1 — one fixed goal per accepted step, keyed by its closed move only.
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — plus a server-signed binding of the work items the step named,
+   * resolved through this response's own server-side alias map. The goal is unchanged: no title or
+   * id enters it, so the origination model still sees only the fixed sentence.
+   */
+  const mint = deps.mintBinding ?? mintPlanFollowUpBinding;
+  const followUps = verdict.plan.steps.map((s) => {
+    const ids = s.items.map((alias) => projected.aliases.get(alias));
+    const resolved = ids.every((id): id is string => typeof id === "string");
+    const binding = resolved
+      ? mint(tenant, { planRef, step: s.step, move: s.move, workItemIds: ids }, { env: deps.env ?? process.env })
+      : null;
+    return { recommendation: s.step, goal: PLAN_FOLLOW_UP_GOALS[s.move], binding, sourceCount: s.items.length };
+  });
   return {
     status: "ok",
     result: { command: AI_PLAN_COMMAND, title, lines: rendered.lines, tone: "info", provenance: AI_PLAN_PROVENANCE, followUps },

@@ -547,6 +547,13 @@
       "when": 1791952003203,
       "tag": "20261014042643_work_update_v1_mandate_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1792515870687,
+      "tag": "20261020170430_plan_follow_up_source_work",
+      "breakpoints": true
     }
   ]
 }

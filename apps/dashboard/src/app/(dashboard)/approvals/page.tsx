@@ -13,6 +13,7 @@ import {
 } from "@/features/action-authorization/read-action-authorizations.server";
 import { elapsedSince } from "@/features/attention-observation/contracts";
 import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
+import { readRequestSourceWork } from "@/features/action-authorization/request-source-work.server";
 import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
 import { readDecisionHorizon } from "@/features/decision-horizon/read-decision-horizon.server";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
@@ -167,6 +168,17 @@ export default async function ApprovalsPage() {
   const evaluatedAt = new Date().toISOString();
 
   /*
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — which work items each pending follow-up was recorded against, from
+   * the request's own provenance rows, for the session tenant. Unreadable renders as no line, never
+   * as a claim that a proposal has no source.
+   */
+  const sourceRead = await readRequestSourceWork(
+    tenant,
+    requests.status === "read" ? requests.items.map((r) => r.requestId) : [],
+  );
+  const followUpSources = sourceRead.status === "read" ? Object.fromEntries(sourceRead.byRequest) : null;
+
+  /*
    * "Connected" means the durable read actually answered — not that rows exist. An empty queue and
    * an unconfigured store are different truths, and collapsing them is the exact class of lie this
    * surface was built to avoid.
@@ -188,6 +200,7 @@ export default async function ApprovalsPage() {
             connected={connected}
             workOptions={workOptions}
             instagramPreviews={instagramPreviews.status === "read" ? instagramPreviews.previews : null}
+            followUpSources={followUpSources}
             evaluatedAt={evaluatedAt}
             machineDelivery={machineDelivery}
             awaitingCount={awaiting.status === "read" ? awaiting.value.awaiting : null}

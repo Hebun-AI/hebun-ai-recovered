@@ -151,7 +151,12 @@ assert.match(RUNTIME, /PLAN_FOLLOW_UP_GOALS\[s\.move\]/, "the goal is looked up 
 
 const COMPOSER = codeOf(read("src/components/layout/heby/heby-composer.tsx"));
 assert.match(COMPOSER, /tone === "info" && props\.commandOutput\.followUps\?\.length/, "offered only under an accepted result");
-assert.match(COMPOSER, /<HebyOriginationAffordance goal=\{followUp\.goal\} followUp \/>/, "through the released affordance, with the fixed goal");
+/* PLAN-FOLLOW-UP-REFERENCE-V1 (Director-approved 2026-10-20): the same fixed goal, plus the step's server-signed binding and source count. */
+assert.match(
+  COMPOSER.replace(/\s+/g, " "),
+  /<HebyOriginationAffordance goal=\{followUp\.goal\} followUp planBinding=\{followUp\.binding\} sourceCount=\{followUp\.sourceCount\} \/>/,
+  "through the released affordance, with the fixed goal",
+);
 
 const AFFORDANCE = codeOf(read("src/components/layout/heby/heby-origination-affordance.tsx"));
 assert.match(AFFORDANCE, /\{ goal, agentId: chosenAgentId, workScope: scope \} : \{ goal, workScope: scope \}/, "the browser still sends goal, chosen agent and chosen scope only");

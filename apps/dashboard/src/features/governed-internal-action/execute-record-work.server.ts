@@ -69,6 +69,7 @@ import {
 } from "@/features/organizational-work/write-work.server";
 import { parseDepartmentRef } from "@/features/organization-authority/department-ref";
 import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { readRequestSourceWorkIdsWithin } from "@/features/action-authorization/request-source-work.server";
 
 /**
  * The ONE internal action kind, and it is the SAME STRING the proposal froze.
@@ -260,7 +261,15 @@ export async function executeRecordWork(
            * THE OWNING AUTHORITY PERFORMS THE MUTATION, in the permit's own transaction, authored
            * `system`. This module does not insert, does not audit, and does not interpret.
            */
-          const result = await recordWithin(tx, tenant, { ...work!, dischargesHandoffId: authorization.handoffId }, { kind: "system" });
+          /*
+           * PLAN-FOLLOW-UP-REFERENCE-V1 — the request's own provenance rows, read in this transaction.
+           * The work authority revalidates every source and refuses if one is no longer in service,
+           * which aborts this spend: no work row, no relationship row, and the permit stays active.
+           */
+          const sources = await readRequestSourceWorkIdsWithin(tx, tenant.tenantId, authorization.actionRequestId);
+          const followsUp =
+            sources.length > 0 ? { followsUp: { actionRequestId: authorization.actionRequestId, sourceWorkItemIds: sources } } : {};
+          const result = await recordWithin(tx, tenant, { ...work!, dischargesHandoffId: authorization.handoffId, ...followsUp }, { kind: "system" });
           if (result.status !== "recorded") abort("work-authority-refused", result.reason);
           outcome = result;
         },

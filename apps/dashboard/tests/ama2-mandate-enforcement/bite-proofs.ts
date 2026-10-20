@@ -100,6 +100,7 @@ function main(): void {
     /* No declared purpose on this path: only a human may say what an act is for. */
     undefined,
     proposalRationale,
+    sourceWorkItemIds,
   );`,
     `  const written = await insertActionRequest(
     tenant,
@@ -110,6 +111,7 @@ function main(): void {
     /* No declared purpose on this path: only a human may say what an act is for. */
     undefined,
     proposalRationale,
+    sourceWorkItemIds,
   );
   const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);

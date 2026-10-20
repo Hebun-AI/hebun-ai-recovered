@@ -35,6 +35,9 @@
  * Server-only.
  */
 import { parseWorkScope } from "@/features/work-domain/work-scope";
+import { verifyPlanFollowUpBinding } from "@/features/plan-follow-up-provenance/binding.server";
+import { allFollowUpSourcesInService } from "@/features/organizational-work/follow-up-source-work.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import {
   registerInvocation,
   finalizeInvocation,
@@ -226,6 +229,12 @@ export interface OriginateActionInput {
    * against the Work Domain Authority and checked against the agent's mandate responsibility.
    */
   readonly workScope?: unknown;
+  /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — a server-signed plan step binding, carried back by the browser.
+   * VERIFIED here before any model call; the work ids it carries are never shown to the model and
+   * never read from its answer. Present and invalid is a refusal, never an unlinked proposal.
+   */
+  readonly planBinding?: unknown;
 }
 
 export interface OriginateActionDeps {
@@ -268,6 +277,8 @@ export interface OriginateActionDeps {
    * only the Knowledge-mode server action sets it. Never inferred from the goal.
    */
   readonly knowledgeMode?: boolean;
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — injected for tests; defaults to the Work authority's rule on the control plane. */
+  readonly followUpSourcesInService?: (tenant: TenantContext, workItemIds: readonly string[]) => Promise<boolean>;
   /** WF-3C. The grounding universe's own deps. Injectable for tests; never a client input. */
   readonly knowledge?: KnowledgeGroundingReadDeps;
 }
@@ -488,6 +499,26 @@ export async function originateAgentAction(
   if (!workScope) return refused("invalid-work-scope");
 
   /*
+   * 2c · PLAN-FOLLOW-UP-REFERENCE-V1. Provenance is established BEFORE the model is asked anything:
+   * the signature against the trusted session, then every source against the Work authority's
+   * in-service rule. The request writer checks the sources again inside its own transaction.
+   */
+  let sourceWorkItemIds: readonly string[] | undefined;
+  if (input.planBinding !== undefined) {
+    if (deps.knowledgeMode || deps.observationSupplement !== undefined) return refused("follow-up-kind-not-linkable");
+    const verified = verifyPlanFollowUpBinding(tenant, input.planBinding, { env: deps.env ?? process.env });
+    if (verified.status !== "valid") return refused(verified.reason);
+    const inService =
+      deps.followUpSourcesInService ??
+      (async (t: TenantContext, ids: readonly string[]) => {
+        const db = resolveGovernanceDbOrNull();
+        return db ? allFollowUpSourcesInService(db, t.tenantId, ids) : false;
+      });
+    if (!(await inService(tenant, verified.workItemIds))) return refused("follow-up-source-ineligible");
+    sourceWorkItemIds = verified.workItemIds;
+  }
+
+  /*
    * 3 · WHAT MAY BE CHOSEN. Built by the server from this tenant's own rows, then narrowed to what
    * the model may be SHOWN (APF-3). From here on only the projection exists: the parser, the slug
    * resolvers and the inlet can never reach a candidate the model was not offered.
@@ -590,6 +621,17 @@ export async function originateAgentAction(
    * lose it, and no write after the commit is ever required for the link to exist.
    */
   const chosen = selection.selection;
+
+  /* A linked follow-up may only become new organizational work; anything else is refused, not unlinked. */
+  if (
+    sourceWorkItemIds !== undefined &&
+    !(chosen.kind === RECORD_WORK_ORIGINATION_ALIAS && chosen.scope.kind !== "observation")
+  ) {
+    /* The same shape as the Knowledge recheck above: a value of the origination's own closed vocabulary. */
+    const reason: OriginationRefusal = "follow-up-kind-not-linkable";
+    await settle(tenant, invocationId, "selection-valid", deps, { result: selection.result, filingOutcome: "refused", filingRefusal: reason });
+    return refused(reason);
+  }
 
   /*
    * 4d · WF-3C — THE CITED VERSIONS ARE RE-JUDGED IMMEDIATELY BEFORE FILING. Superseded, retracted,
@@ -697,6 +739,8 @@ export async function originateAgentAction(
           chosen.reason,
           /* WF-3C. Only the exact versions the agent cited become evidence — never the supplied set. */
           cited?.map((c) => formatKnowledgeVersionRef(c.knowledgeNodeId)),
+          /* PLAN-FOLLOW-UP-REFERENCE-V1. Verified above; the model never saw them. */
+          sourceWorkItemIds,
         );
 
   if (filed.status !== "proposed") {

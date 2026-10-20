@@ -219,13 +219,40 @@ function DeclarePurposeControl({
 
 type InstagramPreviewMap = Extract<InstagramApprovalPreviewsRead, { status: "read" }>["previews"];
 
+/**
+ * PLAN-FOLLOW-UP-REFERENCE-V1 — the work items a pending follow-up was recorded as following up,
+ * keyed by request id, read on the server from the request's own provenance rows.
+ */
+export type FollowUpSourceMap = Readonly<
+  Record<string, readonly { readonly workItemId: string; readonly title: string; readonly inService: boolean }[]>
+>;
+
+function FollowUpSourceLine({ sources }: { sources: FollowUpSourceMap[string] | undefined }) {
+  if (!sources || sources.length === 0) return null;
+  return (
+    <p className="text-xs text-fg-secondary" data-follow-up-sources="">
+      <span className="font-semibold">Follow-up of {sources.length === 1 ? "this work item" : `${sources.length} work items`}:</span>{" "}
+      {sources.map((s, i) => (
+        <span key={s.workItemId}>
+          {i > 0 ? "; " : ""}
+          {s.title}
+          {s.inService ? "" : " (no longer in service — executing this will be refused)"}
+        </span>
+      ))}
+      . Recorded from the AI plan step this proposal was requested from; it is provenance, not an extra authorization.
+    </p>
+  );
+}
+
 function RequestCard({
   item,
   waitingFor,
   workOptions,
   instagramPreviews,
+  followUpSources,
 }: {
   readonly item: PendingActionRequestView;
+  readonly followUpSources?: FollowUpSourceMap | null;
   /** INSTAGRAM-APPROVAL-PREVIEW-1 — `null` when the preview read did not answer at all. */
   readonly instagramPreviews: InstagramPreviewMap | null;
   /** E2-4 — elapsed since this proposal was FILED. `null` when no instant or no usable timestamp. */
@@ -351,6 +378,8 @@ function RequestCard({
       {item.actionKind === PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND ? (
         <InstagramApprovalPreview requestId={item.requestId} preview={instagramPreviews?.[item.requestId]} />
       ) : null}
+
+      <FollowUpSourceLine sources={followUpSources?.[item.requestId]} />
 
       {/* WORK-UPDATE V1 (U6) — has the item moved since this was proposed? Read-only; blocks nothing. */}
       {item.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND ? <WorkStateConflictNotice requestId={item.requestId} /> : null}
@@ -891,6 +920,7 @@ export function ActionAuthorizations({
   permits,
   workOptions = [],
   instagramPreviews = null,
+  followUpSources = null,
   connected,
   evaluatedAt = null,
   awaitingCount = null,
@@ -909,6 +939,8 @@ export function ActionAuthorizations({
   readonly workOptions?: readonly { readonly workItemId: string; readonly title: string }[];
   /** INSTAGRAM-APPROVAL-PREVIEW-1 — keyed by request id; `null` when the preview read did not answer. */
   readonly instagramPreviews?: InstagramPreviewMap | null;
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — keyed by request id; `null` when the read did not answer. */
+  readonly followUpSources?: FollowUpSourceMap | null;
   readonly connected: boolean;
   /**
    * E2-4 — the ONE instant every duration on this surface is measured against, resolved on the
@@ -952,6 +984,7 @@ export function ActionAuthorizations({
                 }
                 workOptions={workOptions}
                 instagramPreviews={instagramPreviews}
+                followUpSources={followUpSources}
               />
             ))}
           </ul>

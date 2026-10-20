@@ -97,6 +97,14 @@ import {
   type WorkRefusal,
 } from "./work-contracts";
 import { ACTIVE_LIFECYCLE_STATUS, RETIRED_LIFECYCLE_STATUS } from "./read-work.server";
+import { workItemFollowUpSources } from "@/db/schema/follow-up-source-work";
+import { allFollowUpSourcesInService } from "./follow-up-source-work.server";
+
+/** PLAN-FOLLOW-UP-REFERENCE-V1 — what a governed follow-up was approved for, in recorded order. */
+export interface FollowUpSources {
+  readonly actionRequestId: string;
+  readonly sourceWorkItemIds: readonly string[];
+}
 
 export interface WorkWriteDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -358,6 +366,12 @@ async function recordWorkCore(
      * named in the `work.recorded` audit row. Never read from the approved payload.
      */
     readonly dischargesHandoffId?: string;
+    /**
+     * PLAN-FOLLOW-UP-REFERENCE-V1. The approved request's recorded source work, read by the executor
+     * from the request's own provenance rows — never from the payload or a caller. Revalidated and
+     * written here, in the spend transaction.
+     */
+    readonly followsUp?: FollowUpSources;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -383,6 +397,18 @@ async function recordWorkCore(
   if (workScope?.kind === "domain") {
     if (!(await isActiveWorkDomain(tx, ctx.tenantId, workScope.workDomainId))) {
       return refuse("work-domain-unresolved");
+    }
+  }
+
+  /*
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — every source must still be an in-service work item of this tenant,
+   * checked in THIS transaction, before anything is written. Refused, the caller's spend aborts and
+   * the permit stays active.
+   */
+  const followsUp = input.followsUp;
+  if (followsUp !== undefined) {
+    if (!(await allFollowUpSourcesInService(tx, ctx.tenantId, followsUp.sourceWorkItemIds))) {
+      return refuse("follow-up-source-ineligible");
     }
   }
 
@@ -417,6 +443,21 @@ async function recordWorkCore(
     });
 
   const row = inserted[0]!;
+  if (followsUp !== undefined) {
+    await tx.insert(workItemFollowUpSources).values(
+      followsUp.sourceWorkItemIds.map((sourceWorkItemId, ordinal) => ({
+        tenantId: ctx.tenantId,
+        workItemId: row.id,
+        sourceWorkItemId,
+        actionRequestId: followsUp.actionRequestId,
+        ordinal,
+        createdBy: ctx.createdBy,
+        createdByType: author.kind,
+        updatedBy: ctx.createdBy,
+        updatedByType: author.kind,
+      })),
+    );
+  }
   await recordWorkEventWithin(
     tx,
     ctx.audit,
@@ -463,6 +504,12 @@ export async function recordWorkWithin(
      * named in the `work.recorded` audit row. Never read from the approved payload.
      */
     readonly dischargesHandoffId?: string;
+    /**
+     * PLAN-FOLLOW-UP-REFERENCE-V1. The approved request's recorded source work, read by the executor
+     * from the request's own provenance rows — never from the payload or a caller. Revalidated and
+     * written here, in the spend transaction.
+     */
+    readonly followsUp?: FollowUpSources;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -538,6 +585,12 @@ export async function recordWorkWithinAsMachine(
      * named in the `work.recorded` audit row. Never read from the approved payload.
      */
     readonly dischargesHandoffId?: string;
+    /**
+     * PLAN-FOLLOW-UP-REFERENCE-V1. The approved request's recorded source work, read by the executor
+     * from the request's own provenance rows — never from the payload or a caller. Revalidated and
+     * written here, in the spend transaction.
+     */
+    readonly followsUp?: FollowUpSources;
   },
   now: Date = new Date(),
 ): Promise<WorkWriteResult> {

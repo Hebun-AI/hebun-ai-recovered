@@ -16,8 +16,9 @@ const MUTANTS: readonly { readonly name: string; readonly file: string; readonly
   {
     name: "M1 a follow-up goal carries the work titles",
     file: "src/features/heby-commands/ai-operational-plan.server.ts",
-    from: "goal: PLAN_FOLLOW_UP_GOALS[s.move] }",
-    to: "goal: `${PLAN_FOLLOW_UP_GOALS[s.move]} ${s.items.map((a) => titleOf(a)).join(\", \")}` }",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1: the follow-up object now also carries `binding` and `sourceCount`; the mutation is unchanged. */
+    from: "goal: PLAN_FOLLOW_UP_GOALS[s.move], binding",
+    to: "goal: `${PLAN_FOLLOW_UP_GOALS[s.move]} ${s.items.map((a) => titleOf(a)).join(\", \")}`, binding",
   },
   {
     name: "M2 a fixed goal names an alias",

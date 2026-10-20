@@ -73,6 +73,7 @@ import {
   refuseOutsideAgentMandate,
   type AgentMandateCeilingRefusal,
 } from "@/features/action-authorization/agent-mandate-ceiling";
+import { readRequestSourceWorkIdsWithin } from "@/features/action-authorization/request-source-work.server";
 
 /**
  * THE ALLOWLIST. One entry, frozen, and consulted rather than assumed.
@@ -320,6 +321,10 @@ export async function executeRecordWorkAsMachine(
         const work = workInputFrom(authorization);
         if (work === null) abort("payload-not-recordable");
 
+        /* PLAN-FOLLOW-UP-REFERENCE-V1 — the same provenance read and revalidation as the human door. */
+        const sources = await readRequestSourceWorkIdsWithin(tx, principal.tenantId, authorization.actionRequestId);
+        const followsUp =
+          sources.length > 0 ? { followsUp: { actionRequestId: authorization.actionRequestId, sourceWorkItemIds: sources } } : {};
         const result = await recordWithin(
           tx,
           {
@@ -327,7 +332,7 @@ export async function executeRecordWorkAsMachine(
             agentId: principal.agentId,
             invocationId: principal.invocationId,
           },
-          { ...work!, dischargesHandoffId: authorization.handoffId },
+          { ...work!, dischargesHandoffId: authorization.handoffId, ...followsUp },
         );
         if (result.status !== "recorded") abort("work-authority-refused", result.reason);
         outcome = result;

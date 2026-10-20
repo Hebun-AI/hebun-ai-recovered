@@ -394,4 +394,18 @@ export type OriginationRefusal =
   /** WF-3C. An eligible statement exceeds the per-candidate bound; refused whole, never cut. */
   | "knowledge-candidate-too-large"
   /** WF-3C. A cited version was superseded, retracted, rejected or no longer eligible before filing. */
-  | "knowledge-reference-stale";
+  | "knowledge-reference-stale"
+  /*
+   * PLAN-FOLLOW-UP-REFERENCE-V1. A linked follow-up whose provenance could not be established. Each
+   * is refused BEFORE any model call and writes nothing; none becomes an unlinked proposal.
+   */
+  | "binding-secret-unavailable"
+  | "binding-malformed"
+  | "binding-signature-invalid"
+  | "binding-version-unsupported"
+  | "binding-expired"
+  | "binding-context-mismatch"
+  /** A source the plan named is no longer an in-service work item of this organization. */
+  | "follow-up-source-ineligible"
+  /** The agent chose an act that cannot carry follow-up provenance (only new organizational work can). */
+  | "follow-up-kind-not-linkable";

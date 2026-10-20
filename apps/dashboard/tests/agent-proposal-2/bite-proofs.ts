@@ -101,10 +101,10 @@ const MUTATIONS: readonly Mutation[] = [
     suite: FW_SUITE,
     edits: [
       {
-        /* AP-4B: the human's work scope now travels beside the goal. */
-        find: "  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown },\n): Promise<OriginateActionResult> {",
+        /* AP-4B: the human's work scope now travels beside the goal. PLAN-FOLLOW-UP-REFERENCE-V1: and the signed plan binding. */
+        find: "  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown; readonly planBinding?: unknown },\n): Promise<OriginateActionResult> {",
         replace:
-          "  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown; readonly actorType?: string },\n" +
+          "  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown; readonly planBinding?: unknown; readonly actorType?: string },\n" +
           "): Promise<OriginateActionResult> {",
       },
     ],

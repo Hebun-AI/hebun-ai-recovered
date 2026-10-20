@@ -28,6 +28,8 @@
 import { and, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { hebyActionRequests } from "@/db/schema/action-authorization";
+import { hebyActionRequestSourceWorkItems } from "@/db/schema/follow-up-source-work";
+import { allFollowUpSourcesInService } from "@/features/organizational-work/follow-up-source-work.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import type { HebyActionKind, HebyPreparedAction } from "@/features/heby-actions/contracts";
@@ -206,6 +208,13 @@ async function insertActionRequest(
    * never read to decide anything.
    */
   proposalRationale?: string,
+  /*
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — source work ids from a server-VERIFIED plan binding, in plan order.
+   * Supplied only by the agent entry point. Written beside the request in ONE transaction, outside
+   * the canonical payload and its digest, and checked against the Work authority's in-service rule
+   * inside that transaction. Any refusal writes nothing at all.
+   */
+  sourceWorkItemIds?: readonly string[],
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -258,14 +267,25 @@ async function insertActionRequest(
     payload,
   });
 
-  try {
+  const tenantId = tenant.tenantId;
+  const userId = tenant.userId;
+  const sources = sourceWorkItemIds;
+  if (sources !== undefined && (sources.length === 0 || sources.length > 40)) {
+    return refused("follow-up-source-ineligible");
+  }
+
+  /* One write, run on the database directly or — for a linked follow-up — inside one transaction. */
+  const write = async (handle: Pick<ControlPlaneDatabase, "select" | "insert">): Promise<ActionRequestResult> => {
+    if (sources !== undefined && !(await allFollowUpSourcesInService(handle, tenantId, sources))) {
+      return refused("follow-up-source-ineligible");
+    }
     /*
      * A pre-check, NOT the invariant. `heby_action_requests_one_pending_per_digest_uq` is what
      * actually prevents two live proposals for the same act; this read exists only so the ordinary
      * case gets a named refusal instead of a constraint violation. The catch below is the real
      * guard when two callers race.
      */
-    const existing = await db
+    const existing = await handle
       .select({ id: hebyActionRequests.id })
       .from(hebyActionRequests)
       .where(
@@ -278,7 +298,7 @@ async function insertActionRequest(
       .limit(1);
     if (existing.length > 0) return refused("already-pending");
 
-    const rows = await db
+    const rows = await handle
       .insert(hebyActionRequests)
       .values({
         tenantId: tenant.tenantId,
@@ -365,7 +385,38 @@ async function insertActionRequest(
 
     const requestId = rows[0]?.id;
     if (!requestId) return refused("persistence-unavailable");
+    if (sources !== undefined) {
+      await handle.insert(hebyActionRequestSourceWorkItems).values(
+        sources.map((workItemId, ordinal) => ({
+          tenantId,
+          actionRequestId: requestId,
+          workItemId,
+          ordinal,
+          createdBy: userId,
+          createdByType: "human" as const,
+        })),
+      );
+    }
     return { status: "recorded", requestId, payloadDigest };
+  };
+
+  try {
+    if (sources === undefined) return await write(db);
+    /* A refusal inside the transaction must roll the request row back too: abort, then report it. */
+    let refusal: ActionRequestResult | null = null;
+    try {
+      return await db.transaction(async (tx) => {
+        const result = await write(tx);
+        if (result.status !== "recorded") {
+          refusal = result;
+          throw new Error("linked follow-up request refused");
+        }
+        return result;
+      });
+    } catch (error) {
+      if (refusal !== null) return refusal;
+      throw error;
+    }
   } catch (error) {
     /*
      * The unique index is the authority on duplicates, not the pre-check above. A caller that lost
@@ -452,6 +503,8 @@ export async function recordAgentOriginatedActionRequest(
    * the agent said. It is never re-derived, never regenerated, and never the raw provider response.
    */
   proposalRationale?: string,
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, passed through unchanged. */
+  sourceWorkItemIds?: readonly string[],
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -481,6 +534,7 @@ export async function recordAgentOriginatedActionRequest(
     /* No declared purpose on this path: only a human may say what an act is for. */
     undefined,
     proposalRationale,
+    sourceWorkItemIds,
   );
 }
 

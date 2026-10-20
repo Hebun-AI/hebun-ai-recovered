@@ -119,6 +119,8 @@ const REFUSAL_SENTENCE: Record<WorkRefusal, string> = {
     "This work already declares that reference. A declaration is not repeatable, and nothing was written twice.",
   "reference-unresolved":
     "No current declaration of this organization carries that identity — it may already have been withdrawn.",
+  "follow-up-source-ineligible":
+    "A work item this follow-up was approved for is no longer in service, so nothing was recorded.",
 };
 
 const MEMBERS_UNAVAILABLE_SENTENCE: Record<
@@ -1018,6 +1020,17 @@ function WorkItemControls({
   );
 }
 
+/** PLAN-FOLLOW-UP-REFERENCE-V1 — both directions of the recorded relationship, said once each. */
+function FollowUpLines({ followsUp, followUps }: { followsUp: readonly string[]; followUps: readonly string[] }) {
+  if (followsUp.length === 0 && followUps.length === 0) return null;
+  return (
+    <div className="mt-1 text-xs leading-5 text-fg-secondary" data-work-follow-up="">
+      {followsUp.length > 0 ? <p>Follows up: {followsUp.join("; ")}.</p> : null}
+      {followUps.length > 0 ? <p>Follow-up work recorded for this item: {followUps.join("; ")}.</p> : null}
+    </div>
+  );
+}
+
 export function WorkRegisterPanel({
   register,
   structure,
@@ -1028,6 +1041,7 @@ export function WorkRegisterPanel({
   factOptions,
   artifactOptions,
   workScopeChoices,
+  followUpLinks = null,
 }: {
   register: WorkRegister;
   structure: OrganizationStructure;
@@ -1040,7 +1054,15 @@ export function WorkRegisterPanel({
   artifactOptions: readonly ReferentOption[];
   /** AP-4B — organization-level and the in-service work domains, as read by the page. */
   workScopeChoices: readonly WorkScopeChoice[];
+  /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — follow-up relationships the Work authority recorded when a governed
+   * follow-up executed. `null` when the read did not answer: then no line is drawn rather than one
+   * claiming there are none.
+   */
+  followUpLinks?: readonly { readonly workItemId: string; readonly sourceWorkItemId: string }[] | null;
 }) {
+  const titleOf = new Map(register.status === "available" ? register.items.map((i) => [i.workItemId, i.title]) : []);
+  const titlesFor = (ids: readonly string[]) => ids.map((id) => titleOf.get(id) ?? "a work item not in this register");
   return (
     <Card>
       <CardHeader>
@@ -1082,6 +1104,10 @@ export function WorkRegisterPanel({
                     <p className="mt-1 text-xs leading-5 text-fg-muted">
                       {WORK_DECLARED_STATE_MEANING[item.declaredState]}
                     </p>
+                    <FollowUpLines
+                      followsUp={titlesFor(followUpLinks?.filter((l) => l.workItemId === item.workItemId).map((l) => l.sourceWorkItemId) ?? [])}
+                      followUps={titlesFor(followUpLinks?.filter((l) => l.sourceWorkItemId === item.workItemId).map((l) => l.workItemId) ?? [])}
+                    />
                     {item.inService ? (
                       <>
                         <ConcernsSection

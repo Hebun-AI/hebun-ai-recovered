@@ -165,7 +165,21 @@ const PANEL = "max-w-[80%] rounded-xl border border-border bg-surface px-3 py-2.
  * same released ones. Only the wording changes, and the Knowledge mode is not offered: a follow-up
  * discloses nothing beyond the fixed goal and the organization structure origination already sends.
  */
-export function HebyOriginationAffordance({ goal, followUp = false }: { readonly goal: string; readonly followUp?: boolean }) {
+export function HebyOriginationAffordance({
+  goal,
+  followUp = false,
+  planBinding = null,
+  sourceCount = 0,
+}: {
+  readonly goal: string;
+  readonly followUp?: boolean;
+  /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — the server's signed binding for this plan step, passed back
+   * unchanged. The server verifies it and refuses the proposal if it cannot; it is never read here.
+   */
+  readonly planBinding?: string | null;
+  readonly sourceCount?: number;
+}) {
   const [state, setState] = useState<State>({ kind: "closed" });
   /* AP-1 — set only by an explicit human choice among `multiple-agents` candidates. */
   const [chosenAgentId, setChosenAgentId] = useState<string | undefined>(undefined);
@@ -198,7 +212,8 @@ export function HebyOriginationAffordance({ goal, followUp = false }: { readonly
       try {
         const result = withKnowledge
           ? await originateKnowledgeGroundedProposalAction(input)
-          : await originateHebyActionProposalAction(input);
+          : /* PLAN-FOLLOW-UP-REFERENCE-V1 — only a plan follow-up carries the server's signed binding back. */
+            await originateHebyActionProposalAction(followUp && planBinding ? { ...input, planBinding } : input);
         setState(
           result.status === "proposed"
             ? {
@@ -296,6 +311,17 @@ export function HebyOriginationAffordance({ goal, followUp = false }: { readonly
             <p className="mt-1 text-fg" data-plan-follow-up-notice="">
               Yeni bir takip işi önerilir. Önerinin ilgili olduğu iş kayıtları değiştirilmez.
             </p>
+            {planBinding ? (
+              <p className="mt-1 text-fg" data-plan-follow-up-link="linked">
+                The proposal will be linked to the {sourceCount === 1 ? "work item" : `${sourceCount} work items`} this
+                recommendation named. Hebun checks that link when you confirm; if it cannot be verified, nothing is proposed.
+              </p>
+            ) : (
+              <p className="mt-1" data-plan-follow-up-link="unavailable">
+                This follow-up will not be linked to the work items this recommendation named: linking is not available
+                in this deployment.
+              </p>
+            )}
             <p className="mt-1">
               The task {agent.name} is given, exactly: &ldquo;{goal}&rdquo; It names no work title, identifier or
               department.

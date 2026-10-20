@@ -160,6 +160,12 @@ export type ActionRequestRefusal =
    */
   | "purpose-work-not-found"
   /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1. A linked follow-up named a source that is not an in-service work
+   * item of this tenant when the request was written. Nothing is written — no request, no source
+   * row — so a requested link never becomes an unlinked proposal.
+   */
+  | "follow-up-source-ineligible"
+  /**
    * AGENT-PROPOSAL-1. An agent proposer was offered without proof that the authoritative
    * durable-agent read seam produced it. Unreachable through the human entry point — it is the
    * writer's guard against a forged `AgentProposer`, and a refusal rather than a thrown error so

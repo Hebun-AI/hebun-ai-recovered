@@ -187,7 +187,12 @@ export function HebyComposer(props: HebyComposerProps) {
               {props.commandOutput.followUps.map((followUp) => (
                 <div key={followUp.recommendation} className="flex flex-col gap-1">
                   <span className="text-[0.68rem] text-fg-muted">Recommendation {followUp.recommendation}</span>
-                  <HebyOriginationAffordance goal={followUp.goal} followUp />
+                  <HebyOriginationAffordance
+                    goal={followUp.goal}
+                    followUp
+                    planBinding={followUp.binding}
+                    sourceCount={followUp.sourceCount}
+                  />
                 </div>
               ))}
             </div>

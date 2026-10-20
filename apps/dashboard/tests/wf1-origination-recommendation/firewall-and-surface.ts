@@ -146,7 +146,14 @@ assert.ok(
   "with the human's message exactly as written (and no agent id unless a human chose one)",
 );
 const confirmBody = ui.slice(ui.indexOf("const confirm = "), ui.indexOf("if (state.kind === \"closed\""));
-assert.ok(confirmBody.includes("originateHebyActionProposalAction(input)"), "origination runs only inside the explicit confirmation");
+/*
+ * PLAN-FOLLOW-UP-REFERENCE-V1 (Director-approved 2026-10-20): under an AI plan follow-up the same `input` also carries the
+ * server's opaque signed binding back, verified server-side before any model call. The goal and agent id are unchanged.
+ */
+assert.ok(
+  confirmBody.includes("originateHebyActionProposalAction(followUp && planBinding ? { ...input, planBinding } : input)"),
+  "origination runs only inside the explicit confirmation",
+);
 assert.equal((ui.match(/readAgentOriginationAvailabilityAction\(/g) ?? []).length, 1, "availability is read from one place");
 const checkBody = ui.slice(ui.indexOf("const check = "), ui.indexOf("const confirm = "));
 assert.ok(

@@ -160,6 +160,8 @@ async function fileOrganizationLevelProposal(
   proposalRationale?: string,
   /* WF-3C. Agent Knowledge mode only: the exact cited versions, appended as evidence. */
   knowledgeVersionRefs?: readonly string[],
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, carried to the one writer unchanged. */
+  sourceWorkItemIds?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   /*
    * ── THE ORGANIZATION IS READ, AND THAT IS THE DEVIATION WORTH NAMING ─────
@@ -225,6 +227,7 @@ async function fileOrganizationLevelProposal(
         deps,
         originationInvocationId,
         proposalRationale,
+        sourceWorkItemIds,
       )
     : await recordActionRequest(tenant, prepared, deps);
 
@@ -276,6 +279,8 @@ async function fileRecordWorkProposal(
    */
   proposalRationale?: string,
   knowledgeVersionRefs?: readonly string[],
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, carried to the one writer unchanged. */
+  sourceWorkItemIds?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -346,6 +351,7 @@ async function fileRecordWorkProposal(
       originationInvocationId,
       proposalRationale,
       knowledgeVersionRefs,
+      sourceWorkItemIds,
     );
   }
 
@@ -439,6 +445,7 @@ async function fileRecordWorkProposal(
         deps,
         originationInvocationId,
         proposalRationale,
+        sourceWorkItemIds,
       )
     : await recordActionRequest(tenant, prepared, deps);
 
@@ -532,6 +539,8 @@ export function proposeAgentOriginatedRecordWorkAction(
    * Absent on the human path by construction, like the rationale.
    */
   knowledgeVersionRefs?: readonly string[],
+  /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified by the origination; never from the model or the client. */
+  sourceWorkItemIds?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   return fileRecordWorkProposal(
     tenant,
@@ -541,6 +550,7 @@ export function proposeAgentOriginatedRecordWorkAction(
     originationInvocationId,
     proposalRationale,
     knowledgeVersionRefs,
+    sourceWorkItemIds,
   );
 }
 

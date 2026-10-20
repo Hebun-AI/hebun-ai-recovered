@@ -104,6 +104,14 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "knowledge-universe-exceeds-bound": "More than 20 Knowledge statements are eligible, which is more than one request may carry, so nothing was asked or filed.",
   "knowledge-candidate-too-large": "An eligible Knowledge statement is longer than one request may carry, so nothing was asked or filed.",
   "knowledge-reference-stale": "Knowledge {agent} cited changed or is no longer eligible, so nothing was filed.",
+  "binding-secret-unavailable": "Follow-up linking is not available in this deployment, so nothing was proposed.",
+  "binding-malformed": "The plan link could not be read, so nothing was proposed. Run the plan again.",
+  "binding-signature-invalid": "The plan link could not be verified, so nothing was proposed. Run the plan again.",
+  "binding-version-unsupported": "The plan link is from an older version of Hebun, so nothing was proposed. Run the plan again.",
+  "binding-expired": "The plan link has expired, so nothing was proposed. Run the plan again.",
+  "binding-context-mismatch": "The plan link belongs to a different session, so nothing was proposed. Run the plan again.",
+  "follow-up-source-ineligible": "A work item this plan step named is no longer in service, so nothing was proposed.",
+  "follow-up-kind-not-linkable": "{agent} chose something other than new organizational work, so the linked follow-up was not filed.",
   "proposal-refused":
     "What {agent} chose could not be filed — a reference may have been retired or superseded since, or its mandate does not admit that action. Nothing was filed.",
 };

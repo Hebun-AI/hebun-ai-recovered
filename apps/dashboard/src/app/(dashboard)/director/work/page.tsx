@@ -3,6 +3,7 @@ import { WorkRegisterPanel } from "@/components/organizational-work/work-registe
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
+import { readWorkFollowUpLinks } from "@/features/organizational-work/follow-up-source-work.server";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
@@ -63,6 +64,8 @@ import {
 export default async function OrganizationalWorkPage() {
   const tenant = await resolveTenantContext();
   const register = await readWorkRegister(tenant);
+  /* PLAN-FOLLOW-UP-REFERENCE-V1 — the Work authority's recorded follow-up relationships, this tenant only. */
+  const followUps = await readWorkFollowUpLinks(tenant);
   const authoritative = await readOrganizationAuthority(tenant);
   const structure =
     authoritative.status === "available"
@@ -146,6 +149,7 @@ export default async function OrganizationalWorkPage() {
         factOptions={factOptions}
         artifactOptions={artifactOptions}
         workScopeChoices={workScopeChoices}
+        followUpLinks={followUps.status === "read" ? followUps.links : null}
       />
     </div>
   );

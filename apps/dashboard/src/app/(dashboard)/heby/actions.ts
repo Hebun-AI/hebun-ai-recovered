@@ -191,10 +191,11 @@ export async function proposeHebyActionCommandAction(
  */
 export async function originateHebyActionProposalAction(
   /* AP-4B — `workScope` is the human's choice, carried as a value; the inlet resolves and refuses. */
-  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown },
+  /* PLAN-FOLLOW-UP-REFERENCE-V1 — `planBinding` is a server-signed plan step binding; verified, never trusted. */
+  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown; readonly planBinding?: unknown },
 ): Promise<OriginateActionResult> {
   return originateAgentAction(
-    { goal: input?.goal, agentId: input?.agentId, workScope: input?.workScope },
+    { goal: input?.goal, agentId: input?.agentId, workScope: input?.workScope, planBinding: input?.planBinding },
     { resolveTenant: resolveTenantContext },
   );
 }

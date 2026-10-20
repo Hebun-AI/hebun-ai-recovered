@@ -41,6 +41,14 @@ export const PLAN_FOLLOW_UP_GOALS: Readonly<Record<PlanFollowUpMove, string>> = 
 export interface PlanFollowUp {
   readonly recommendation: number;
   readonly goal: string;
+  /**
+   * PLAN-FOLLOW-UP-REFERENCE-V1 — the server's signed statement of which work items this step named,
+   * opaque to the browser and carried back unchanged. `null` when this deployment cannot sign one,
+   * and the surface then says the follow-up will not be linked. Never parsed on the client.
+   */
+  readonly binding: string | null;
+  /** How many work items the step named. A count only: no title or id reaches the browser here. */
+  readonly sourceCount: number;
 }
 
 /** The label the Director fixed for this control. Never "update" — the original work is untouched. */

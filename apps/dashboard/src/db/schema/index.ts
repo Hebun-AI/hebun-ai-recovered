@@ -74,5 +74,6 @@ export * from "./media-asset";
 /* WORK-1. A COMMITMENT with mutable declared state — not the immutable content above it. */
 export * from "./work-item";
 export * from "./work-evidence-reference";
+export * from "./follow-up-source-work";
 export * from "./external-recipient";
 export * from "./action-execution";

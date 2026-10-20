@@ -167,6 +167,8 @@ const FEATURE_FILES = walk(FEATURE);
       "src/features/governance-audit/organizational-work-audit.server.ts",
       "src/features/governance-decision/authority-read.server.ts",
       "src/features/governance-decision/persistence.server.ts",
+      /* PLAN-FOLLOW-UP-REFERENCE-V1 — the Work authority's OWN in-service rule for follow-up sources (a read). */
+      "src/features/organizational-work/follow-up-source-work.server.ts",
       "src/features/organizational-work/read-work.server.ts",
       "src/features/organizational-work/write-work.server.ts",
     ],
