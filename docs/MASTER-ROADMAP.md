@@ -5723,6 +5723,7 @@ re-graded here.
 | HEBY-PROMPT-INJECTION-BOUNDARY-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-prompt-injection-boundary-1-closure.md` |
 | KGSC-1 | VERIFIED | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` |
 | EXECUTION-RECONCILIATION-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` |
+| OPERATIONAL-OBSERVABILITY-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` |
 
 ---
 
@@ -5816,3 +5817,6 @@ before §16.1 are not yet indexed (Phase B).
 | KGSC1-FORGED-CLAIM-BLOCKS-ACTIONS-1 | KGSC-1 | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` | Data integrity | DEFERRED | A Director-authorized repair of forged rows or a writer change |
 | EXEC-RECON-V1-AUTH-UI-1 | EXECUTION-RECONCILIATION-V1 | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` | Verification gap | DEFERRED | A signed-in production read of `/approvals` while an `unknown` or `pending` attempt exists (ledger, section, empty state and accepted row already verified by the Director) |
 | EXEC-RECON-V1-WINDOW-BOUND-1 | EXECUTION-RECONCILIATION-V1 | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` | Verification gap | DEFERRED | Director decision to measure the `/approvals` maxDuration bound or keep the 180 s mark advisory |
+| OBS-V1-AUTH-UI-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | A signed-in production read of a timing state on an active, unconsumed agent-proposed record-work permit (page and consumed-permit absence already observed by the Director); no permit created to force it |
+| OBS-V1-CRON-LOG-PROD-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | An organically unsuccessful tick read from the Vercel runtime log; no failure induced |
+| OBS-V1-ISSUANCE-SURFACE-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Product reach | DEFERRED | Director decision on a tenant-scoped reader of standing-issuable requests |
