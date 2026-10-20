@@ -368,7 +368,7 @@ function reconciliationCandidatesSayWhy(): void {
     requiresAttention: true,
   });
   const p = render([stale], [stale]);
-  assert.ok(p.includes("within the 3-minute execution limit"), "a stale pending says why it is listed");
+  assert.ok(p.includes("attention threshold, not a deadline"), "a stale pending says why it is listed");
   assert.ok(
     p.includes("does not mean the execution stopped") && p.includes("may still have completed"),
     "and claims neither that execution stopped nor that the provider did nothing",

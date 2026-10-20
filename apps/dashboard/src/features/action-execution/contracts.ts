@@ -259,9 +259,9 @@ export const RECONCILIATION_WORDING = Object.freeze({
       "Outcome requires verification. Provider outcome is not confirmed: the request left Hebun " +
       "and no answer was recorded.",
     "pending-past-execution-window":
-      "Outcome requires verification. No outcome was recorded within the 3-minute execution limit " +
-      "declared for this request. That does not mean the execution stopped, and the provider may " +
-      "still have completed the operation. Provider outcome is not confirmed.",
+      "Outcome requires verification. No outcome has been recorded after 3 minutes, which is this " +
+      "list's attention threshold, not a deadline. That does not mean the execution stopped, and " +
+      "the provider may still have completed the operation. Provider outcome is not confirmed.",
     "pending-may-be-in-flight":
       "Started less than 3 minutes ago and may still be in progress. Its outcome is not yet known.",
   } satisfies Record<ReconciliationReason, string>),
