@@ -5724,6 +5724,8 @@ re-graded here.
 | KGSC-1 | VERIFIED | `docs/product-vision/runtime/hebun-kgsc-1-closure.md` |
 | EXECUTION-RECONCILIATION-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` |
 | OPERATIONAL-OBSERVABILITY-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` |
+| PLAN-FOLLOW-UP-REFERENCE-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` |
+| PLAN-FOLLOW-UP-LINEAGE-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 
 ---
 
@@ -5750,7 +5752,11 @@ before §16.1 are not yet indexed (Phase B).
 | RELEASE-ROLLBACK-FLOOR-1 | EAI-WORK-PLANNING-CEREMONY-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release safety | DEFERRED | Once any tenant holds work-planning, no deployment older than a27e5ad4 may serve production until `--work-planning --revoke` has run; Director decision on a tolerant scope reader |
 | GATE-D-PROVIDER-RECONCILIATION-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | Provider evidence | BLOCKED | Blocks PRODUCTION-ACCEPTED of HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 until production's Anthropic credential is reconciled with the Console account or a provider message id is recorded (HEBY-PLAN-DELEGATION-1 acceptance recorded origination message `msg_011Cg18B2G6b4fEfSktYeqB7`; planning calls still record none; not reconciled) |
 | AI-PLAN-UI-THROW-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | UX failure legibility | DEFERRED | A Director-approved fix that ends a non-connectivity error with an unavailable line |
-| PLAN-FOLLOW-UP-REFERENCE-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Product usefulness | DEFERRED | A Director decision on a model-invisible reference from a follow-up proposal to its work |
+| PLAN-FOLLOW-UP-REFERENCE-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` | Product usefulness | CLOSED | — |
+| PFR-RUNTIME-ACCEPTANCE-1 | PLAN-FOLLOW-UP-REFERENCE-V1 | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` | Verification gap | DEFERRED | A real AI plan over existing work showing a linked follow-up, its source line on `/approvals`, a legitimate authorization and execution, and both relationship lines in the work register; nothing created for the purpose |
+| PFR-ROLLBACK-FLOOR-1 | PLAN-FOLLOW-UP-REFERENCE-V1 | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` | Release safety | DEFERRED | No code at or after 1dbb80b9 on a schema below 79; any rollback below 1dbb80b9 is a Director decision preceded by removing the secret and checking pending linked requests |
+| LINEAGE-BROWSER-UNVERIFIED-1 | PLAN-FOLLOW-UP-LINEAGE-1 | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` | Verification gap | DEFERRED | A signed-in render after release; a positive advisory needs an organically recorded open follow-up |
+| LINEAGE-LINK-BOUND-1 | PLAN-FOLLOW-UP-LINEAGE-1 | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` | Read completeness | DEFERRED | A tenant near 500 recorded follow-up relationships, then a Director decision on a source-filtered read |
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
 | WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |
 | WORK-UPDATE-UNSCOPED-ITEMS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Product reach | DEFERRED | Human scoping of unscoped work items through the Work path; no automatic scoping |
