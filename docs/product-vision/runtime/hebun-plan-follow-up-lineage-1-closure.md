@@ -1,4 +1,4 @@
-# PLAN-FOLLOW-UP-LINEAGE-1 · closure record · VERIFIED
+# PLAN-FOLLOW-UP-LINEAGE-1 · closure record · DEPLOYED
 
 An AI plan recommendation says when Work already records an OPEN follow-up for the work items it
 names — "An existing follow-up is already recorded: ‹title› (‹state›)." — and the work register names
@@ -34,15 +34,15 @@ exactly what import-graph firewall censuses pin.
 
 - Phase: PLAN-FOLLOW-UP-LINEAGE-1
 - Owner: apps/dashboard/src/features/organizational-work/follow-up-source-work.server.ts (open-follow-up rule over Work's relationship read), consumed by the AI planning runtime and the work register; Governance, permits, execution, the plan contract and the PFR binding unchanged
-- Reached state: VERIFIED
-- Implementation commit: b572bcee — local branch feat/plan-follow-up-lineage-1, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: b572bcee — released on `main` with e1e905dc (fast-forward from 2e2bf5b1); RUNTIME VERIFICATION PENDING, PRODUCTION ACCEPTANCE PENDING
 - Verification level: V2 — the planning runtime gains a Work read and two surfaces change; no write path, schema, secret or provider boundary
 - Verification evidence: full suite 2e2bf5b1 1061/2 of 1063, b572bcee 1062/2 of 1064, failing and soft-assert sets identical; lineage.ts PASS with 2 bite-proofs caught; tsc 0; eslint 0; next build 0; git diff --check clean
 - Test environment: throwaway detached worktrees `.claude/worktrees/pfl1-suite-b572bcee` and `pfl1-suite-2e2bf5b1`, run sequentially; macOS (Darwin 25.2.0); Node 24 with tsx; PostgreSQL 18.6 superuser instance at 127.0.0.1:55433; no provider, no model
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
+- Deployment evidence: dpl_2BmjPH1pbcScgaAt4ja32yN6Jjdj READY production at e1e905dc9c2d04ee9a04690114fb4eb485dc52c0 (source git, ready 2026-10-21T04:10:36Z), www.hebuntech.com and hebuntech.com resolve to it; signed-out smoke `/` 200, `/login` 200, `/heby`, `/approvals`, `/director/work` 307 → `/login`
+- Production acceptance evidence: N/A — runtime render and acceptance PENDING (LINEAGE-BROWSER-UNVERIFIED-1)
 - Deferred risks: LINEAGE-BROWSER-UNVERIFIED-1 (DEFERRED); LINEAGE-LINK-BOUND-1 (DEFERRED)
-- Director approvals: implementation, focused tests and local commit 2026-10-21; push and deployment NOT approved
+- Director approvals: implementation, focused tests and local commit 2026-10-21; push of e1e905dc to `main` by the Director 2026-10-21; read-only deployment verification and this documentation update 2026-10-21; push of this update NOT approved
 
 ### Deferred risk detail
 

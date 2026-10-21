@@ -5725,7 +5725,7 @@ re-graded here.
 | EXECUTION-RECONCILIATION-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` |
 | OPERATIONAL-OBSERVABILITY-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` |
 | PLAN-FOLLOW-UP-REFERENCE-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` |
-| PLAN-FOLLOW-UP-LINEAGE-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
+| PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 
 ---
 
