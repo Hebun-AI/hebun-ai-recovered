@@ -87,6 +87,9 @@ export type InternalActRefusal =
   | "unauthenticated"
   /** The permit could not be spent — already spent, expired, revoked, or not this tenant's. */
   | "permit-not-consumable"
+  /** EXECUTION-AUTHORITY-1: the executing human does not hold this tenant's Governance authority. Permit still `active`. */
+  | "no-governance-authority"
+  | "not-the-governance-authority"
   /** WF-4: the proposing agent is not in service now. The permit is still `active`, not revoked. */
   | "agent-not-in-service"
   /** WF-4: the agent's current mandate no longer admits record-work. Permit still `active`. */
@@ -295,7 +298,10 @@ export async function executeRecordWork(
     const why = consumption.reason;
     return {
       status: "refused",
-      reason: why === "agent-not-in-service" || why === "agent-mandate-refused" ? why : "permit-not-consumable",
+      reason:
+        why === "agent-not-in-service" || why === "agent-mandate-refused" || why === "no-governance-authority" || why === "not-the-governance-authority"
+          ? why
+          : "permit-not-consumable",
     };
   }
   if (outcome === null) return { status: "refused", reason: "execution-unavailable" };

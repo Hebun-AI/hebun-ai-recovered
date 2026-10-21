@@ -56,6 +56,9 @@ export type WorkStateActRefusal =
   | "unauthenticated"
   /** The permit could not be spent — already spent, expired, revoked, or not this tenant's. */
   | "permit-not-consumable"
+  /** EXECUTION-AUTHORITY-1: the executing human does not hold this tenant's Governance authority. Permit still `active`. */
+  | "no-governance-authority"
+  | "not-the-governance-authority"
   /** The proposing agent is no longer in service. Nothing was spent. */
   | "agent-not-in-service"
   /** The proposing agent's current mandate or responsibility no longer admits the act. */
@@ -157,7 +160,7 @@ export async function executeSetWorkDeclaredState(
       if (consumption.status !== "authorized") {
         const why = consumption.reason;
         spendRefusal =
-          why === "agent-not-in-service" || why === "agent-mandate-refused"
+          why === "agent-not-in-service" || why === "agent-mandate-refused" || why === "no-governance-authority" || why === "not-the-governance-authority"
             ? why
             : why === "persistence-unavailable"
               ? "execution-unavailable"

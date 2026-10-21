@@ -50,6 +50,7 @@ import {
 import type { ExecutionAuthorization } from "@/features/action-authorization/contracts";
 import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { recordActionExecutionEventWithin } from "@/features/governance-audit/action-execution-audit.server";
 import { parseWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { parseRecipientRef } from "@/features/external-recipients/recipient-ref";
@@ -382,7 +383,19 @@ export async function executeAuthorizedAction(
   const now = (deps.now ?? (() => new Date()))();
   const env = deps.env ?? process.env;
 
-  /* ── 1. THE ARMING CONJUNCTION, BEFORE ANYTHING ELSE ───────────────────── */
+  /*
+   * ── 0. WHO MAY EXECUTE (EXECUTION-AUTHORITY-1) ───────────────────────────
+   *
+   * The permit consumer asks the same question when it spends, but by then this function has read
+   * the arming state, the recipient's address, the publish capability and — for YouTube — the
+   * provider itself. A member who may not spend must not cause any of that, so the question is
+   * asked first, here, of the one Governance resolver. The consumer's answer stays the boundary.
+   */
+  const authority = await resolveGovernanceAuthority(tenant, deps);
+  if (!authority.bootstrapDecisionId) return refused("no-governance-authority");
+  if (!authority.authorized) return refused("not-the-governance-authority");
+
+  /* ── 1. THE ARMING CONJUNCTION, BEFORE ANY OTHER READ ──────────────────── */
   /*
    * Read first so an unarmed system never burns a permit and never reads a recipient's address.
    *

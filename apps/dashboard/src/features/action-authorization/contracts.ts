@@ -256,6 +256,15 @@ export type ActionRevocationRefusal =
 
 export type PermitConsumptionRefusal =
   | "unauthenticated"
+  /**
+   * EXECUTION-AUTHORITY-1. A human may spend a permit only while they hold this tenant's Governance
+   * authority (bootstrap or active delegation, as `resolveGovernanceAuthority` answers it): the same
+   * authority that approves and revokes. Refused before anything is read or spent, so the permit
+   * stays `active` and nothing was attempted. `no-governance-authority`: this tenant has none, or it
+   * could not be read — never treated as permission.
+   */
+  | "no-governance-authority"
+  | "not-the-governance-authority"
   /** No live permit matched the tenant, id, and active-and-unexpired predicate. */
   | "permit-not-consumable"
   /**

@@ -82,6 +82,9 @@ export type PlacementActRefusal =
   | "unauthenticated"
   /** The permit could not be spent — already spent, expired, revoked, or not this tenant's. */
   | "permit-not-consumable"
+  /** EXECUTION-AUTHORITY-1: the executing human does not hold this tenant's Governance authority. Permit still `active`. */
+  | "no-governance-authority"
+  | "not-the-governance-authority"
   /** The permit authorizes a different act. The transaction is aborted, so nothing was written. */
   | "action-kind-mismatch"
   /** The approved payload does not name a human and a department in the shapes this act uses. */
@@ -217,7 +220,8 @@ export async function executePlaceHuman(
     return { status: "refused", reason: refusal, ...(authorityReason ? { authorityReason } : {}) };
   }
   if (consumption.status !== "authorized") {
-    return { status: "refused", reason: "permit-not-consumable" };
+    const why = consumption.reason;
+    return { status: "refused", reason: why === "no-governance-authority" || why === "not-the-governance-authority" ? why : "permit-not-consumable" };
   }
   if (outcome === null) return { status: "refused", reason: "execution-unavailable" };
 

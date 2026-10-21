@@ -48,6 +48,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { readDurableAgentLivenessForShareWithin } from "@/features/agent-identity/read-durable-agent-identity.server";
@@ -356,6 +357,13 @@ async function spendPermit(
  *
  * The tenant, the request id and the session all come from the authenticated context, and the
  * caller still supplies nothing but a permit id.
+ *
+ * EXECUTION-AUTHORITY-1 — WHO MAY SPEND. Approval and revocation were always the Governance
+ * authority's; spending was open to any authenticated member of the tenant. This door now asks the
+ * same resolver the approval asks, before the spend transaction opens, so every human executor that
+ * spends through here is covered at once and a refusal leaves the permit `active`. Door two is not
+ * touched: a machine spends under a principal minted from a permit a human already authorized, and
+ * standing issuance spends nothing.
  */
 export async function consumeActionPermit(
   tenant: TenantContext | null,
@@ -363,6 +371,9 @@ export async function consumeActionPermit(
   deps: PermitConsumptionDeps = {},
 ): Promise<PermitConsumptionResult> {
   if (!tenant?.tenantId) return refused("unauthenticated");
+  const authority = await resolveGovernanceAuthority(tenant, deps);
+  if (!authority.bootstrapDecisionId) return refused("no-governance-authority");
+  if (!authority.authorized) return refused("not-the-governance-authority");
   return spendPermit(
     {
       tenantId: tenant.tenantId,

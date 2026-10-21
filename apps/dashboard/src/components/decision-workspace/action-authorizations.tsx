@@ -668,6 +668,17 @@ function OutcomeLine({
 }
 
 /**
+ * EXECUTION-AUTHORITY-1 — the server's refusal, said in words. It reads only the reason the server
+ * returned and infers nothing about the viewer: this surface holds no authority information, and
+ * Execute stays visible to everyone so the server remains the one place that answers.
+ */
+function executionRefusalText(reason: string): string {
+  return reason === "not-the-governance-authority" || reason === "no-governance-authority"
+    ? "only this organization's Governance authority can execute an authorization"
+    : reason;
+}
+
+/**
  * WHAT HAPPENED TO AN AUTHORIZATION THAT HAS NO EXTERNAL ATTEMPT ROW (GIA-1 repair).
  *
  * ── THE CONTRADICTION THIS EXISTS TO REMOVE ──────────────────────────────────
@@ -783,7 +794,7 @@ export function PermitRow({
         setMessage(
           result.status === "executed"
             ? `Changed. Hebun declared the work item ${result.outcome.workItem.declaredState} under your authorization; you authorized it, the system performed it.`
-            : `Not changed (${result.authorityReason ?? result.reason}). Nothing was written, and the authorization is untouched.`,
+            : `Not changed (${result.authorityReason ?? executionRefusalText(result.reason)}). Nothing was written, and the authorization is untouched.`,
         );
         return;
       }
@@ -797,14 +808,14 @@ export function PermitRow({
                * authorization is still the Director's to spend. Saying so is the difference
                * between a fixable condition and a lost decision.
                */
-              `Not recorded (${result.reason}). Nothing was written, and the authorization is untouched.`,
+              `Not recorded (${executionRefusalText(result.reason)}). Nothing was written, and the authorization is untouched.`,
         );
         return;
       }
       const result = await executeAuthorizedActionAction({ permitId: item.permitId });
       if (result.status === "refused") {
         /* Nothing was spent — the same permit can be executed once the cause is fixed. */
-        setMessage(`Not executed (${result.reason}). The authorization is untouched.`);
+        setMessage(`Not executed (${executionRefusalText(result.reason)}). The authorization is untouched.`);
         return;
       }
       setMessage(

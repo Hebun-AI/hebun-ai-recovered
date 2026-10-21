@@ -81,6 +81,9 @@ export type ExecutionFailureClass =
  */
 export type ExecutionPreflightRefusal =
   | "unauthenticated"
+  /** EXECUTION-AUTHORITY-1 — see `PermitConsumptionRefusal`. Checked before arming, reads and provider calls. */
+  | "no-governance-authority"
+  | "not-the-governance-authority"
   | "persistence-unavailable"
   /** No live permit matched the tenant, id, and active-and-unexpired predicate. */
   | "permit-not-executable"
