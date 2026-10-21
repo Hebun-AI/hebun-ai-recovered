@@ -5727,6 +5727,7 @@ re-graded here.
 | PLAN-FOLLOW-UP-REFERENCE-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` |
 | PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
+| EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
 
 ---
 
@@ -5760,6 +5761,8 @@ before §16.1 are not yet indexed (Phase B).
 | LINEAGE-LINK-BOUND-1 | PLAN-FOLLOW-UP-LINEAGE-1 | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` | Read completeness | DEFERRED | A tenant near 500 recorded follow-up relationships, then a Director decision on a source-filtered read |
 | WUOS-PROD-ACCEPTANCE-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Verification gap | DEFERRED | Deployed (dpl_3csQPtqz… at b20ee171); Heby rev 5 measured with organization + set-work-declared-state (an existing mandate's effective capability expanded); an organically recorded organization-level item, then one real proposal approved and executed by a human |
 | WUOS-ROLLBACK-FLOOR-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Release safety | DEFERRED | Any rollback below e93f904b while organization-scope requests are pending is a Director decision (they refuse fail-closed, permits stay active) |
+| EA1-PROD-ACCEPTANCE-1 | EXECUTION-AUTHORITY-1 | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` | Verification gap | DEFERRED | Push and deploy, then one real Director execution of an organically approved permit; a member refusal only if an organic second member exists |
+| EA1-KIND-ARMING-1 | EXECUTION-AUTHORITY-1 | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` | Release safety | DEFERRED | A Director design decision on kind-specific external arming (arming email also arms Instagram and YouTube) |
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
 | WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |
 | WORK-UPDATE-UNSCOPED-ITEMS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Product reach | DEFERRED | Human scoping of unscoped work items through the Work path; no automatic scoping |
