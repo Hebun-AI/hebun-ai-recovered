@@ -41,8 +41,9 @@ const MUTATIONS: Mutation[] = [
   {
     label: "B3 the execution-time domain check is removed",
     file: WRITER,
-    find: 'if (current.scopeKind !== "domain" || current.domainId !== change.workDomainId) {',
-    replace: "if (false as boolean) {",
+    /* WORK-UPDATE-ORGANIZATION-SCOPE-1: the check now covers both scopes; the mutation still removes it. */
+    find: 'if (!scopeHeld) throw new GovernedWorkStateAbort("work-scope-changed");',
+    replace: 'if (false as boolean) throw new GovernedWorkStateAbort("work-scope-changed");',
     suite: PG,
     because: "T1b: an item moved to another domain is refused under the lock",
   },
