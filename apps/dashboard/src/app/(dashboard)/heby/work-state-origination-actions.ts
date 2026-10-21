@@ -31,7 +31,7 @@ export async function proposeWorkStateChangeAction(input: {
       toState: input?.toState,
       ...(typeof input?.agentId === "string" ? { agentId: input.agentId } : {}),
     },
-    { resolveTenant: resolveTenantContext, preflight: (tenant, agentId, workDomainId) => preflightWorkStateOrigination(tenant, agentId, workDomainId) },
+    { resolveTenant: resolveTenantContext, preflight: (tenant, agentId, workScope) => preflightWorkStateOrigination(tenant, agentId, workScope) },
   );
 }
 

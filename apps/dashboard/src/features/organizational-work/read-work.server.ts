@@ -69,6 +69,7 @@ import { departments } from "@/db/schema/department";
 import { memberships } from "@/db/schema/membership";
 import { workItems } from "@/db/schema/work-item";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 import {
   MAX_WORK_ITEMS_READ,
   WORK_REGISTER_EMPTY_DETAIL,
@@ -281,17 +282,18 @@ export async function readWorkRegister(
 /**
  * What a state-change proposal needs to know about the ONE item a human selected.
  *
- * The work domain is present only when the item is domain-scoped: an unscoped or organization-level
- * item has no domain an agent's responsibility could be checked against, so it cannot be the target
- * of a governed state change (WORK-UPDATE V1, D6). The title is for HUMAN surfaces — the proposal's
- * target label — and never reaches a model.
+ * The work scope is the one recorded with the item. An item recorded WITHOUT a scope (NULL) has none
+ * an agent's responsibility could be checked against, so it cannot be the target of a governed state
+ * change (WORK-UPDATE V1, D6); organization-level and domain work can (WORK-UPDATE-ORGANIZATION-SCOPE-1).
+ * The title is for HUMAN surfaces — the proposal's target label — and never reaches a model.
  */
 export interface WorkStateTarget {
   readonly workItemId: string;
   readonly title: string;
   readonly declaredState: WorkDeclaredState;
   readonly inService: boolean;
-  readonly workDomainId: string | null;
+  /** `null` when the item was recorded without a scope. */
+  readonly workScope: WorkScope | null;
 }
 
 export type WorkStateTargetRead =
@@ -341,7 +343,12 @@ export async function readWorkStateTarget(
         title: row.title,
         declaredState: row.declaredState,
         inService: row.lifecycleStatus === ACTIVE_LIFECYCLE_STATUS,
-        workDomainId: row.scopeKind === "domain" ? row.domainId : null,
+        workScope:
+          row.scopeKind === "organization" && row.domainId === null
+            ? { kind: "organization" }
+            : row.scopeKind === "domain" && row.domainId !== null
+              ? { kind: "domain", workDomainId: row.domainId }
+              : null,
       },
     };
   } catch {

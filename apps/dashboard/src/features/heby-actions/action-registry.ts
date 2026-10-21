@@ -515,8 +515,9 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
     /*
      * THE WORK ITEM IS A RECORD-REF, so the proposal names a retrieved row of THIS tenant rather than
      * a string. `fromState` is the state the item held when the proposal was made; the Work
-     * Authority refuses the act if the item no longer holds it. The scope pair is the item's own
-     * work domain, frozen into the digest so responsibility is re-checked against it at spend.
+     * Authority refuses the act if the item no longer holds it. The scope is the item's own recorded
+     * scope — one work domain, or organization-level work — frozen into the digest so responsibility
+     * is re-checked against it at spend (WORK-UPDATE-ORGANIZATION-SCOPE-1).
      */
     argumentSchema: {
       fields: [
@@ -524,7 +525,7 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
           name: "workItemRef",
           kind: "record-ref",
           required: true,
-          describes: "An in-service, domain-scoped work item of this organization: work-item/<uuid>.",
+          describes: "An in-service, scoped work item of this organization: work-item/<uuid>.",
         },
         {
           name: "fromState",
@@ -544,14 +545,14 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
           name: "workScope",
           kind: "enum",
           required: true,
-          enumValues: ["domain"],
-          describes: "Always one recorded work domain: the item's own.",
+          enumValues: ["domain", "organization"],
+          describes: "The item's own recorded scope: one work domain, or organization-level work.",
         },
         {
           name: "workDomainRef",
           kind: "string",
-          required: true,
-          describes: "The item's work domain: work-domain/<uuid>.",
+          required: false,
+          describes: "The item's work domain: work-domain/<uuid>. Present exactly when the scope is `domain`.",
         },
       ],
     },

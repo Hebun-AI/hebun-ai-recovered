@@ -63,6 +63,7 @@ import {
   type StructuredOutputRefusal,
 } from "./contracts";
 import { hebunInstruction } from "@/features/heby-runtime/instruction-channel";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 
 type DataClass = NonNullable<NonNullable<Parameters<typeof generateHebyModelAnswer>[1]>["disclosure"]>["dataClasses"][number];
 
@@ -151,7 +152,7 @@ export type WorkStatePreflightAnswer =
 export interface OriginateWorkStateDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
   /** Required, read-only, fail-closed. Asked with the RESOLVED proposer and the item's own domain. */
-  readonly preflight: (tenant: TenantContext, agentId: string, workDomainId: string) => Promise<WorkStatePreflightAnswer>;
+  readonly preflight: (tenant: TenantContext, agentId: string, workScope: WorkScope) => Promise<WorkStatePreflightAnswer>;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly resolveDirectorEnabled?: () => Promise<boolean>;
   readonly selectTransport?: typeof selectModelTransport;
@@ -214,7 +215,7 @@ export async function originateWorkStateChange(
   if (typeof deps.preflight !== "function") return refused("proposal-refused", "agent-mandate-authority-unavailable");
   let preflight: WorkStatePreflightAnswer;
   try {
-    preflight = await deps.preflight(tenant, proposer.agentId, target.workDomainId);
+    preflight = await deps.preflight(tenant, proposer.agentId, target.workScope);
   } catch {
     preflight = { status: "refused", reason: "agent-mandate-authority-unavailable" };
   }

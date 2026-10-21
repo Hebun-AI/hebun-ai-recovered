@@ -20,7 +20,8 @@ assert.ok(ready.includes("It is not shown the item or its title"), "and it says 
 assert.ok(!ready.includes(id), "the id is not printed");
 
 const unscoped = render({ status: "selected", workItemId: id, title: "Legacy", declaredState: "active", inService: true, domainScoped: false });
-assert.ok(!unscoped.includes(ASK) && unscoped.includes("not recorded in a work domain"));
+/* WORK-UPDATE-ORGANIZATION-SCOPE-1: only NULL scope is refused now, and the copy says so. */
+assert.ok(!unscoped.includes(ASK) && unscoped.includes("recorded without a work scope"));
 
 const retired = render({ status: "selected", workItemId: id, title: "Old", declaredState: "complete", inService: false, domainScoped: true });
 assert.ok(!retired.includes(ASK) && retired.includes("retired"));

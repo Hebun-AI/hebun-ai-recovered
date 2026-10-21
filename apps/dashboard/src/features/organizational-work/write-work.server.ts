@@ -882,8 +882,9 @@ async function declareWorkStateCore(
  *
  * ── WHAT IT RE-ASKS UNDER THE ROW LOCK ──────────────────────────────────────
  *
- * The item, by (tenant, id); that it is still in service; that it is still in the work domain the
- * approved proposal named; and that it still holds `fromState`. Any "no" throws, which rolls the
+ * The item, by (tenant, id); that it is still in service; that it still has the scope the approved
+ * proposal named — the same work domain, or organization-level (WORK-UPDATE-ORGANIZATION-SCOPE-1);
+ * and that it still holds `fromState`. Any "no" throws, which rolls the
  * spend back with everything else: the permit stays `active` and nothing at all was written.
  * ═════════════════════════════════════════════════════════════════════════ */
 
@@ -892,7 +893,8 @@ export interface GovernedWorkStateChange {
   readonly workItemId: string;
   readonly fromState: WorkDeclaredState;
   readonly toState: WorkDeclaredState;
-  readonly workDomainId: string;
+  /** The scope the approved payload froze; never NULL scope. */
+  readonly workScope: WorkScope;
   /** The handoff of the permit spend this change discharges. Named in the audit row. */
   readonly handoffId: string;
 }
@@ -960,9 +962,11 @@ export async function declareWorkStateUnderPermit(
       const current = rows[0];
       if (!current) throw new GovernedWorkStateAbort("work-unresolved");
       if (current.lifecycleStatus !== ACTIVE_LIFECYCLE_STATUS) throw new GovernedWorkStateAbort("work-retired");
-      if (current.scopeKind !== "domain" || current.domainId !== change.workDomainId) {
-        throw new GovernedWorkStateAbort("work-scope-changed");
-      }
+      const scopeHeld =
+        change.workScope.kind === "organization"
+          ? current.scopeKind === "organization" && current.domainId === null
+          : current.scopeKind === "domain" && current.domainId === change.workScope.workDomainId;
+      if (!scopeHeld) throw new GovernedWorkStateAbort("work-scope-changed");
       if (current.declaredState !== change.fromState) throw new GovernedWorkStateAbort("work-state-changed");
 
       const result = await declareWorkStateCore(

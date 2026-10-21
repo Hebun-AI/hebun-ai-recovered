@@ -40,6 +40,7 @@ import { readWorkStateTarget } from "@/features/organizational-work/read-work.se
 import type { EligibleAgentsRead } from "./list-eligible-agents.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { listEligibleAgents } from "./list-eligible-agents.server";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 
 /*
  * What the narrow origination path declares: the goal (`conversation`) and the organization's
@@ -206,7 +207,8 @@ export type WorkStateOriginationPreflight =
 export async function preflightWorkStateOrigination(
   tenant: TenantContext,
   agentId: string,
-  workDomainId: string,
+  /* WORK-UPDATE-ORGANIZATION-SCOPE-1 — the item's own recorded scope, read by the caller. */
+  workScope: WorkScope,
   deps: { readonly getDb?: () => ControlPlaneDatabase | null } = {},
 ): Promise<WorkStateOriginationPreflight> {
   if (typeof window !== "undefined") throw new Error("Origination preflight is server-only.");
@@ -214,7 +216,7 @@ export async function preflightWorkStateOrigination(
   try {
     const ceiling = refuseOutsideAgentMandate(await readEffectiveAgentMandate(tenant, agentId, deps), kind);
     if (ceiling) return { status: "refused", reason: ceiling };
-    const eligible = await listEligibleAgents(tenant, { kind: "domain", workDomainId }, deps, kind);
+    const eligible = await listEligibleAgents(tenant, workScope, deps, kind);
     if (eligible.status !== "read") return { status: "refused", reason: "agent-mandate-authority-unavailable" };
     if (!eligible.agents.some((agent) => agent.agentId === agentId)) {
       return { status: "refused", reason: "work-outside-agent-responsibility" };
@@ -258,9 +260,9 @@ export async function readWorkStateAgentChoices(
   if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable" };
   try {
     const target = await readWorkStateTarget(tenant, workItemId, deps);
-    if (target.status !== "found" || !target.target.inService || target.target.workDomainId === null) return { status: "unavailable" };
+    if (target.status !== "found" || !target.target.inService || target.target.workScope === null) return { status: "unavailable" };
     const kind = AGENT_ORIGINABLE_REGISTRY_KIND[SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS];
-    const eligible = await listEligibleAgents(tenant, { kind: "domain", workDomainId: target.target.workDomainId }, deps, kind);
+    const eligible = await listEligibleAgents(tenant, target.target.workScope, deps, kind);
     return composeWorkStateAgentChoices(await readDurableAgentIdentityState(tenant, deps), eligible);
   } catch {
     return { status: "unavailable" };

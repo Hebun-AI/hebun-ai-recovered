@@ -9,10 +9,11 @@
  *
  * ── WHAT IS FROZEN, AND WHERE EACH VALUE COMES FROM ──────────────────────────
  *
- * The item and the target state come from the HUMAN. `fromState` and the work domain come from the
+ * The item and the target state come from the HUMAN. `fromState` and the work scope come from the
  * row this module reads a moment before filing — never from the caller and never from a model. All
- * four are hashed into the digest, so the permit is bound to exactly that item, that transition and
- * that domain; the Work Authority refuses the act if the item no longer holds `fromState`.
+ * are hashed into the digest, so the permit is bound to exactly that item, that transition and that
+ * scope — one work domain, or organization-level work (WORK-UPDATE-ORGANIZATION-SCOPE-1); the Work
+ * Authority refuses the act if the item no longer holds `fromState` or that scope.
  *
  * ── THE MANDATE AND RESPONSIBILITY ARE NOT ENFORCED HERE ─────────────────────
  *
@@ -36,7 +37,7 @@ import {
   isWorkDeclaredState,
   type WorkDeclaredState,
 } from "@/features/organizational-work/work-contracts";
-import { formatWorkDomainRef } from "@/features/work-domain/work-scope";
+import { workScopeArguments, type WorkScope } from "@/features/work-domain/work-scope";
 import { SET_WORK_DECLARED_STATE_ACTION_KIND, SET_WORK_DECLARED_STATE_OWNER_WORKSPACE } from "./contracts";
 
 /** What the human said: which item, and which state. Nothing else crosses this boundary. */
@@ -53,7 +54,10 @@ export type WorkStateProposalRefusal =
   | "work-unresolved"
   /** The item is retired. */
   | "work-retired"
-  /** The item names no work domain, so no agent responsibility could be checked against it (D6). */
+  /**
+   * The item was recorded without a work scope, so no agent responsibility could be checked against
+   * it (D6). The name predates organization scope: organization-level work is NOT refused with it.
+   */
   | "work-not-domain-scoped"
   /** The item already holds the chosen state. A governed no-op is not filed. */
   | "state-unchanged"
@@ -103,7 +107,7 @@ export async function resolveWorkStateTarget(
       readonly title: string;
       readonly fromState: WorkDeclaredState;
       readonly toState: WorkDeclaredState;
-      readonly workDomainId: string;
+      readonly workScope: WorkScope;
     }
   | { readonly status: "refused"; readonly reason: WorkStateProposalRefusal }
 > {
@@ -113,7 +117,7 @@ export async function resolveWorkStateTarget(
   if (read.status === "unresolved") return { status: "refused", reason: "work-unresolved" };
   const target = read.target;
   if (!target.inService) return { status: "refused", reason: "work-retired" };
-  if (target.workDomainId === null) return { status: "refused", reason: "work-not-domain-scoped" };
+  if (target.workScope === null) return { status: "refused", reason: "work-not-domain-scoped" };
   if (target.declaredState === input.toState) return { status: "refused", reason: "state-unchanged" };
   return {
     status: "resolved",
@@ -121,7 +125,7 @@ export async function resolveWorkStateTarget(
     title: target.title,
     fromState: target.declaredState,
     toState: input.toState,
-    workDomainId: target.workDomainId,
+    workScope: target.workScope,
   };
 }
 
@@ -156,8 +160,8 @@ export async function proposeAgentOriginatedWorkStateAction(
       workItemRef,
       fromState: target.fromState,
       toState: target.toState,
-      workScope: "domain",
-      workDomainRef: formatWorkDomainRef(target.workDomainId),
+      /* Domain: `workScope` + `workDomainRef`, exactly as before. Organization: `workScope` alone. */
+      ...workScopeArguments(target.workScope),
     },
     /* One citation, because one row was read a moment ago. It IS the read. */
     evidence: [{ sourceClass: "work", recordRef: workItemRef, lifecycle: "settled" }],
@@ -204,6 +208,7 @@ export type WorkStateSelection =
       readonly title: string;
       readonly declaredState: WorkDeclaredState;
       readonly inService: boolean;
+      /** Recorded with a work scope (organization-level or one domain); `false` only for NULL scope. */
       readonly domainScoped: boolean;
     }
   | { readonly status: "unresolved" }
@@ -224,6 +229,6 @@ export async function readWorkStateSelection(
     title: read.target.title,
     declaredState: read.target.declaredState,
     inService: read.target.inService,
-    domainScoped: read.target.workDomainId !== null,
+    domainScoped: read.target.workScope !== null,
   };
 }

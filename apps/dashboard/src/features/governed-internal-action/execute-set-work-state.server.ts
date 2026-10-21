@@ -44,7 +44,7 @@ import {
   type GovernedWorkStateResult,
 } from "@/features/organizational-work/write-work.server";
 import { isWorkDeclaredState, parseWorkItemRef } from "@/features/organizational-work/work-contracts";
-import { parseWorkDomainRef } from "@/features/work-domain/work-scope";
+import { workScopeFromPayload } from "@/features/work-domain/work-scope";
 import { SET_WORK_DECLARED_STATE_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 
 /** The one kind this seam performs. A constant, so no caller can aim it at another act. */
@@ -95,14 +95,15 @@ function changeFrom(
 ): Omit<GovernedWorkStateChange, "handoffId"> | null {
   const payload = authorization.canonicalPayload;
   const item = parseWorkItemRef(payload["workItemRef"]);
-  const domain = parseWorkDomainRef(payload["workDomainRef"]);
+  /* WORK-UPDATE-ORGANIZATION-SCOPE-1 — one domain, or organization-level; contradictory or absent is `null`. */
+  const workScope = workScopeFromPayload(payload);
   const fromState = payload["fromState"];
   const toState = payload["toState"];
-  if (!item || !domain || payload["workScope"] !== "domain") return null;
+  if (!item || !workScope) return null;
   if (!isWorkDeclaredState(fromState) || !isWorkDeclaredState(toState) || fromState === toState) return null;
   /* The target the request froze must be the item the payload names — never two different items. */
   if (authorization.targetRef !== payload["workItemRef"]) return null;
-  return { workItemId: item.workItemId, fromState, toState, workDomainId: domain.workDomainId };
+  return { workItemId: item.workItemId, fromState, toState, workScope };
 }
 
 /**

@@ -42,6 +42,7 @@ import {
 } from "../../src/features/agent-origination/originate-work-state.server";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { preflightWorkStateOrigination } from "../../src/features/origination-availability/read-origination-availability.server";
+import type { WorkScope } from "../../src/features/work-domain/work-scope";
 
 const GENESIS = "I am establishing this organization's Governance authority so consequential acts can be decided.";
 const APPROVE = "I have read this state change and I authorize it for this organization.";
@@ -132,7 +133,8 @@ async function main(): Promise<void> {
   let duringGenerate: (() => Promise<void>) | null = null;
   const originationDeps = (ctx: TenantContext) => ({
     resolveTenant: async () => ctx,
-    preflight: (t: TenantContext, agentId: string, workDomainId: string) => preflightWorkStateOrigination(t, agentId, workDomainId, deps),
+    /* WORK-UPDATE-ORGANIZATION-SCOPE-1: the preflight takes the item's recorded scope, not a bare domain id. */
+    preflight: (t: TenantContext, agentId: string, workScope: WorkScope) => preflightWorkStateOrigination(t, agentId, workScope, deps),
     resolveDirectorEnabled: async () => true,
     selectTransport: (() => ({ transport: {} as never, transportProvenance: "fake" as const })) as never,
     generate: (async (request: unknown, options: { disclosure?: unknown }) => {

@@ -26,7 +26,7 @@ export function HebyWorkStateSelection({ selection }: { readonly selection: Work
             <p className="mt-1 text-fg-secondary">This work item is retired, so no state change can be proposed.</p>
           ) : !selection.domainScoped ? (
             <p className="mt-1 text-fg-secondary">
-              This work item is not recorded in a work domain, so no agent responsibility can be checked and no
+              This work item was recorded without a work scope, so no agent responsibility can be checked and no
               state change can be proposed.
             </p>
           ) : (

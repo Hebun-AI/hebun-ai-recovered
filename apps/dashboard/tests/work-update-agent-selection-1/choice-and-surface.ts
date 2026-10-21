@@ -119,7 +119,8 @@ async function main(): Promise<void> {
   const projection = code("src/features/origination-availability/read-origination-availability.server.ts");
   const fn = projection.slice(projection.indexOf("export async function readWorkStateAgentChoices("));
   assert.match(fn, /readWorkStateTarget\(tenant, workItemId, deps\)/, "C4: the item through the Work Authority's tenant-scoped read");
-  assert.match(fn, /listEligibleAgents\(tenant, \{ kind: "domain", workDomainId: target\.target\.workDomainId \}, deps, kind\)/, "C4: responsibility through the eligibility projection, for this kind");
+  /* WORK-UPDATE-ORGANIZATION-SCOPE-1 (Director-approved 2026-10-21): the item's own recorded scope, organization or domain. */
+  assert.match(fn, /listEligibleAgents\(tenant, target\.target\.workScope, deps, kind\)/, "C4: responsibility through the eligibility projection, for this kind");
   assert.match(fn, /readDurableAgentIdentityState\(tenant, deps\)/, "C4: identity through the Agent Identity Authority's read");
 
   /* ── C5 · boundaries ── */

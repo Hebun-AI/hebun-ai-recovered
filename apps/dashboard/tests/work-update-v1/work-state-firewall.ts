@@ -189,11 +189,13 @@ for (const file of ["src/app/(dashboard)/director/work/actions.ts", "src/app/(da
     assert.ok(!origination.includes(reach), `F10: origination reaches no mandate reader itself (${reach}) — the preflight is injected`);
   }
   const action = withoutComments(read("src/app/(dashboard)/heby/work-state-origination-actions.ts"));
-  assert.match(action, /preflight: \(tenant, agentId, workDomainId\) => preflightWorkStateOrigination\(tenant, agentId, workDomainId\)/, "F10: the boundary injects the WF-1 preflight");
+  /* WORK-UPDATE-ORGANIZATION-SCOPE-1 (Director-approved 2026-10-21): the preflight is asked about the item's recorded scope. */
+  assert.match(action, /preflight: \(tenant, agentId, workScope\) => preflightWorkStateOrigination\(tenant, agentId, workScope\)/, "F10: the boundary injects the WF-1 preflight");
   const projection = withoutComments(read("src/features/origination-availability/read-origination-availability.server.ts"));
   const pre = projection.slice(projection.indexOf("export async function preflightWorkStateOrigination("));
   assert.match(pre, /refuseOutsideAgentMandate\(await readEffectiveAgentMandate\(/, "F10: the kind is asked through the shared ceiling");
-  assert.match(pre, /listEligibleAgents\(tenant, \{ kind: "domain", workDomainId \}, deps, kind\)/, "F10: responsibility through the eligibility projection, for this kind");
+  /* WORK-UPDATE-ORGANIZATION-SCOPE-1: the scope passed is the item's recorded one, organization or domain. */
+  assert.match(pre, /listEligibleAgents\(tenant, workScope, deps, kind\)/, "F10: responsibility through the eligibility projection, for this kind");
   assert.ok(!/\.(insert|update|delete)\(|\.transaction\(/.test(pre), "F10: the preflight writes nothing");
   /* The writer is still the authority: its gate precedes its insert (AMA-2 pins the order). */
   assert.match(withoutComments(read("src/features/action-authorization/record-action-request.server.ts")), /refuseOutsideAgentResponsibility\(read, actionKind, workScopeFromPayload\(proposedArguments\)\)/, "F10: the writer still asks responsibility");
