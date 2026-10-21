@@ -5726,7 +5726,7 @@ re-graded here.
 | OPERATIONAL-OBSERVABILITY-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` |
 | PLAN-FOLLOW-UP-REFERENCE-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` |
 | PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
-| WORK-UPDATE-ORGANIZATION-SCOPE-1 | VERIFIED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
+| WORK-UPDATE-ORGANIZATION-SCOPE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
 
 ---
 
@@ -5758,7 +5758,7 @@ before §16.1 are not yet indexed (Phase B).
 | PFR-ROLLBACK-FLOOR-1 | PLAN-FOLLOW-UP-REFERENCE-V1 | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` | Release safety | DEFERRED | No code at or after 1dbb80b9 on a schema below 79; any rollback below 1dbb80b9 is a Director decision preceded by removing the secret and checking pending linked requests |
 | LINEAGE-BROWSER-UNVERIFIED-1 | PLAN-FOLLOW-UP-LINEAGE-1 | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` | Verification gap | DEFERRED | A signed-in render after release; a positive advisory needs an organically recorded open follow-up |
 | LINEAGE-LINK-BOUND-1 | PLAN-FOLLOW-UP-LINEAGE-1 | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` | Read completeness | DEFERRED | A tenant near 500 recorded follow-up relationships, then a Director decision on a source-filtered read |
-| WUOS-PROD-ACCEPTANCE-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Verification gap | DEFERRED | Push and deploy, a Director-chosen agent granted organization responsibility, then one real organization-level proposal approved and executed |
+| WUOS-PROD-ACCEPTANCE-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Verification gap | DEFERRED | Deployed (dpl_3csQPtqz… at b20ee171); Heby rev 5 measured with organization + set-work-declared-state (an existing mandate's effective capability expanded); an organically recorded organization-level item, then one real proposal approved and executed by a human |
 | WUOS-ROLLBACK-FLOOR-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Release safety | DEFERRED | Any rollback below e93f904b while organization-scope requests are pending is a Director decision (they refuse fail-closed, permits stay active) |
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
 | WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |

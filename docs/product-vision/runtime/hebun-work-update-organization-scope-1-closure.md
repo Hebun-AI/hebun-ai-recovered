@@ -1,4 +1,4 @@
-# WORK-UPDATE-ORGANIZATION-SCOPE-1 · closure record · VERIFIED
+# WORK-UPDATE-ORGANIZATION-SCOPE-1 · closure record · DEPLOYED
 
 An agent may now propose a declared-state change for **organization-level** work — every AI plan
 follow-up is recorded that way — and not only for domain work. It is admitted only by an explicit
@@ -45,25 +45,67 @@ suite run with the reason stated.
 
 - Phase: WORK-UPDATE-ORGANIZATION-SCOPE-1
 - Owner: apps/dashboard/src/features/heby-action-inlet/work-state-proposal.server.ts and organizational-work (scope read and governed state door) with governed-internal-action/execute-set-work-state.server.ts; the AP-4 ceiling, Governance, permits and the machine allowlist unchanged
-- Reached state: VERIFIED
-- Implementation commit: e93f904b with 9699515d — local branch feat/work-update-organization-scope-1, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: e93f904b with 9699515d — released on `main` with b20ee171; RUNTIME VERIFICATION PENDING, PRODUCTION ACCEPTANCE PENDING
 - Verification level: V3 — canonical authorization payload and the Work authority's governed write path
 - Verification evidence: full suite 6e4fe747 1062/2 of 1064, e93f904b 1062/3 of 1065 (third = B3 anchor, fixed in 9699515d); 8/8 focused at 9699515d including B1–B13 and O1–O10; 3 new-test mutations caught; tsc 0; eslint 0; next build 0; git diff --check clean
 - Test environment: throwaway detached worktrees `.claude/worktrees/wuos-suite-e93f904b` (moved to 9699515d) and `wuos-suite-6e4fe747`, run sequentially; macOS (Darwin 25.2.0); Node 24 with tsx; PostgreSQL 18.0 superuser at 127.0.0.1:5432 (`HEBUN_TEST_ADMIN_DATABASE_URL`); no provider, no model
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
+- Deployment evidence: dpl_3csQPtqzRmFHuBVyYNrUapBvD77E READY production at b20ee171f32b851ceb7e5eef0c3362e689e8acc3 (source git, ref main, ready 2026-10-21T14:10:26Z), www.hebuntech.com and hebuntech.com alias it (`vercel inspect`); signed-out smoke `/` 200, `/login` 200, `/heby`, `/approvals`, `/director/work` 307 → `/login`, apex 308 → www
+- Production acceptance evidence: N/A — production acceptance PENDING (WUOS-PROD-ACCEPTANCE-1): no real organization-scoped Work execution has occurred. Production authority MEASURED 2026-10-21 (Director-operated read-only read, see *Production authority read*): Hebun AI Heby's effective mandate is revision 5 with `set-work-declared-state` in scope and organization + Engineering responsibility, so this deployment expanded the effective capability of that existing mandate; no Hebun standing envelope, no organization-scoped Work item, no organization-scoped state request, no unspent unexpired permit
 - Deferred risks: WUOS-PROD-ACCEPTANCE-1 (DEFERRED); WUOS-ROLLBACK-FLOOR-1 (DEFERRED)
-- Director approvals: implementation of organization-scoped state proposals with an explicit organization grant, NULL scope still refused 2026-10-21; local commits and this record 2026-10-21; push, deployment and any production mandate or responsibility change NOT approved
+- Director approvals: implementation of organization-scoped state proposals with an explicit organization grant, NULL scope still refused 2026-10-21; local commits and this record 2026-10-21; push of b20ee171 to `main` by the Director 2026-10-21; read-only deployment verification and this documentation update 2026-10-21; Director-operated read-only production authority read 2026-10-21; push of this update and any production mandate or responsibility change NOT approved
 
 ### Deferred risk detail
 
-- **WUOS-PROD-ACCEPTANCE-1 (DEFERRED).** Inert in production until a Director-chosen agent holds an
-  `organization` responsibility grant (a mandate revision through the existing ceremony; none exists
-  today). Then: one proposal on a real organization-level item, a human approval, one human execution,
+- **WUOS-PROD-ACCEPTANCE-1 (DEFERRED).** Measured 2026-10-21: Heby in Hebun AI holds an `organization`
+  grant with `set-work-declared-state` in scope, so no new grant is needed for acceptance. No
+  organization-scoped Work item exists in Hebun AI yet. Then: one proposal on a real organization-level item, a human approval, one human execution,
   the register showing the new state authored by the system. The new `/heby` copy is server-rendered
-  only. Acceptance dependency: push and deploy, the grant decision, organic work; nothing synthetic.
+  only. Acceptance dependency: an organically recorded organization-level item, then that proposal, approval and human execution (push and deploy done: b20ee171, dpl_3csQPtqzRmFHuBVyYNrUapBvD77E); nothing synthetic.
 - **WUOS-ROLLBACK-FLOOR-1 (DEFERRED).** A deployment older than `e93f904b` cannot read an organization
   payload: it refuses such a permit fail-closed and the permit stays active, so pending organization
   requests become unexecutable during a rollback; nothing is corrupted and no migration is involved.
   Acceptance dependency: a Director decision whenever a rollback below `e93f904b` is considered while
   organization-scope requests are pending.
+
+### Record correction (2026-10-21, deployment update)
+
+The implementation record said the capability was inert because no agent held an `organization`
+responsibility grant. That was wrong. Revision 4 `eec43290` already held {organization,
+domain:engineering} (AP-4B), and revision 5 `e1f3a684` restated it with `set-work-declared-state` added
+to scope (WORK-UPDATE-V1 G4, 2026-10-14, decision `ef09aad3`). The production read below confirms
+revision 5 is still effective. The opening sentence "every AI plan follow-up is recorded that way" is
+also not supported: the one recorded production follow-up `159b49ce` is domain-scoped, chosen by the
+human.
+
+### Production authority read (2026-10-21)
+
+A Director-operated, read-only read: one `READ ONLY` transaction, SELECT only, always rolled back, no
+credential printed. The script was reviewed in this session before it was run, and the target identity
+was bound as in `scripts/lib/production-possession.ts` (`system_identifier` plus `current_database()`).
+The results below are as the Director reported them; the raw output is not reproduced here.
+
+| Item | Measured |
+|---|---|
+| Database identity | MATCH; transaction rolled back |
+| Heby (Hebun AI) effective mandate | revision 5 |
+| Proposal scope | includes `set-work-declared-state` |
+| Responsibility | organization; Engineering |
+| Standing envelopes (Hebun AI) | none |
+| Organization-scoped Work items | none |
+| Organization-scoped state requests | none |
+| Unspent, unexpired permits | none |
+
+Not reported, so not claimed here: the agents' in-service status and the TRH tenant's mandates.
+
+**WUOS expanded the effective capability of an existing mandate.** Revision 5's Governance decision
+was taken when `set-work-declared-state` admitted domain work only. Before `e93f904b` the inlet refused
+organization work with `work-not-domain-scoped`; since `b20ee171` was deployed, Heby's existing
+organization grant admits organization-scoped state proposals. No mandate, grant or Governance
+decision changed. Today the expansion has no target, because no organization-scoped Work item exists.
+
+**What did not change.** Each act still needs a human to choose the item and the state, a Governance
+approval that issues a single-use permit, and a human execution. Machine execution remains
+unsupported for `set-work-declared-state`: the machine allowlist holds `record-work` only and refuses
+with `action-kind-not-machine-executable`. No standing envelope exists. The same organization grant
+also admits organization-level `record-work` proposals, as it has since AP-4B.
