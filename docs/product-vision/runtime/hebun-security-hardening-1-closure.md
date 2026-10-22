@@ -78,6 +78,59 @@ record, and it says nothing about runtime errors.
 Rollback: promote `dpl_9nzYSvvxHwXXtgVYgWMbHvUHwwer` (`14eaf051`). No migration is involved;
 RELEASE-ROLLBACK-FLOOR-1 (`a27e5ad4`) and the PSI1 floor are older and unaffected. No rollback was made.
 
+## 5 · Legacy project containment — PAUSED (2026-10-22)
+
+The legacy Vercel project carrying the same Next.js advisories was paused, not deleted. This section
+records the containment of SH1-LEGACY-PROJECT-1; it does not change this phase's reached state.
+
+**Target and authority.** `hebun-ai`, `prj_Kjm298MklOpTVUl9vxavae888B8v`, team
+`team_H71EbsO2RrI2sgorB0PA3l1E`, repository `hebuntech/hebun-ai`, production deployment
+`dpl_8Pxu7KS3Cu87PE1wu7Uwt6F87uHD` (built 2026-06-18, commit `a73c8b25`, Next.js 16.2.7). The Director
+confirmed the application had not been used for a long time and authorized a reversible pause without
+deletion.
+
+**Pre-pause investigation (read-only).**
+
+| Question | Evidence | Standing |
+|---|---|---|
+| Shared infrastructure | Separate project, repository, production aliases (three `*.vercel.app` only), env set (6 names), no crons, no deploy hooks, 0 webhooks on either repository; `hebuntech.com` / `www` resolve by A record to Vercel, `media` to the VPS, none to the legacy project; current repository has 0 references to the legacy aliases, repository or project id; current production has no `AUTH_URL` / `NEXTAUTH_*` | VERIFIED |
+| Database | Current production cluster `system_identifier` `7675444875863894887` decodes to `initdb` 2026-08-18T18:46:10Z; the legacy project's `DATABASE_URL` and `DIRECT_URL` were last updated 2026-06-18 and its running deployment was built that day, two months before that cluster existed. Values were never read | Legacy cannot target the current production cluster — very high confidence, inferred from authoritative timestamps, not from the value |
+| Legacy database itself | Which service it names, whether it is live, and what personal data it holds | UNAVAILABLE |
+| External webhooks | Legacy code has Stripe and reply webhooks; the deployment holds no `STRIPE_*` or `RESEND_*` variable; no POST to either route in the observed logs | Provider-side registrations (Stripe, Resend dashboards) UNAVAILABLE |
+| Usage | 2026-10-18 → 10-22: only GET/HEAD to `/`, `/dashboard`, `/login` in short bursts (crawler pattern), no POST, no sign-in or registration | Earlier windows returned no records without error — UNAVAILABLE, not zero usage |
+
+**Pause.** `POST /v1/projects/prj_Kjm298MklOpTVUl9vxavae888B8v/pause` (Vercel REST, through the CLI),
+**2026-10-22T10:23:56Z**. The target id was checked against the production project id before the call.
+
+| Check | Before (10:23:12Z) | After (10:24:16Z) |
+|---|---|---|
+| Legacy project metadata | `paused` absent | `paused: true` |
+| `hebun-ai.vercel.app/login` | 200 "Sign in" | **503**, `x-vercel-error: DEPLOYMENT_PAUSED` |
+| `hebun-ai.vercel.app/` | 307 | 503 |
+| `hebun-ai-hebuntechs-projects.vercel.app`, `hebun-ai-git-main-hebuntechs-projects.vercel.app` | 302 | 503 |
+| Legacy resources | — | deployment `dpl_8Pxu7KS3…`, 3 aliases, 6 env variables, GitHub link: all preserved |
+
+**Current production isolation.** Project `hebun-ai-recovered` metadata unchanged (`paused` absent,
+`updatedAt` 08:38:17Z, deployment `dpl_E4GpHBnQGWZjSbSd8t5sKnta8iyo`, 5 aliases, 45 env). The signed-out
+smoke was byte-identical before and after: `/` 200, `/login` 200, apex 308 → www, `/heby`,
+`/approvals`, `/director/work`, `/agents` 307 → `/login`, the three cron ingresses 401 with no and with a
+wrong bearer, deployment marker unchanged. Production logs after the pause: 13 requests, none 5xx.
+Production `fatal` since 08:38Z: none. Production `error` since 08:38Z: one line, before the pause
+(09:00:18Z, the hourly observation scan, response 200) — a `pg` deprecation warning that SSL modes
+`prefer`, `require` and `verify-ca` are aliases for `verify-full`; unrelated to the pause, noted for the
+future `pg` v9 upgrade.
+
+**States, kept apart.** The legacy project is **PAUSED**, not DELETED: nothing was removed and deletion
+is not authorized. Production isolation is **VERIFIED** by the checks above. The legacy database's
+identity and contents and any provider-side webhook registrations are **UNAVAILABLE**.
+
+**Resume — only on explicit Director authorization.** Vercel → `hebun-ai` → Settings → General →
+**Resume Project**, or `POST /v1/projects/prj_Kjm298MklOpTVUl9vxavae888B8v/unpause?teamId=team_H71EbsO2RrI2sgorB0PA3l1E`.
+Resume is immediate and unconfirmed; Vercel documents that the production deployment returns within a
+few minutes without a redeploy. Verify `https://hebun-ai.vercel.app/login` returns 200 and the
+production smoke is unchanged. While paused, nothing should be pushed to `hebuntech/hebun-ai`: Vercel does
+not document whether a push to a paused project builds.
+
 ## Closure Contract (v1)
 
 - Phase: SECURITY-HARDENING-1
@@ -90,7 +143,7 @@ RELEASE-ROLLBACK-FLOOR-1 (`a27e5ad4`) and the PSI1 floor are older and unaffecte
 - Deployment evidence: dpl_E4GpHBnQGWZjSbSd8t5sKnta8iyo at a6ba1dae — GitHub Vercel commit status success 2026-10-22T08:38:17Z and GitHub deployment 7247654518 (Production, success); served on www.hebuntech.com (HTML deployment marker), client chunk version 16.3.8, apex 308 → www, signed-out smoke as section 4; direct Vercel READY inspection and runtime logs UNAVAILABLE
 - Production acceptance evidence: N/A — PENDING: deployment and runtime logs not inspected and no signed-in production read of a Server Action surface; see SH1-PROD-ACCEPTANCE-1
 - Deferred risks: SH1-PROD-ACCEPTANCE-1 (DEFERRED); SH1-RUNTIME-LOGS-1 (DEFERRED); SH1-APP-SHARP-1 (DEFERRED); SH1-LEGACY-PROJECT-1 (DEFERRED); SH1-BUILD-TOOL-ADVISORIES-1 (DEFERRED); SH1-TRH25-RACE-TEST-1 (DEFERRED)
-- Director approvals: isolated local implementation and verification (2026-10-22); one local commit and release preflight (2026-10-22); production release of exactly a6ba1dae over expected baseline 14eaf051 (2026-10-22); documentation-only closure and one local commit (2026-10-22); push of this record NOT approved; no rollback, legacy-project change, migration, provider call or secret access approved
+- Director approvals: isolated local implementation and verification (2026-10-22); one local commit and release preflight (2026-10-22); production release of exactly a6ba1dae over expected baseline 14eaf051 (2026-10-22); documentation-only closure and one local commit (2026-10-22); push of this record NOT approved; no rollback, legacy-project change, migration, provider call or secret access approved at that point; read-only legacy investigation and pre-pause gate (2026-10-22); reversible pause of `hebun-ai` only, no deletion (2026-10-22); documentation of the pause and one local commit (2026-10-22), push NOT approved; legacy deletion, resume and legacy database actions NOT approved
 
 ### Deferred risk detail
 
@@ -107,9 +160,13 @@ RELEASE-ROLLBACK-FLOOR-1 (`a27e5ad4`) and the PSI1 floor are older and unaffecte
   the HEIF and SVG paths are unreachable; generic libvips exposure for those formats is not measured. The
   fix (0.35.5) is semver-major and must prove the JPEG publish derivative stays byte-deterministic.
 - **SH1-LEGACY-PROJECT-1 (DEFERRED).** The legacy Vercel project `hebun-ai` (Next.js 16.2.7, next-auth
-  beta, Prisma) still serves a public `/login` at `hebun-ai.vercel.app` from a 2026-06-18 production
-  deployment and carries the same Next.js advisories. A Director decision: inventory its environment by
-  name, then pause (reversible) or remove.
+  beta, Prisma) served a public `/login` and `/register` at `hebun-ai.vercel.app` from a 2026-06-18
+  production deployment carrying the same Next.js advisories. **PAUSED 2026-10-22T10:23:56Z** (section 5):
+  all three aliases answer 503 `DEPLOYMENT_PAUSED`, nothing deleted, production isolation verified. The
+  public exposure is contained; the risk stays DEFERRED because what remains open is not reachable by a
+  pause: the legacy database's identity and contents (possibly personal data), provider-side webhook
+  registrations, and the Director's later choice between keeping it paused, deleting the project, and
+  what happens to its data.
 - **SH1-BUILD-TOOL-ADVISORIES-1 (DEFERRED).** `nanoid`, `source-map-js` and `baseline-browser-mapping`
   remain in the production audit as build-time tooling, and the eslint and drizzle-kit chains in the dev
   audit. None runs in a request path. The next routine dependency update.
