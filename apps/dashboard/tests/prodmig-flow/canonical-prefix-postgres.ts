@@ -706,13 +706,13 @@ async function theFingerprintSeparatesAbsentFromEmpty(): Promise<void> {
  * 6. SECRETS AND PATHS — pure, no database needed
  * ═════════════════════════════════════════════════════════════════════════ */
 function theConnectionStringNeverReachesArgv(): void {
-  const env = libpqEnvFor("postgresql://someone:s3cr3t@db.example.com:5433/neondb?sslmode=require");
+  const env = libpqEnvFor("postgresql://someone:s3cr3t@db.example.com:5433/neondb?sslmode=verify-full");
   assert.equal(env.PGHOST, "db.example.com");
   assert.equal(env.PGPORT, "5433");
   assert.equal(env.PGDATABASE, "neondb");
   assert.equal(env.PGUSER, "someone");
   assert.equal(env.PGPASSWORD, "s3cr3t", "the password travels in the child ENVIRONMENT");
-  assert.equal(env.PGSSLMODE, "require");
+  assert.equal(env.PGSSLMODE, "verify-full");
 
   /* Percent-encoded credentials survive intact — a mangled password is a failed backup. */
   const encoded = libpqEnvFor("postgresql://a%40b:p%2Fw%3F@h/db");
@@ -720,12 +720,16 @@ function theConnectionStringNeverReachesArgv(): void {
   assert.equal(encoded.PGPASSWORD, "p/w?");
 
   /*
-   * SSL MODE IS DERIVED FROM THE HOST when the URL is silent, and asymmetrically: a remote dump is
-   * the whole database in flight and must be encrypted, while a loopback development server
-   * commonly has no TLS at all and demanding it would break the rehearsal path — which is how a
-   * production path ends up being exercised for the first time in production.
+   * SSL MODE IS DERIVED FROM THE HOST, and asymmetrically: a remote dump is the whole database in
+   * flight and must reach a VERIFIED server, while a loopback development server commonly has no TLS
+   * at all and demanding it would break the rehearsal path — which is how a production path ends up
+   * being exercised for the first time in production.
+   *
+   * CHANGED by SH1-PG-CEREMONY-TLS-1: a remote target used to default to libpq `require` (encrypted,
+   * unverified) and to honour an explicit `disable`. It now always gets `verify-full` with system
+   * roots, and any weaker explicit mode is refused. The full contract is tests/prodmig-flow/backup-tls.ts.
    */
-  assert.equal(libpqEnvFor("postgresql://u:p@h/db").PGSSLMODE, "require", "remote defaults to TLS");
+  assert.equal(libpqEnvFor("postgresql://u:p@h/db").PGSSLMODE, "verify-full", "remote defaults to verified TLS");
   for (const local of ["127.0.0.1", "localhost", "[::1]"]) {
     assert.equal(
       libpqEnvFor(`postgresql://u:p@${local}:55432/db`).PGSSLMODE,
@@ -733,9 +737,9 @@ function theConnectionStringNeverReachesArgv(): void {
       `${local} does not demand TLS`,
     );
   }
-  /* An explicit sslmode in the URL always wins, in both directions. */
+  /* On loopback an explicit sslmode still wins; on a remote target a weaker one is refused. */
   assert.equal(libpqEnvFor("postgresql://u:p@127.0.0.1/db?sslmode=require").PGSSLMODE, "require");
-  assert.equal(libpqEnvFor("postgresql://u:p@h/db?sslmode=disable").PGSSLMODE, "disable");
+  assert.throws(() => libpqEnvFor("postgresql://u:p@h/db?sslmode=disable"), /sslmode=disable/);
 
   /* IPv6 hosts lose their brackets, as libpq expects. */
   assert.equal(libpqEnvFor("postgresql://u:p@[2001:db8::1]:5432/db").PGHOST, "2001:db8::1");

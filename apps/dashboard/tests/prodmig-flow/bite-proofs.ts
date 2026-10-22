@@ -29,6 +29,7 @@ const ROOT = process.cwd();
 const PG_SUITE = "tests/prodmig-flow/canonical-prefix-postgres.ts";
 const FIREWALL_SUITE = "tests/prodmig-flow/boundaries-and-firewall.ts";
 const VERSION_SUITE = "tests/prodmig-flow/server-version-gate.ts";
+const TLS_SUITE = "tests/prodmig-flow/backup-tls.ts";
 
 const CLI = "scripts/platform-migrate.ts";
 const MECHANICS = "scripts/lib/production-migration.ts";
@@ -235,6 +236,55 @@ const MUTATIONS: readonly Mutation[] = [
       'import { resolveCeremonyPosture } from "./lib/production-possession";\n' +
       'import { applyPendingMigrations } from "./lib/production-migration";',
     expect: "only the migration ceremony may import the migration mechanics",
+  },
+  /* SH1-PG-CEREMONY-TLS-1 — the backup's TLS contract. */
+  {
+    label: "M19 a remote backup goes back to libpq require — encrypted, unverified",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: 'PGSSLMODE: loopback ? (requested ?? "prefer") : REMOTE_BACKUP_SSLMODE,',
+    replace: 'PGSSLMODE: requested ?? (loopback ? "prefer" : "require"),',
+    expect: "a remote backup verifies chain and host name",
+  },
+  {
+    label: "M20 a remote backup no longer trusts system roots — verify-full has nothing to verify with",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: '  if (!loopback) env.PGSSLROOTCERT = "system";\n',
+    replace: "",
+    expect: "and trusts the TLS library's system roots",
+  },
+  {
+    label: "M21 a weaker sslmode named in a remote URL is accepted",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: "if (!loopback && requested !== null && requested !== REMOTE_BACKUP_SSLMODE) {",
+    replace: "if (false as boolean) {",
+    expect: "on a remote target is refused, not reinterpreted",
+  },
+  {
+    label: "M22 inherited PG*/SSL_CERT_* variables reach a remote pg_dump",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: ".filter(([key]) => !INHERITED_TLS_OVERRIDE.test(key)),",
+    replace: ".filter(([key]) => key.length >= 0),",
+    expect: "does not reach a remote pg_dump",
+  },
+  {
+    label: "M23 the backup spreads the inherited environment back under libpq",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: "      env: childEnv,",
+    replace: "      env: { ...process.env, ...libpqEnvFor(options.connectionString) },",
+    expect: "the inherited service never reached it",
+  },
+  {
+    label: "M24 the backup attempts pg_dump before settling TLS",
+    file: MECHANICS,
+    suite: TLS_SUITE,
+    find: "    childEnv = libpqChildEnv(options.connectionString);",
+    replace: '    childEnv = { ...process.env };\n    void libpqChildEnv;',
+    expect: "'tls-unverified'",
   },
 ];
 

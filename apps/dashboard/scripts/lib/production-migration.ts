@@ -58,32 +58,85 @@ import { MIGRATIONS_DIR } from "./canonical-migrations";
  * `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD`/`PGSSLMODE`, so `pg_dump` needs no `-d` and
  * the password never reaches the process table.
  *
- * `sslmode` is carried across from the URL when it says so. When the URL is silent it is DERIVED
- * FROM THE HOST, and the two directions are not symmetric:
+ * TLS IS DECIDED BY THE HOST, and the two directions are not symmetric:
  *
- *   remote   → `require`. A dump is the entire database in flight; sending it in clear is not an
- *              option, and a production target is remote by definition.
- *   loopback → `prefer`. A local development server commonly has no TLS at all, and demanding it
- *              produces "server does not support SSL, but SSL was required" — a refusal caused by
- *              the ceremony rather than by anything wrong with the target.
+ *   remote   → `verify-full` with `PGSSLROOTCERT=system`, always. A dump is the entire database
+ *              in flight, and only `verify-full` checks both the certificate chain and the host
+ *              name. libpq's `require` checks neither unless a root file happens to exist (none is
+ *              configured here), so it was encryption to whoever answered. `system` loads the TLS
+ *              library's trusted roots and makes libpq itself refuse any weaker mode. A URL that
+ *              names a weaker mode is REFUSED, never upgraded in silence: the operator's
+ *              configuration says something the ceremony will not do, and that must be said back.
+ *              A URL that names no mode gets `verify-full`. (SH1-PG-CEREMONY-TLS-1)
+ *   loopback → the URL's mode, else `prefer`. A local development server commonly has no TLS at
+ *              all, and demanding it produces "server does not support SSL, but SSL was required"
+ *              — a refusal caused by the ceremony rather than by anything wrong with the target.
  *
- * Defaulting to `require` everywhere looked like the safe choice and was simply broken locally,
- * which is worse than either: the rehearsal path would never run, so the production path would be
- * exercised for the first time in production.
+ * `sslrootcert=system` belongs here and never in the URL: node-postgres reads `sslrootcert` from a
+ * connection string as a FILE PATH, so the same URL would break the ceremony's own `pg.Client`.
+ * That client already verifies fully — node-postgres 8 treats `require` as `verify-full` — so after
+ * this both connections of one ceremony mean the same thing by TLS.
  */
 export function libpqEnvFor(connectionString: string): Record<string, string> {
   const url = new URL(connectionString);
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  const loopback = ["127.0.0.1", "localhost", "::1"].includes(host);
+  const host = libpqHostOf(url);
+  const loopback = isLoopbackTarget(url);
+  const requested = url.searchParams.get("sslmode");
+  if (!loopback && requested !== null && requested !== REMOTE_BACKUP_SSLMODE) {
+    throw new UnverifiedBackupTlsError(
+      `The connection string asks for sslmode=${requested}. A remote backup requires ` +
+        `sslmode=${REMOTE_BACKUP_SSLMODE} (certificate chain and host name), so no backup is ` +
+        `attempted. Set sslmode=${REMOTE_BACKUP_SSLMODE} in the ceremony's connection string, or ` +
+        "omit it. Nothing was migrated.",
+    );
+  }
   const env: Record<string, string> = {
     PGHOST: host,
     PGDATABASE: decodeURIComponent(url.pathname.replace(/^\//, "")),
-    PGSSLMODE: url.searchParams.get("sslmode") ?? (loopback ? "prefer" : "require"),
+    PGSSLMODE: loopback ? (requested ?? "prefer") : REMOTE_BACKUP_SSLMODE,
   };
+  if (!loopback) env.PGSSLROOTCERT = "system";
   if (url.port) env.PGPORT = url.port;
   if (url.username) env.PGUSER = decodeURIComponent(url.username);
   if (url.password) env.PGPASSWORD = decodeURIComponent(url.password);
   return env;
+}
+
+/** libpq takes an IPv6 host without its URL brackets. */
+const libpqHostOf = (url: URL): string => url.hostname.replace(/^\[|\]$/g, "");
+
+/** The one definition of "loopback" that both the TLS mode and the inherited environment follow. */
+const isLoopbackTarget = (url: URL): boolean => ["127.0.0.1", "localhost", "::1"].includes(libpqHostOf(url));
+
+/** The only libpq mode that verifies both the certificate chain and the host name. */
+export const REMOTE_BACKUP_SSLMODE = "verify-full";
+
+/** A remote target's connection string names a TLS mode weaker than `verify-full`. */
+export class UnverifiedBackupTlsError extends Error {}
+
+/**
+ * Inherited variables that would otherwise reach a remote `pg_dump` and could loosen or redirect its
+ * verification: every `PG*` (libpq reads `PGSERVICE`/`PGSERVICEFILE`, `PGSSL*`, `PGCHANNELBINDING`,
+ * `PGHOSTADDR` … from the environment, and a service file can carry its own `sslmode`) and OpenSSL's
+ * `SSL_CERT_FILE`/`SSL_CERT_DIR`, which re-point what `sslrootcert=system` means by "system".
+ */
+const INHERITED_TLS_OVERRIDE = /^(PG|SSL_CERT_(FILE|DIR)$)/;
+
+/**
+ * The complete environment of the `pg_dump` child. For a remote target, nothing inherited can speak
+ * for TLS: those variables are dropped and only `libpqEnvFor` supplies them. A loopback rehearsal
+ * keeps its inherited environment, as before.
+ */
+export function libpqChildEnv(
+  connectionString: string,
+  inherited: Readonly<Record<string, string | undefined>> = process.env,
+): NodeJS.ProcessEnv {
+  const libpq = libpqEnvFor(connectionString);
+  if (isLoopbackTarget(new URL(connectionString))) return { ...inherited, ...libpq } as NodeJS.ProcessEnv;
+  const kept = Object.fromEntries(
+    Object.entries(inherited).filter(([key]) => !INHERITED_TLS_OVERRIDE.test(key)),
+  );
+  return { ...kept, ...libpq } as NodeJS.ProcessEnv;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +175,7 @@ export type BackupRefusal =
   | "pg_dump-unreadable-version"
   | "pg_dump-too-old"
   | "path-unsafe"
+  | "tls-unverified"
   | "path-occupied"
   | "dump-failed"
   | "dump-empty"
@@ -283,6 +337,22 @@ export function createValidatedBackup(options: {
     return { status: "refused", reason: "path-unsafe", detail: (error as Error).message };
   }
 
+  /*
+   * TLS IS SETTLED BEFORE ANY TOOL RUNS. A remote target whose connection string names a mode weaker
+   * than `verify-full` is a configuration refusal, and it is cheapest — and least misleading — to
+   * say so before `pg_dump` is even asked for its version. A malformed URL refuses as it always did.
+   */
+  let childEnv: NodeJS.ProcessEnv;
+  try {
+    childEnv = libpqChildEnv(options.connectionString);
+  } catch (error) {
+    return {
+      status: "refused",
+      reason: error instanceof UnverifiedBackupTlsError ? "tls-unverified" : "dump-failed",
+      detail: (error as Error).message,
+    };
+  }
+
   let dumpVersion: string;
   try {
     dumpVersion = execFileSync("pg_dump", ["--version"], { encoding: "utf8" }).trim();
@@ -338,7 +408,7 @@ export function createValidatedBackup(options: {
 
   try {
     execFileSync("pg_dump", ["--format=custom", "--no-password", "--file", target], {
-      env: { ...process.env, ...libpqEnvFor(options.connectionString) },
+      env: childEnv,
       stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 64 * 1024 * 1024,
     });

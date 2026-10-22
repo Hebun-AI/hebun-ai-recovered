@@ -5728,6 +5728,7 @@ re-graded here.
 | PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
 | SECURITY-HARDENING-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` |
+| SH1-PG-CEREMONY-TLS-1 | VERIFIED | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` |
 | EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
 | PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
 
@@ -5845,3 +5846,5 @@ before §16.1 are not yet indexed (Phase B).
 | SH1-BUILD-TOOL-ADVISORIES-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Dependency security | DEFERRED | Build-time nanoid, source-map-js, baseline-browser-mapping and the eslint/drizzle-kit dev chains in the next routine dependency update |
 | SH1-TRH25-RACE-TEST-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Test reliability | DEFERRED | trh25 trigger-postgres race assertion accepts the legal `not-due` loser outcome; test-only, owned by TRH-25 |
 | SH1-PG-SSLMODE-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Dependency security | DEFERRED | Normalize the production DATABASE_URL to sslmode=verify-full (a Director-gated production env change) before any pg v9 upgrade; check: the pg sslmode warning gone from production logs |
+| SH1-PG-TLS-ACCEPTANCE-1 | SH1-PG-CEREMONY-TLS-1 | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` | Verification gap | DEFERRED | Director-authorized real libpq check of the chosen pg_dump against the provider (verify-full + system roots succeeds; wrong root and host-name mismatch fail), then the first real ceremony backup; until then the backup path is not production-accepted |
+| SH1-PG-TLS-CEREMONY-ENV-1 | SH1-PG-CEREMONY-TLS-1 | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` | Configuration | DEFERRED | Value-free check that .env.ceremony.local names sslmode=verify-full or no mode (libpqEnvFor verdict OK) before the next ceremony; any change to the file is a Director-gated local secret change |
