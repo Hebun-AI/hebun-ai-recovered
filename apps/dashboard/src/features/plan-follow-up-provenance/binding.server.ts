@@ -51,6 +51,14 @@ export interface PlanFollowUpStepBinding {
   readonly workItemIds: readonly string[];
 }
 
+/**
+ * PLAN-STEP-IDEMPOTENCY-1 — the identity of the plan step a VERIFIED binding names, as the request
+ * writer stores it. Derived here, from the verified fields, and nowhere else.
+ */
+export function planStepRefOf(binding: Pick<PlanFollowUpStepBinding, "planRef" | "step">): string {
+  return `${binding.planRef}#${binding.step}`;
+}
+
 export type PlanFollowUpBindingRefusal =
   | "binding-secret-unavailable"
   | "binding-malformed"

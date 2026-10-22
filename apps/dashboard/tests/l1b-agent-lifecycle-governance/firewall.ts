@@ -42,7 +42,7 @@ assert.equal(
   "migration 76 is exactly one additive enum value",
 );
 const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] };
-assert.equal(journal.entries.length, 79); /* WORK-UPDATE V1: ledger 77 -> 78 (agent_mandates_scope_subset_chk gains 'set-work-declared-state'; additive). */ /* D1 work-planning: ledger 76 -> 77 (tenant_ai_data_use_scopes purpose CHECK gains 'work-planning'; additive). */ /* PLAN-FOLLOW-UP-REFERENCE-V1: ledger 78 -> 79 (two insert-only provenance tables; additive). */
+assert.equal(journal.entries.length, 80); /* WORK-UPDATE V1: ledger 77 -> 78 (agent_mandates_scope_subset_chk gains 'set-work-declared-state'; additive). */ /* D1 work-planning: ledger 76 -> 77 (tenant_ai_data_use_scopes purpose CHECK gains 'work-planning'; additive). */ /* PLAN-FOLLOW-UP-REFERENCE-V1: ledger 78 -> 79 (two insert-only provenance tables; additive). */ /* PLAN-STEP-IDEMPOTENCY-1: ledger 79 -> 80 (heby_action_requests.plan_step_ref, its shape CHECK and the open-plan-step partial unique index; additive). */
 assert.equal(journal.entries[75]!.tag, "20261008143657_l1b_agent_lifecycle_domain", "migration 76 is L-1b's");
 assert.match(code(ENUMS), /"external-ai-data-use",\s*"agent-lifecycle",\s*\]\);/, "the enum gains agent-lifecycle last");
 

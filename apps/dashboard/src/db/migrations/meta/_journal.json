@@ -554,6 +554,13 @@
       "when": 1792515870687,
       "tag": "20261020170430_plan_follow_up_source_work",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1792629166855,
+      "tag": "20261022003246_plan_step_idempotency",
+      "breakpoints": true
     }
   ]
 }

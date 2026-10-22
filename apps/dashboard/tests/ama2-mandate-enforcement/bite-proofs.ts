@@ -86,6 +86,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   /* AGENT-TEST-RECOVERY: proofs 1 and 2 re-anchored — AP-4B passes `prepared.arguments` to the ceiling; the mutations are unchanged. */
   proof(
+    /* PLAN-STEP-IDEMPOTENCY-1: the anchor gains the `planStepRef` argument; the mutation is unchanged. */
     "the ceiling is consulted after the insert",
     SEAM,
     `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
@@ -101,6 +102,7 @@ function main(): void {
     undefined,
     proposalRationale,
     sourceWorkItemIds,
+    planStepRef,
   );`,
     `  const written = await insertActionRequest(
     tenant,
@@ -112,6 +114,7 @@ function main(): void {
     undefined,
     proposalRationale,
     sourceWorkItemIds,
+    planStepRef,
   );
   const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);

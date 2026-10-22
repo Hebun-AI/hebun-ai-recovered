@@ -144,8 +144,14 @@ async function main(): Promise<void> {
           followUpSourcesInService: (t: TenantContext, ids: readonly string[]) => allFollowUpSourcesInService(handle.db, t.tenantId, ids),
         } as never,
       );
+    /*
+     * PLAN-STEP-IDEMPOTENCY-1: every binding here stands for a DIFFERENT plan, as a real plan step names
+     * one fixed set of work. A planRef in the shape `mintPlanRef` issues, unique per call, so the
+     * one-open-proposal-per-step index does not read these distinct follow-ups as repeats.
+     */
+    let planSeq = 0;
     const bind = (ids: readonly string[], ctx: TenantContext = acme.ctx) =>
-      mintPlanFollowUpBinding(ctx, { planRef: "plan-1", step: 1, move: "review-blocked", workItemIds: ids }, { env: MODEL_ENV })!;
+      mintPlanFollowUpBinding(ctx, { planRef: `P-${(++planSeq).toString(16).padStart(12, "0")}`, step: 1, move: "review-blocked", workItemIds: ids }, { env: MODEL_ENV })!;
 
     /* ═══ 1. A VALID BINDING: one request, two ordered source rows, atomically, and the model saw neither. ═══ */
     const binding = bind([S1, S2]);

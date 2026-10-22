@@ -35,7 +35,8 @@
  * Server-only.
  */
 import { parseWorkScope } from "@/features/work-domain/work-scope";
-import { verifyPlanFollowUpBinding } from "@/features/plan-follow-up-provenance/binding.server";
+import { planStepRefOf, verifyPlanFollowUpBinding } from "@/features/plan-follow-up-provenance/binding.server";
+import { readOpenPlanStepRequest } from "@/features/action-authorization/record-action-request.server";
 import { allFollowUpSourcesInService } from "@/features/organizational-work/follow-up-source-work.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import {
@@ -279,6 +280,8 @@ export interface OriginateActionDeps {
   readonly knowledgeMode?: boolean;
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — injected for tests; defaults to the Work authority's rule on the control plane. */
   readonly followUpSourcesInService?: (tenant: TenantContext, workItemIds: readonly string[]) => Promise<boolean>;
+  /** PLAN-STEP-IDEMPOTENCY-1 — injected for tests; defaults to the request writer's own read. */
+  readonly openPlanStepRequest?: (tenant: TenantContext, planStepRef: string) => Promise<"open" | "none" | "unavailable">;
   /** WF-3C. The grounding universe's own deps. Injectable for tests; never a client input. */
   readonly knowledge?: KnowledgeGroundingReadDeps;
 }
@@ -504,6 +507,7 @@ export async function originateAgentAction(
    * in-service rule. The request writer checks the sources again inside its own transaction.
    */
   let sourceWorkItemIds: readonly string[] | undefined;
+  let planStepRef: string | undefined;
   if (input.planBinding !== undefined) {
     if (deps.knowledgeMode || deps.observationSupplement !== undefined) return refused("follow-up-kind-not-linkable");
     const verified = verifyPlanFollowUpBinding(tenant, input.planBinding, { env: deps.env ?? process.env });
@@ -516,6 +520,18 @@ export async function originateAgentAction(
       });
     if (!(await inService(tenant, verified.workItemIds))) return refused("follow-up-source-ineligible");
     sourceWorkItemIds = verified.workItemIds;
+    /*
+     * PLAN-STEP-IDEMPOTENCY-1. A step already followed up by an OPEN proposal costs no model call.
+     * This read only saves the call; the request writer's unique index is what refuses a duplicate.
+     * Unreadable is refused too: a step whose state Hebun cannot see is not asked about.
+     */
+    planStepRef = planStepRefOf(verified);
+    const open = await (deps.openPlanStepRequest ?? ((t: TenantContext, ref: string) => readOpenPlanStepRequest(t, ref)))(
+      tenant,
+      planStepRef,
+    );
+    if (open === "open") return refused("plan-step-already-proposed");
+    if (open !== "none") return refused("plan-step-unverifiable");
   }
 
   /*
@@ -741,6 +757,8 @@ export async function originateAgentAction(
           cited?.map((c) => formatKnowledgeVersionRef(c.knowledgeNodeId)),
           /* PLAN-FOLLOW-UP-REFERENCE-V1. Verified above; the model never saw them. */
           sourceWorkItemIds,
+          /* PLAN-STEP-IDEMPOTENCY-1. The same binding's step; the writer's index refuses a repeat. */
+          planStepRef,
         );
 
   if (filed.status !== "proposed") {
@@ -769,6 +787,8 @@ export async function originateAgentAction(
       filingOutcome: "refused",
       filingRefusal,
     });
+    /* PLAN-STEP-IDEMPOTENCY-1. A lost race on the same step is the same answer as the pre-model read. */
+    if (filingRefusal === "plan-step-already-proposed") return refused("plan-step-already-proposed");
     return refused("proposal-refused", filingRefusal);
   }
 

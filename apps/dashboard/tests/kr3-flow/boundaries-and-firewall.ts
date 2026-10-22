@@ -152,7 +152,7 @@ function main(): void {
       "20261013113340_eai_work_planning_purpose.sql",
       /* WORK-UPDATE V1 — agent_mandates_scope_subset_chk gains 'set-work-declared-state' (additive). A declared later phase. */
       "20261014042643_work_update_v1_mandate_scope.sql",
-      /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql",
+      /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

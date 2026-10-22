@@ -1,0 +1,3 @@
+ALTER TABLE "heby_action_requests" ADD COLUMN "plan_step_ref" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "heby_action_requests_open_plan_step_uq" ON "heby_action_requests" USING btree ("tenant_id","plan_step_ref") WHERE "heby_action_requests"."plan_step_ref" is not null and "heby_action_requests"."status" in ('pending', 'approved');--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_plan_step_ref_chk" CHECK ("heby_action_requests"."plan_step_ref" is null or "heby_action_requests"."plan_step_ref" ~ '^P-[0-9a-f]{12}#([1-9]|10)$');

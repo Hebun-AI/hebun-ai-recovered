@@ -25,7 +25,7 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { hebyActionRequests } from "@/db/schema/action-authorization";
 import { hebyActionRequestSourceWorkItems } from "@/db/schema/follow-up-source-work";
@@ -215,6 +215,11 @@ async function insertActionRequest(
    * inside that transaction. Any refusal writes nothing at all.
    */
   sourceWorkItemIds?: readonly string[],
+  /*
+   * PLAN-STEP-IDEMPOTENCY-1 — `<planRef>#<step>` of the VERIFIED plan binding the sources came from.
+   * Supplied only with those sources, by the agent entry point; never from the client or the model.
+   */
+  planStepRef?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -273,6 +278,10 @@ async function insertActionRequest(
   if (sources !== undefined && (sources.length === 0 || sources.length > 40)) {
     return refused("follow-up-source-ineligible");
   }
+  /* A plan step travels only with the sources its binding named, and only in the shape a plan issues. */
+  if (planStepRef !== undefined && (sources === undefined || !PLAN_STEP_REF.test(planStepRef))) {
+    return refused("arguments-invalid");
+  }
 
   /* One write, run on the database directly or — for a linked follow-up — inside one transaction. */
   const write = async (handle: Pick<ControlPlaneDatabase, "select" | "insert">): Promise<ActionRequestResult> => {
@@ -297,6 +306,10 @@ async function insertActionRequest(
       )
       .limit(1);
     if (existing.length > 0) return refused("already-pending");
+    /* A pre-check again; `heby_action_requests_open_plan_step_uq` is the invariant, caught below. */
+    if (planStepRef !== undefined && (await openPlanStepRequestIn(handle, tenantId, planStepRef))) {
+      return refused("plan-step-already-proposed");
+    }
 
     const rows = await handle
       .insert(hebyActionRequests)
@@ -369,6 +382,8 @@ async function insertActionRequest(
          */
         proposalRationale:
           proposer.actorType === "agent" ? (proposalRationale ?? null) : null,
+        /* PLAN-STEP-IDEMPOTENCY-1 — the verified step, or null; the storage CHECK admits it for agents only. */
+        planStepRef: planStepRef ?? null,
         proposedByActorType: proposer.actorType,
         proposedByActorId: proposer.actorId,
         status: "pending",
@@ -423,7 +438,9 @@ async function insertActionRequest(
      * the race must be told the same thing the pre-check would have told it — reporting a
      * persistence failure would make a working invariant look like a broken database.
      */
-    if (isUniqueViolation(error)) return refused("already-pending");
+    if (isUniqueViolation(error)) {
+      return refused(violatedConstraint(error) === OPEN_PLAN_STEP_INDEX ? "plan-step-already-proposed" : "already-pending");
+    }
     /*
      * PBGA-1. The composite FK is the authority on whether the declared work exists in this tenant.
      * Asking the Work authority first would put a second, weaker copy of that question in a module
@@ -505,6 +522,8 @@ export async function recordAgentOriginatedActionRequest(
   proposalRationale?: string,
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, passed through unchanged. */
   sourceWorkItemIds?: readonly string[],
+  /** PLAN-STEP-IDEMPOTENCY-1 — the verified binding's step identity, passed through unchanged. */
+  planStepRef?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -535,21 +554,83 @@ export async function recordAgentOriginatedActionRequest(
     undefined,
     proposalRationale,
     sourceWorkItemIds,
+    planStepRef,
   );
 }
 
 /** PostgreSQL `foreign_key_violation`. Read from the driver's code, never from the message text. */
 function isForeignKeyViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" && error !== null && (error as { code?: unknown }).code === "23503"
-  );
+  return driverCode(error) === "23503";
+}
+
+/** PLAN-STEP-IDEMPOTENCY-1 — what `mintPlanRef` issues, `#`, and a plan step 1..10 (the storage CHECK's shape). */
+const PLAN_STEP_REF = /^P-[0-9a-f]{12}#([1-9]|10)$/;
+const OPEN_PLAN_STEP_INDEX = "heby_action_requests_open_plan_step_uq";
+
+/** The constraint a violation names, read from the driver's field (or its wrapped cause), never the message. */
+function violatedConstraint(error: unknown): string | null {
+  for (const e of [error, (error as { cause?: unknown } | null)?.cause]) {
+    const name = typeof e === "object" && e !== null ? (e as { constraint?: unknown }).constraint : undefined;
+    if (typeof name === "string") return name;
+  }
+  return null;
+}
+
+/** Whether an OPEN (pending or approved) request of this tenant already follows up this plan step. */
+async function openPlanStepRequestIn(
+  handle: Pick<ControlPlaneDatabase, "select">,
+  tenantId: string,
+  planStepRef: string,
+): Promise<boolean> {
+  const rows = await handle
+    .select({ id: hebyActionRequests.id })
+    .from(hebyActionRequests)
+    .where(
+      and(
+        eq(hebyActionRequests.tenantId, tenantId),
+        eq(hebyActionRequests.planStepRef, planStepRef),
+        inArray(hebyActionRequests.status, ["pending", "approved"]),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * PLAN-STEP-IDEMPOTENCY-1 — the origination's PRE-MODEL read, so a repeated plan step costs no
+ * provider call. An optimisation only: the request writer's unique index decides. Any failure to
+ * read — including a database that predates migration 80 — answers `unavailable`, never `none`.
+ */
+export async function readOpenPlanStepRequest(
+  tenant: TenantContext,
+  planStepRef: string,
+  deps: { readonly getDb?: () => ControlPlaneDatabase | null } = {},
+): Promise<"open" | "none" | "unavailable"> {
+  if (!tenant.tenantId || !PLAN_STEP_REF.test(planStepRef)) return "unavailable";
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return "unavailable";
+  try {
+    return (await openPlanStepRequestIn(db, tenant.tenantId, planStepRef)) ? "open" : "none";
+  } catch {
+    return "unavailable";
+  }
 }
 
 /** PostgreSQL `unique_violation`. Read from the driver's code, never from the message text. */
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "23505"
-  );
+  return driverCode(error) === "23505";
+}
+
+/*
+ * PLAN-STEP-IDEMPOTENCY-1 — the driver's SQLSTATE, on the error or on the cause the query builder
+ * wraps it in. Drizzle raises `DrizzleQueryError` with the driver error as `cause`, so reading only
+ * the outer `code` reported a lost race on either unique index as `persistence-unavailable` — the
+ * opposite of what the catch below documents. Never the message text.
+ */
+function driverCode(error: unknown): string | null {
+  for (const e of [error, (error as { cause?: unknown } | null)?.cause]) {
+    const code = typeof e === "object" && e !== null ? (e as { code?: unknown }).code : undefined;
+    if (typeof code === "string") return code;
+  }
+  return null;
 }

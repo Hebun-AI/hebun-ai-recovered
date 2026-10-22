@@ -704,7 +704,7 @@ function noSchema(): void {
       /* L-1B */ "20261008143657_l1b_agent_lifecycle_domain.sql",
       /* D1 work-planning */ "20261013113340_eai_work_planning_purpose.sql",
       /* WORK-UPDATE V1 */ "20261014042643_work_update_v1_mandate_scope.sql",
-      /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql",
+      /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

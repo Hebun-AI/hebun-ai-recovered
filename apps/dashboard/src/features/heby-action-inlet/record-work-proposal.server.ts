@@ -162,6 +162,8 @@ async function fileOrganizationLevelProposal(
   knowledgeVersionRefs?: readonly string[],
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, carried to the one writer unchanged. */
   sourceWorkItemIds?: readonly string[],
+  /** PLAN-STEP-IDEMPOTENCY-1 — the verified binding's step identity, carried beside its sources. */
+  planStepRef?: string,
 ): Promise<RecordWorkProposalResult> {
   /*
    * ── THE ORGANIZATION IS READ, AND THAT IS THE DEVIATION WORTH NAMING ─────
@@ -228,6 +230,7 @@ async function fileOrganizationLevelProposal(
         originationInvocationId,
         proposalRationale,
         sourceWorkItemIds,
+        planStepRef,
       )
     : await recordActionRequest(tenant, prepared, deps);
 
@@ -281,6 +284,8 @@ async function fileRecordWorkProposal(
   knowledgeVersionRefs?: readonly string[],
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified source work ids, carried to the one writer unchanged. */
   sourceWorkItemIds?: readonly string[],
+  /** PLAN-STEP-IDEMPOTENCY-1 — the verified binding's step identity, carried beside its sources. */
+  planStepRef?: string,
 ): Promise<RecordWorkProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -352,6 +357,7 @@ async function fileRecordWorkProposal(
       proposalRationale,
       knowledgeVersionRefs,
       sourceWorkItemIds,
+      planStepRef,
     );
   }
 
@@ -446,6 +452,7 @@ async function fileRecordWorkProposal(
         originationInvocationId,
         proposalRationale,
         sourceWorkItemIds,
+        planStepRef,
       )
     : await recordActionRequest(tenant, prepared, deps);
 
@@ -541,6 +548,8 @@ export function proposeAgentOriginatedRecordWorkAction(
   knowledgeVersionRefs?: readonly string[],
   /** PLAN-FOLLOW-UP-REFERENCE-V1 — verified by the origination; never from the model or the client. */
   sourceWorkItemIds?: readonly string[],
+  /** PLAN-STEP-IDEMPOTENCY-1 — the verified binding's step identity, carried beside its sources. */
+  planStepRef?: string,
 ): Promise<RecordWorkProposalResult> {
   return fileRecordWorkProposal(
     tenant,
@@ -551,6 +560,7 @@ export function proposeAgentOriginatedRecordWorkAction(
     proposalRationale,
     knowledgeVersionRefs,
     sourceWorkItemIds,
+    planStepRef,
   );
 }
 

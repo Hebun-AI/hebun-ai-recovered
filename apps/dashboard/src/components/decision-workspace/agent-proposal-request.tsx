@@ -111,6 +111,10 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "binding-expired": "The plan link has expired, so nothing was proposed. Run the plan again.",
   "binding-context-mismatch": "The plan link belongs to a different session, so nothing was proposed. Run the plan again.",
   "follow-up-source-ineligible": "A work item this plan step named is no longer in service, so nothing was proposed.",
+  "plan-step-already-proposed":
+    "A proposal following up this plan step is already open in Approvals, so nothing was proposed again.",
+  "plan-step-unverifiable":
+    "Hebun could not check whether this plan step was already followed up, so nothing was asked or proposed.",
   "follow-up-kind-not-linkable": "{agent} chose something other than new organizational work, so the linked follow-up was not filed.",
   "proposal-refused":
     "What {agent} chose could not be filed — a reference may have been retired or superseded since, or its mandate does not admit that action. Nothing was filed.",

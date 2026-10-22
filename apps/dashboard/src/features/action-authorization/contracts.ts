@@ -166,6 +166,12 @@ export type ActionRequestRefusal =
    */
   | "follow-up-source-ineligible"
   /**
+   * PLAN-STEP-IDEMPOTENCY-1. A proposal following up this AI plan step is already open (pending or
+   * approved) in this tenant. `heby_action_requests_open_plan_step_uq` is the authority; nothing is
+   * written. A different step, or another plan naming the same work, is not affected.
+   */
+  | "plan-step-already-proposed"
+  /**
    * AGENT-PROPOSAL-1. An agent proposer was offered without proof that the authoritative
    * durable-agent read seam produced it. Unreachable through the human entry point — it is the
    * writer's guard against a forged `AgentProposer`, and a refusal rather than a thrown error so

@@ -178,7 +178,7 @@ const MUTATIONS: readonly Mutation[] = [
      * defect it injects — an extra journal entry — is unchanged, and this anchor moves with every
      * migration by design. */
     /* OPERATIONS CENSUS REPAIR re-anchored it to the current tail (L-1B); the injected defect is unchanged. */
-    /* D1 work-planning: the journal tail is now the work-planning purpose CHECK. */ /* WORK-UPDATE V1: the tail is now the mandate scope CHECK widening. */ /* PLAN-FOLLOW-UP-REFERENCE-V1: the tail is now the follow-up provenance tables. */ find: `      "tag": "20261020170430_plan_follow_up_source_work",\n      "breakpoints": true\n    }\n  ]`,
+    /* D1 work-planning: the journal tail is now the work-planning purpose CHECK. */ /* WORK-UPDATE V1: the tail is now the mandate scope CHECK widening. */ /* PLAN-FOLLOW-UP-REFERENCE-V1: the tail is now the follow-up provenance tables. */ /* PLAN-STEP-IDEMPOTENCY-1: the tail is now the open-plan-step identity. */ find: `      "tag": "20261022003246_plan_step_idempotency",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +

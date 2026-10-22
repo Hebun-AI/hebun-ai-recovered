@@ -407,5 +407,9 @@ export type OriginationRefusal =
   | "binding-context-mismatch"
   /** A source the plan named is no longer an in-service work item of this organization. */
   | "follow-up-source-ineligible"
+  /** PLAN-STEP-IDEMPOTENCY-1. An open (pending or approved) proposal already follows up this plan step. */
+  | "plan-step-already-proposed"
+  /** PLAN-STEP-IDEMPOTENCY-1. Whether this plan step is already followed up could not be read; nothing was asked. */
+  | "plan-step-unverifiable"
   /** The agent chose an act that cannot carry follow-up provenance (only new organizational work can). */
   | "follow-up-kind-not-linkable";

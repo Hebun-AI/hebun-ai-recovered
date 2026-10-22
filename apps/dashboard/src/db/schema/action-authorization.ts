@@ -210,6 +210,19 @@ export const hebyActionRequests = pgTable(
      */
     proposalRationale: text("proposal_rationale"),
 
+    /*
+     * PLAN-STEP-IDEMPOTENCY-1 — WHICH AI PLAN STEP THIS PROPOSAL FOLLOWS UP, as `<planRef>#<step>`.
+     *
+     * Written once, at filing, by the request writer and only from a plan binding the server
+     * verified (signature, tenant, user, session, expiry). Never from the client and never from the
+     * model. Only the agent entry point can supply it: the human writer has no such parameter, and no
+     * CHECK names the proposer column (A1a keeps that column open). It is outside the canonical
+     * payload and its digest, decides nothing about the act, and
+     * exists for one invariant below: one OPEN proposal per plan step per tenant. Null for every
+     * proposal that is not a plan follow-up.
+     */
+    planStepRef: text("plan_step_ref"),
+
     /* ═══════════════════════════════════════════════════════════════════════
      * PURPOSE-BOUND GOVERNED ACT — WHICH WORK THIS ACT IS DECLARED TO SERVE.
      *
@@ -303,6 +316,16 @@ export const hebyActionRequests = pgTable(
     uniqueIndex("heby_action_requests_one_pending_per_digest_uq")
       .on(t.tenantId, t.payloadDigest)
       .where(sql`${t.status} = 'pending'`),
+
+    /*
+     * PLAN-STEP-IDEMPOTENCY-1 — ONE OPEN PROPOSAL PER AI PLAN STEP PER TENANT. The digest invariant
+     * above cannot see a repeat of the same step, because the agent writes the title and the title
+     * is in the digest. `pending` and `approved` hold the slot; a rejected or withdrawn proposal
+     * frees it. Request status only — it says nothing about whether a permit is live or spent.
+     */
+    uniqueIndex("heby_action_requests_open_plan_step_uq")
+      .on(t.tenantId, t.planStepRef)
+      .where(sql`${t.planStepRef} is not null and ${t.status} in ('pending', 'approved')`),
 
     /**
      * ONE GOVERNANCE DECISION APPROVES AT MOST ONE REQUEST — FOR ORDINARY APPROVALS.
@@ -455,6 +478,12 @@ export const hebyActionRequests = pgTable(
     check(
       "heby_action_requests_agent_rationale_chk",
       sql`${t.proposalRationale} is null or ${t.proposedByActorType} = 'agent'`,
+    ),
+
+    /* PLAN-STEP-IDEMPOTENCY-1 — the shape `mintPlanRef` issues and a plan step (1..10) it can name. */
+    check(
+      "heby_action_requests_plan_step_ref_chk",
+      sql`${t.planStepRef} is null or ${t.planStepRef} ~ '^P-[0-9a-f]{12}#([1-9]|10)$'`,
     ),
 
     /** The inverse read: which governed acts were declared for one work item. */

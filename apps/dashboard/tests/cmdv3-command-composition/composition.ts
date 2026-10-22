@@ -874,7 +874,7 @@ function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> =
     "20261008143657_l1b_agent_lifecycle_domain",
     "20261013113340_eai_work_planning_purpose",
     "20261014042643_work_update_v1_mandate_scope",
-    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency",
   ];
   assert.deepEqual(
     [...readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"))].sort().slice(LEDGER_COUNT).map((f) => f.replace(/\.sql$/, "")),
