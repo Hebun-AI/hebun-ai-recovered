@@ -12,11 +12,16 @@
  * will post this". Publishing is a separate governed act; READY authorizes none of it.
  *
  * CONTENT-PUBLICATION-STATE-1 — beside readiness, what Action Authorization's ledger records about
- * publishing THIS revision, read on the server and handed down. Visibility only: this panel offers
- * no proposal, approval or execution control, and blocks nothing.
+ * publishing THIS revision, read on the server and handed down. Visibility only: the record offers
+ * no control, and blocks nothing.
+ *
+ * CONTENT-PUBLISH-FROM-PACKAGE-1 — a READY package for Instagram or YouTube shows ONE proposal
+ * control (`ProposePublication`). It files a pending request through the action inlet and nothing
+ * more; approval and execution stay on /approvals. This panel still holds no act authority itself.
  */
 import { useTransition } from "react";
 import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";
+import { ProposePublication } from "./propose-publication";
 import type { ContentPackageResult } from "@/features/content-composition/read-content-package.server";
 import {
   CONTENT_PACKAGE_NON_CLAIMS,
@@ -167,6 +172,10 @@ export function ContentPackagePanel({
       */}
       {pkg.selected.some((s) => s.mediaKind === "video") ? (
         <p className="text-[11px] text-fg-muted">{CONTENT_PACKAGE_VIDEO_NON_CLAIM}</p>
+      ) : null}
+
+      {pkg.ready && (pkg.destination === "instagram" || pkg.destination === "youtube") ? (
+        <ProposePublication artifactId={pkg.artifactId} revisionNo={pkg.revisionNo} destination={pkg.destination} />
       ) : null}
 
       <PublicationRecord publication={publication} />
