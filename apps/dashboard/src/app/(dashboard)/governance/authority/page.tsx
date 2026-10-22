@@ -21,6 +21,8 @@ import { readPendingEnrollments } from "@/features/identity-enrollment/read-pend
 import { readRevocableInvitations } from "@/features/human-onboarding/read-revocable-invitations.server";
 import { UndecidedHypothesisCard } from "@/components/governance-authority/undecided-hypothesis-card";
 import { readImprovementHypotheses } from "@/features/agent-improvement-hypothesis/read-improvement-hypotheses.server";
+import { OrganizationReadinessCard } from "@/components/governance-authority/organization-readiness-card";
+import { readOrganizationReadiness } from "@/features/organization-readiness/read-organization-readiness.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -48,6 +50,7 @@ export default async function GovernanceAuthorityPage() {
     enrollments,
     revocableInvitations,
     hypotheses,
+    readiness,
   ] = await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
@@ -69,6 +72,8 @@ export default async function GovernanceAuthorityPage() {
     // SIA-3.1: which improvement hypotheses are awaiting a Governance decision. This is SIA-3's
     // OWN released read seam, tenant-scoped by it — this page adds no query and no second reader.
     readImprovementHypotheses(tenant),
+    // ORGANIZATION-READINESS-1: read-only composition of the released readers, session tenant only.
+    readOrganizationReadiness(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -95,6 +100,11 @@ export default async function GovernanceAuthorityPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+      {readiness.status === "read" ? (
+        <div className="min-w-0 max-w-2xl">
+          <OrganizationReadinessCard rows={readiness.rows} />
+        </div>
+      ) : null}
       <div className="min-w-0 max-w-2xl">
         <GovernanceAuthorityCard block={block} authority={authority} />
       </div>

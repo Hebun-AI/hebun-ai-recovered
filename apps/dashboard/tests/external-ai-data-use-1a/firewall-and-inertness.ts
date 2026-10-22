@@ -86,9 +86,11 @@ assert.deepEqual(
     "src/features/heby-commands/operational-plan-candidate.ts",
     "src/features/heby-commands/operational-planning-projection.server.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
+    /* ORGANIZATION-READINESS-1 — reads this tenant's effective authorization for the readiness card. Read only. */
+    "src/features/organization-readiness/read-organization-readiness.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the operational planning projection and plan-candidate contract checks, and the AI planning runtime's declaration reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the readiness card's read-only composition, the operational planning projection and plan-candidate contract checks, and the AI planning runtime's declaration reach the authority",
 );
 /*
  * CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime DECLARES what it would disclose
