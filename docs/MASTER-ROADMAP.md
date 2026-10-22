@@ -5728,6 +5728,7 @@ re-graded here.
 | PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
 | EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
+| PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
 
 ---
 
@@ -5763,6 +5764,10 @@ before §16.1 are not yet indexed (Phase B).
 | WUOS-ROLLBACK-FLOOR-1 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` | Release safety | DEFERRED | Any rollback below e93f904b while organization-scope requests are pending is a Director decision (they refuse fail-closed, permits stay active) |
 | EA1-PROD-ACCEPTANCE-1 | EXECUTION-AUTHORITY-1 | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` | Verification gap | DEFERRED | Push and deploy, then one real Director execution of an organically approved permit; a member refusal only if an organic second member exists |
 | EA1-KIND-ARMING-1 | EXECUTION-AUTHORITY-1 | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` | Release safety | DEFERRED | A Director design decision on kind-specific external arming (arming email also arms Instagram and YouTube) |
+| PSI1-PROD-MIGRATION-1 | PLAN-STEP-IDEMPOTENCY-1 | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` | Release safety | DEFERRED | Migration 80 through the production migration ceremony with ledger and digest 771a7118 verified, then push and deploy; code at or after e6c00be6 on ledger 79 refuses every proposal |
+| PSI1-ROLLBACK-FLOOR-1 | PLAN-STEP-IDEMPOTENCY-1 | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` | Release safety | DEFERRED | A schema rollback below 80 under code at or after e6c00be6 stops all proposals; a Director decision |
+| PSI1-PROD-ACCEPTANCE-1 | PLAN-STEP-IDEMPOTENCY-1 | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` | Verification gap | DEFERRED | After migration and deploy, an organic repeated plan follow-up refused with no model call, the first carrying plan_step_ref; also gated by GATE-D |
+| PSI1-NO-WITHDRAW-WRITER-1 | PLAN-STEP-IDEMPOTENCY-1 | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` | Product reach | DEFERRED | A Director decision on a request withdrawal writer; until then a pending follow-up holds its step until rejected |
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
 | WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |
 | WORK-UPDATE-UNSCOPED-ITEMS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Product reach | DEFERRED | Human scoping of unscoped work items through the Work path; no automatic scoping |
