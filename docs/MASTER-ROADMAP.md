@@ -5727,6 +5727,7 @@ re-graded here.
 | PLAN-FOLLOW-UP-REFERENCE-V1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-reference-v1-closure.md` |
 | PLAN-FOLLOW-UP-LINEAGE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-plan-follow-up-lineage-1-closure.md` |
 | WORK-UPDATE-ORGANIZATION-SCOPE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-update-organization-scope-1-closure.md` |
+| SECURITY-HARDENING-1 | DEPLOYED | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` |
 | EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
 | PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
 
@@ -5837,3 +5838,9 @@ before §16.1 are not yet indexed (Phase B).
 | OBS-V1-AUTH-UI-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | A signed-in production read of a timing state on an active, unconsumed agent-proposed record-work permit (page and consumed-permit absence already observed by the Director); no permit created to force it |
 | OBS-V1-CRON-LOG-PROD-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | An organically unsuccessful tick read from the Vercel runtime log; no failure induced |
 | OBS-V1-ISSUANCE-SURFACE-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Product reach | DEFERRED | Director decision on a tenant-scoped reader of standing-issuable requests |
+| SH1-PROD-ACCEPTANCE-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Verification gap | DEFERRED | Deployment runtime logs read clean since the release and one Director-authenticated production read through a Server Action surface; nothing synthetic |
+| SH1-RUNTIME-LOGS-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Verification gap | DEFERRED | Director reads the dpl_E4GpHBnQ… runtime/error/5xx logs in the Vercel dashboard, or grants scoped read-only CLI or connector access and they are read |
+| SH1-APP-SHARP-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Dependency security | DEFERRED | Upgrade the app's sharp 0.34.5 → 0.35.5 (semver-major) with proof that the JPEG publish derivative stays byte-deterministic |
+| SH1-LEGACY-PROJECT-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Exposure | DEFERRED | Director decision on the legacy Vercel project hebun-ai (Next.js 16.2.7, public /login): inventory env by name, then pause or remove |
+| SH1-BUILD-TOOL-ADVISORIES-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Dependency security | DEFERRED | Build-time nanoid, source-map-js, baseline-browser-mapping and the eslint/drizzle-kit dev chains in the next routine dependency update |
+| SH1-TRH25-RACE-TEST-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Test reliability | DEFERRED | trh25 trigger-postgres race assertion accepts the legal `not-due` loser outcome; test-only, owned by TRH-25 |
