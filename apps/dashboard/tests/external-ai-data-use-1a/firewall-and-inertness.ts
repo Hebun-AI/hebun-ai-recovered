@@ -78,6 +78,10 @@ assert.deepEqual(
   importers,
   [
     "src/app/(dashboard)/governance/authority/actions.ts",
+    /* ORGANIZATION-READINESS-2 — the page reads the assistance view; it holds no writer. */
+    "src/app/(dashboard)/governance/authority/page.tsx",
+    /* ORGANIZATION-READINESS-2 — the decision card imports two TYPES only (pinned below). */
+    "src/components/governance-authority/ai-assistance-decision-card.tsx",
     "src/features/governance-audit/external-ai-disclosure-audit.server.ts",
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
@@ -177,17 +181,43 @@ for (const file of SRC.filter((f) => f.startsWith(FEATURE))) {
 }
 
 /* ── 5. The client-crossable writer runs with the RECORDED policy, always. ─────────────────────── */
+/*
+ * ORGANIZATION-READINESS-2 (2026-10-23): the actions no longer take scopes from the client. They call
+ * the assistance composer with exactly (tenant, input); the composer fixes the purpose to `assistance`,
+ * reads the pairs off the recorded policy and is the only src caller of the writer. Neither can be
+ * handed a policy.
+ */
 const action = read("src/app/(dashboard)/governance/authority/actions.ts");
 assert.ok(!action.includes("platform-disclosure-policy"), "the action cannot even name a policy");
-const actionCalls = stripComments(action).match(/(authorize|withdraw)TenantExternalAiDataUse\(tenant, \{[\s\S]*?\n {2}\}\);/g) ?? [];
-assert.equal(actionCalls.length, 2, "two writer calls, each with exactly (tenant, input)");
-for (const call of actionCalls) assert.ok(!/policy|getDb/.test(call), "no deps argument crosses from the action");
+assert.ok(!/(authorize|withdraw)TenantExternalAiDataUse\(/.test(stripComments(action)), "the action never calls the writer directly");
+const actionCalls = stripComments(action).match(/(authorize|withdraw)AssistanceDataUse\(tenant, \{[\s\S]*?\n {2}\}\);/g) ?? [];
+assert.equal(actionCalls.length, 2, "two composer calls, each with exactly (tenant, input)");
+for (const call of actionCalls) assert.ok(!/policy|getDb|scopes|purpose/.test(call), "no deps, scope or purpose crosses from the action");
+const composer = stripComments(read(`${FEATURE}/assistance-data-use.server.ts`));
+assert.ok(!/policy\s*:/.test(composer), "the composer never hands the writer a policy");
+assert.match(composer, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells/, "its pairs are read off the recorded policy");
+assert.match(composer, /cell\.purpose === PURPOSE/);
+assert.match(composer, /const PURPOSE = "assistance" as const/);
+const writerCallers = SRC.filter((f) => /\b(authorize|withdraw)TenantExternalAiDataUse\(/.test(stripComments(read(f)))).sort();
+assert.deepEqual(
+  writerCallers,
+  [`${FEATURE}/assistance-data-use.server.ts`, `${FEATURE}/authorize-tenant-external-ai-data-use.server.ts`],
+  "in src, only the assistance composer calls the writer",
+);
+assert.deepEqual(
+  [...read("src/components/governance-authority/ai-assistance-decision-card.tsx").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
+  ["@/features/external-ai-data-use/assistance-data-use.server", "@/features/external-ai-data-use/contracts"],
+);
+assert.ok(
+  [...read("src/components/governance-authority/ai-assistance-decision-card.tsx").matchAll(/^import .*@\/features\/external-ai-data-use\/.*$/gm)].every((m) => /^import type /.test(m[0])),
+  "the client card imports types only from the authority",
+);
 assert.match(
   read(`${FEATURE}/authorize-tenant-external-ai-data-use.server.ts`),
   /deps\.policy \?\? RECORDED_PLATFORM_DISCLOSURE_POLICY/,
   "the writer's default is the recorded policy",
 );
-assert.ok(!/tenantId\s*[:?]/.test(stripComments(action).split("EXTERNAL-AI-DATA-USE-1A")[1] ?? ""), "no tenant parameter");
+assert.ok(!/tenantId\s*[:?]/.test(action.split("EXTERNAL-AI-DATA-USE-1A")[1] ?? ""), "no tenant parameter");
 
 /* ── 6. AMENDMENT 1: no disclosure provenance was added anywhere in Release A. ─────────────────── */
 for (const file of [

@@ -34,11 +34,10 @@ import type {
 } from "@/features/identity-enrollment/contracts";
 import { decideImprovementHypothesis } from "@/features/agent-improvement-hypothesis/decide-improvement-hypothesis.server";
 import {
-  authorizeTenantExternalAiDataUse,
-  withdrawTenantExternalAiDataUse,
-  type TenantExternalAiDataUseWriteResult,
-} from "@/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server";
-import type { ScopePair, ServiceScope } from "@/features/external-ai-data-use/contracts";
+  authorizeAssistanceDataUse,
+  withdrawAssistanceDataUse,
+} from "@/features/external-ai-data-use/assistance-data-use.server";
+import type { TenantExternalAiDataUseWriteResult } from "@/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server";
 import type {
   HypothesisDecision,
   HypothesisDecisionResult,
@@ -325,28 +324,25 @@ export async function decideImprovementHypothesisAction(input: {
 }
 
 /*
- * ── EXTERNAL-AI-DATA-USE-1A: this organization's agreement to external AI processing ────────────
+ * ── EXTERNAL-AI-DATA-USE-1A · ORGANIZATION-READINESS-2: this organization's ASSISTANCE decision ──
  *
- * The client names the reviewed attestation it was shown, the (purpose, data class) pairs, the
- * revision it believed was current, and a justification. The tenant, the actor, whether they hold
- * Governance, the lineage's scope and account, the decision, and every timestamp are resolved
- * server-side. There is no tenant, actor or policy parameter: the writer runs with the RECORDED
- * platform policy, which in this release admits no ALLOWED cell — so this action cannot produce an
- * active authorization, and an agent has no path to it at all.
+ * The client names only the reviewed attestation it was shown, the revision it believed was current,
+ * and a justification. It names NO purpose and NO scope: the purpose is `assistance` and its pairs are
+ * read off the recorded platform policy by `assistance-data-use.server.ts`, which then hands them to
+ * the released writer. The tenant, the actor, whether they hold Governance, the lineage, the decision
+ * and every timestamp are resolved server-side. There is no tenant, actor, scope or policy parameter.
  *
- * NOTHING HERE ENABLES A MODEL CALL. No Heby, origination or media path consults this authority in
- * this release; R2E and the transport are untouched.
+ * Authorizing data use sends nothing and connects nothing. Every model call is still decided by the
+ * generator's gate, and whether the platform model is available at all is R2E's answer.
  */
-export async function authorizeTenantExternalAiDataUseAction(input: {
+export async function authorizeAssistanceDataUseAction(input: {
   attestationId: string;
-  scopes: readonly ScopePair[];
   justification: string;
   observedRevision: number | null;
 }): Promise<TenantExternalAiDataUseWriteResult> {
   const tenant = await resolveTenantContext();
-  const result = await authorizeTenantExternalAiDataUse(tenant, {
+  const result = await authorizeAssistanceDataUse(tenant, {
     attestationId: String(input?.attestationId ?? ""),
-    scopes: Array.isArray(input?.scopes) ? input.scopes : [],
     justification: String(input?.justification ?? ""),
     observedRevision: typeof input?.observedRevision === "number" ? input.observedRevision : null,
   });
@@ -354,17 +350,13 @@ export async function authorizeTenantExternalAiDataUseAction(input: {
   return result;
 }
 
-/** Withdraw it. A new revision under its own decision; nothing existing is edited. */
-export async function withdrawTenantExternalAiDataUseAction(input: {
-  serviceScope: ServiceScope;
-  accountRef: string;
+/** Withdraw it. A new revision under its own decision; nothing existing is edited. Other purposes stay. */
+export async function withdrawAssistanceDataUseAction(input: {
   justification: string;
   observedRevision: number | null;
 }): Promise<TenantExternalAiDataUseWriteResult> {
   const tenant = await resolveTenantContext();
-  const result = await withdrawTenantExternalAiDataUse(tenant, {
-    serviceScope: input?.serviceScope,
-    accountRef: String(input?.accountRef ?? ""),
+  const result = await withdrawAssistanceDataUse(tenant, {
     justification: String(input?.justification ?? ""),
     observedRevision: typeof input?.observedRevision === "number" ? input.observedRevision : null,
   });

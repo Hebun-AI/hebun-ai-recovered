@@ -100,7 +100,7 @@ export function describeOrganizationReadiness(facts: OrganizationReadinessFacts)
             facts: `${ai.status === "withdrawn" ? "Authorization withdrawn" : "Not authorized"}. Heby and content preparation send nothing to the model until this organization’s Governance authorizes it. ${platform}`,
             next: {
               actor: "governance-authority",
-              text: `This organization’s Governance authority decides it; recording that decision is ${OPERATOR}`,
+              text: "This organization’s Governance authority decides it in AI assistance data use below.",
             },
           };
 

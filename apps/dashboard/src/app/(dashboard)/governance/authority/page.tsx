@@ -23,6 +23,8 @@ import { UndecidedHypothesisCard } from "@/components/governance-authority/undec
 import { readImprovementHypotheses } from "@/features/agent-improvement-hypothesis/read-improvement-hypotheses.server";
 import { OrganizationReadinessCard } from "@/components/governance-authority/organization-readiness-card";
 import { readOrganizationReadiness } from "@/features/organization-readiness/read-organization-readiness.server";
+import { AssistanceDataUseCard } from "@/components/governance-authority/ai-assistance-decision-card";
+import { readAssistanceDataUse } from "@/features/external-ai-data-use/assistance-data-use.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -51,6 +53,7 @@ export default async function GovernanceAuthorityPage() {
     revocableInvitations,
     hypotheses,
     readiness,
+    assistanceDataUse,
   ] = await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
@@ -74,6 +77,8 @@ export default async function GovernanceAuthorityPage() {
     readImprovementHypotheses(tenant),
     // ORGANIZATION-READINESS-1: read-only composition of the released readers, session tenant only.
     readOrganizationReadiness(tenant),
+    // ORGANIZATION-READINESS-2: this organization's assistance data-use decision, session tenant only.
+    readAssistanceDataUse(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -103,6 +108,16 @@ export default async function GovernanceAuthorityPage() {
       {readiness.status === "read" ? (
         <div className="min-w-0 max-w-2xl">
           <OrganizationReadinessCard rows={readiness.rows} />
+        </div>
+      ) : null}
+      {/*
+       * Shown to every member who can read it: what may be sent, to which reviewed processor. The
+       * decision control inside is offered to a Governance holder only, and the writer refuses
+       * everyone else anyway. Unreadable means no card, never a "not authorized".
+       */}
+      {assistanceDataUse.status === "read" ? (
+        <div className="min-w-0 max-w-2xl">
+          <AssistanceDataUseCard view={assistanceDataUse} />
         </div>
       ) : null}
       <div className="min-w-0 max-w-2xl">
