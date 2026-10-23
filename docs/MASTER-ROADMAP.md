@@ -5731,6 +5731,7 @@ re-graded here.
 | SH1-PG-CEREMONY-TLS-1 | VERIFIED | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` |
 | EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
 | PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
+| ORGANIZATION-READINESS-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` |
 
 ---
 
@@ -5848,3 +5849,9 @@ before §16.1 are not yet indexed (Phase B).
 | SH1-PG-SSLMODE-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Dependency security | DEFERRED | Normalize the production DATABASE_URL to sslmode=verify-full (a Director-gated production env change) before any pg v9 upgrade; check: the pg sslmode warning gone from production logs |
 | SH1-PG-TLS-ACCEPTANCE-1 | SH1-PG-CEREMONY-TLS-1 | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` | Verification gap | DEFERRED | Director-authorized real libpq check of the chosen pg_dump against the provider (verify-full + system roots succeeds; wrong root and host-name mismatch fail), then the first real ceremony backup; until then the backup path is not production-accepted |
 | SH1-PG-TLS-CEREMONY-ENV-1 | SH1-PG-CEREMONY-TLS-1 | `docs/product-vision/runtime/hebun-sh1-pg-ceremony-tls-1-closure.md` | Configuration | DEFERRED | Value-free check that .env.ceremony.local names sslmode=verify-full or no mode (libpqEnvFor verdict OK) before the next ceremony; any change to the file is a Director-gated local secret change |
+| OR2-NON-OWNER-UI-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A signed-in read-only render by an existing non-holder member |
+| OR2-SERVER-PROVIDER-CALLS-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A Director decision on a server-side observation, or accepting the static proof |
+| OR2-PROD-DB-IMMUTABILITY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A Director-authorized read-only count of tenant_ai_data_use_authorizations revisions per tenant |
+| OR2-PROD-DECISION-EXECUTION-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A real decision by an organization's own Governance holder, observed read-only |
+| OR1-ARMING-COPY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Legibility | DEFERRED | A Director-selected copy fix |
+| OR2-R3W-AMBIENT-DB-BLOCKED-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification environment | DEFERRED | A run with the canonical hebun_r1 at :55432 up, or a Director decision on the test's environment |
