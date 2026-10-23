@@ -5732,6 +5732,7 @@ re-graded here.
 | EXECUTION-AUTHORITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-execution-authority-1-closure.md` |
 | PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
 | ORGANIZATION-READINESS-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` |
+| HEBY-GENERAL-ADVISORY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-general-advisory-1-closure.md` |
 
 ---
 
