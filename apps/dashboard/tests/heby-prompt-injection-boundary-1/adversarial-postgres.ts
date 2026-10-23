@@ -31,7 +31,7 @@ import { ratifyKnowledgeVersion } from "../../src/features/knowledge-ratificatio
 import { createDurableKnowledgeWriter } from "../../src/features/knowledge/durable-knowledge-writer.server";
 import { createDurableKnowledgeRepository } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import { answerHebyModelRequest } from "../../src/features/heby-answer/model-answer.server";
-import { HEBY_MODEL_SYSTEM_INSTRUCTIONS } from "../../src/features/heby-answer/model-answer.server";
+import { HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
@@ -266,7 +266,8 @@ async function main(): Promise<void> {
     assert.deepEqual(Object.keys(wire).sort(), ["max_tokens", "messages", "model", "system"], "G: no tool or tool_choice reaches the provider");
 
     /* A — Hebun's instruction part is exactly its own words and the fixed fence note. */
-    assert.equal(parts.instruction, `${HEBY_MODEL_SYSTEM_INSTRUCTIONS}\n\n${UNTRUSTED_FENCE_NOTE}\n\n`, "A: no record text above the data");
+    /* HEBY-GENERAL-ADVISORY-1 (2026-10-23): a /heby question carries the advisory instruction — still exactly Hebun's own words. */
+    assert.equal(parts.instruction, `${HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS}\n\n${UNTRUSTED_FENCE_NOTE}\n\n`, "A: no record text above the data");
     for (const message of wire.messages) {
       assert.equal(message.content, "What is our refund policy?", "A: the only turn is the human's own question");
     }

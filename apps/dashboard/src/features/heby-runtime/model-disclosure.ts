@@ -63,3 +63,16 @@ const LABELS: Readonly<Record<string, string>> = Object.freeze({
 export function disclosureClassLabel(dataClass: string): string {
   return LABELS[dataClass] ?? dataClass;
 }
+
+/*
+ * HEBY-GENERAL-ADVISORY-1 — general knowledge is not organizational evidence, said on every recorded
+ * model answer and derived only from the recorded decision, so a reloaded answer says it too. Having
+ * records reach the model is never read as every sentence being grounded in them.
+ */
+export function generalKnowledgeLines(disclosed: readonly string[]): readonly string[] {
+  const organizational = disclosed.some((c) => c !== "conversation");
+  return [
+    ...(organizational ? [] : ["No organizational records reached the model for this answer."]),
+    "Only records listed here are evidence about your organization. Anything else in the answer is the model's general knowledge or advice, not a verified fact about your organization.",
+  ];
+}

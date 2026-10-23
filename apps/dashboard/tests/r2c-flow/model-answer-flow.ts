@@ -10,6 +10,7 @@
 import assert from "node:assert/strict";
 import {
   answerHebyModelRequest,
+  HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS,
   HEBY_MODEL_SYSTEM_INSTRUCTIONS,
   type HebyModelAnswerDeps,
 } from "../../src/features/heby-answer/model-answer.server";
@@ -168,7 +169,8 @@ async function main(): Promise<void> {
       "provenance preserved on every disclosed evidence line",
     );
     // The system instruction is the trust-boundary text, not the user's prompt.
-    assert.equal(req!.systemInstructions, HEBY_MODEL_SYSTEM_INSTRUCTIONS);
+    /* HEBY-GENERAL-ADVISORY-1 (2026-10-23): a non-preparing question carries the advisory instruction. */
+    assert.equal(req!.systemInstructions, HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS);
     assert.equal(req!.userPrompt, input.prompt);
   }
 

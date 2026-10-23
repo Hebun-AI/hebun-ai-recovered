@@ -24,7 +24,7 @@ import { HebySourceEvidencePanel } from "./heby-source-evidence";
 import { HebyMarkdown } from "./heby-markdown";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
 import { splitModelDiagnostics } from "./heby-provenance";
-import { disclosureClassLabel, type ModelDisclosureView } from "@/features/heby-runtime/model-disclosure";
+import { disclosureClassLabel, generalKnowledgeLines, type ModelDisclosureView } from "@/features/heby-runtime/model-disclosure";
 
 export interface HebyEvidenceRef {
   readonly sourceClass: string;
@@ -91,6 +91,7 @@ function disclosureLines(view: ModelDisclosureView): readonly string[] {
           ? [`Withheld from the model by your organization's AI authorization: ${view.withheld.map(disclosureClassLabel).join(", ")}.`]
           : []),
         "Everything else listed here was shown to you only.",
+        ...generalKnowledgeLines(view.disclosed),
       ];
   }
 }

@@ -28,7 +28,7 @@ import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
-  HEBY_MODEL_SYSTEM_INSTRUCTIONS,
+  HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS, HEBY_MODEL_SYSTEM_INSTRUCTIONS,
   type HebyModelAnswerDeps,
 } from "../../src/features/heby-answer/model-answer.server";
 import {
@@ -244,9 +244,10 @@ async function main(): Promise<void> {
       );
       assert.equal(answered.status, "answered");
       assert.equal(generated.length, 1, "one request was built");
+      /* HEBY-GENERAL-ADVISORY-1 (2026-10-23): an ordinary answer carries the advisory instruction, byte for byte — still no brief. */
       assert.equal(
         generated[0]!.systemInstructions,
-        HEBY_MODEL_SYSTEM_INSTRUCTIONS,
+        HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS,
         "an ordinary answer's system prompt is byte-identical to the released one",
       );
     }

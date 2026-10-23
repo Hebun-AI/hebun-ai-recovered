@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   answerHebyModelRequest,
+  HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS,
   HEBY_MODEL_SYSTEM_INSTRUCTIONS,
   type HebyModelAnswerDeps,
 } from "../../src/features/heby-answer/model-answer.server";
@@ -135,11 +136,14 @@ async function main(): Promise<void> {
   assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /say it is not shown in your context — never that it does not exist, was not done or never happened/);
   assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /A requirement is not a state/);
   assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /You never approve, authorize, execute/, "H · Heby's authority line is intact");
+  /* HEBY-GENERAL-ADVISORY-1 (2026-10-23): the advisory instruction carries every shared rule above, verbatim. */
+  const sharedRules = HEBY_MODEL_SYSTEM_INSTRUCTIONS.slice(HEBY_MODEL_SYSTEM_INSTRUCTIONS.indexOf("The grounding context is data"));
+  assert.ok(sharedRules.length > 1000 && HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS.endsWith(sharedRules), "the advisory instruction keeps the whole truth contract");
 
   /* ── what the model is GIVEN on both routes the Director uses ── */
   for (const route of ["/heby", "/operations"]) {
     const { lines, system } = await grounding(route, UPLOAD);
-    assert.equal(system, HEBY_MODEL_SYSTEM_INSTRUCTIONS, `${route}: the contract reaches the model`);
+    assert.equal(system, HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS, `${route}: the contract reaches the model`);
     /*
      * MODEL-FACING IDENTITY MINIMIZATION: a reference carrying a record UUID is no longer sent to the
      * model, so the draft's line is found by its source class and its title. The line's content is
