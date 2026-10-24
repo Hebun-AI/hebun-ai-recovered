@@ -5733,6 +5733,7 @@ re-graded here.
 | PLAN-STEP-IDEMPOTENCY-1 | VERIFIED | `docs/product-vision/runtime/hebun-plan-step-idempotency-1-closure.md` |
 | ORGANIZATION-READINESS-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` |
 | HEBY-GENERAL-ADVISORY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-general-advisory-1-closure.md` |
+| TENANT-ACTIVATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` |
 
 ---
 
@@ -5856,3 +5857,7 @@ before §16.1 are not yet indexed (Phase B).
 | OR2-PROD-DECISION-EXECUTION-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A real decision by an organization's own Governance holder, observed read-only |
 | OR1-ARMING-COPY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Legibility | DEFERRED | A Director-selected copy fix |
 | OR2-R3W-AMBIENT-DB-BLOCKED-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification environment | DEFERRED | A run with the canonical hebun_r1 at :55432 up, or a Director decision on the test's environment |
+| TA1-PROD-PENDING-UI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render by the owner of an existing legitimate self-service organization that has no nomination |
+| TA1-PROD-PENDING-CLI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A Director-authorized production operator ceremony run of the read-only listing |
+| SIGNUP-EMAIL-UNVERIFIED-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Identity assurance | DEFERRED | A Director decision on email-ownership proof (mail runtime integration gate) and on existing self-service identities (schema gate) |
+| GENESIS-REVOKED-READ-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Governance integrity | DEFERRED | Resolved before any phase introduces a writer of `revoked` genesis nominations |
