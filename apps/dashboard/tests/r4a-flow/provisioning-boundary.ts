@@ -58,6 +58,11 @@ const CORE = "scripts/lib/provision-tenant.ts";
 const AUTHORITY = "src/features/tenant-provisioning/provision-tenant.server.ts";
 const AUTHORITY_CONTRACTS = "src/features/tenant-provisioning/contracts.ts";
 const SIGNUP = "src/features/self-service-signup/create-account.server.ts";
+/*
+ * TENANT-ACTIVATION-1 (2026-10-23): reads the provenance VOCABULARY only, to word a self-service
+ * tenant's wait for genesis honestly. It is not a caller of the authority — asserted below.
+ */
+const GENESIS_ACTIVATION_READ = "src/features/governance-genesis/genesis-acceptance.server.ts";
 const SCHEMA = "src/db/schema/company.ts";
 const MIGRATION = "src/db/migrations/20260817195446_r4a_tenant_provisioning_source.sql";
 
@@ -244,8 +249,20 @@ function main(): void {
       .sort();
     assert.deepEqual(
       referencing,
-      [SIGNUP, AUTHORITY_CONTRACTS, AUTHORITY].sort(),
-      "exactly one authority, one vocabulary and one product caller reference tenant provisioning",
+      [SIGNUP, AUTHORITY_CONTRACTS, AUTHORITY, GENESIS_ACTIVATION_READ].sort(),
+      "exactly one authority, one vocabulary, one product caller and one vocabulary reader reference tenant provisioning",
+    );
+    /* The vocabulary reader imports the constant and nothing that can provision. */
+    const activationRead = codeOf(readFileSync(path.join(ROOT, GENESIS_ACTIVATION_READ), "utf8"));
+    assert.match(
+      activationRead,
+      /import \{ TENANT_PROVISIONING_SOURCE_SELF_SERVICE \} from "@\/features\/tenant-provisioning\/contracts";/,
+      "the genesis read takes the self-service value from the vocabulary",
+    );
+    assert.doesNotMatch(
+      activationRead,
+      /provision-tenant|provisionTenant|TenantBootstrapWriter/,
+      "the genesis read can never reach the provisioning authority",
     );
   }
 

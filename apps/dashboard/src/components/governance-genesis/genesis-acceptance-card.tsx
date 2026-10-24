@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { acceptGenesisNominationAction } from "@/app/(dashboard)/governance/genesis/actions";
 import {
   GENESIS_ACCEPTANCE_ASSURANCE,
+  GENESIS_ACTIVATION_STEPS,
   GENESIS_ACCEPTANCE_EFFECT,
   GENESIS_ACCEPTANCE_NON_EFFECTS,
   type GenesisAcceptanceRefusal,
@@ -41,6 +42,8 @@ export type GenesisBlock =
   | { readonly kind: "unauthenticated" }
   | { readonly kind: "persistence-unavailable" }
   | { readonly kind: "no-nomination" }
+  /** TENANT-ACTIVATION-1: a self-service organization with no nomination yet. Derived, not stored. */
+  | { readonly kind: "awaiting-platform-review" }
   | { readonly kind: "not-the-nominated-human" }
   | { readonly kind: "already-accepted"; readonly acceptedAt: string | null }
   | { readonly kind: "revoked" };
@@ -54,7 +57,36 @@ const REFUSAL_TEXT: Record<GenesisAcceptanceRefusal, string> = {
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
 };
 
+/*
+ * Awaiting platform review. Says what happens next, in order, and who acts — and promises neither a
+ * timeframe nor a notification, because Hebun has neither. It offers no control: nothing on this
+ * page can make or hurry the nomination.
+ */
+function AwaitingPlatformReviewNotice() {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-muted p-3 text-sm text-fg-muted">
+      <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <div className="min-w-0">
+        <p className="font-medium text-fg">Awaiting platform review</p>
+        <p className="mt-1">
+          Your organization was created through sign-up. Signing up does not make anyone its
+          Governance holder, so a few steps remain before Heby can work with its data:
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          {GENESIS_ACTIVATION_STEPS.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+        <p className="mt-2">
+          Hebun sends no notification when the review is done. Come back to this page to check.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function BlockNotice({ block }: { block: GenesisBlock }) {
+  if (block.kind === "awaiting-platform-review") return <AwaitingPlatformReviewNotice />;
   const text =
     block.kind === "unauthenticated"
       ? "Sign in to see whether this tenant has a genesis nomination."

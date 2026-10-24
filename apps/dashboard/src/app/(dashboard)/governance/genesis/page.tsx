@@ -5,9 +5,13 @@ import {
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
   isGenesisPersistenceConfigured,
+  readGenesisActivationOrigin,
   readGenesisNomination,
 } from "@/features/governance-genesis/genesis-acceptance.server";
-import { GENESIS_OPERATOR_ROOT } from "@/features/governance-genesis/contracts";
+import {
+  GENESIS_OPERATOR_ROOT,
+  isAwaitingPlatformReview,
+} from "@/features/governance-genesis/contracts";
 
 export const metadata = { title: "Genesis Nomination — Hebun AI" };
 
@@ -26,10 +30,17 @@ export const metadata = { title: "Genesis Nomination — Hebun AI" };
  * The tenant, the actor, the identity and the session are all resolved SERVER-SIDE. The block reason
  * shown to a visitor is the REAL one, in resolution order, so nobody is offered a ceremony that will
  * fail.
+ *
+ * TENANT-ACTIVATION-1. A self-service organization with no nomination is told it is awaiting
+ * platform review, and what follows. That is derived from the records (sign-up provenance + no
+ * nomination), never stored, and an unreadable origin falls back to the released wording.
  */
 export default async function GenesisNominationPage() {
   const tenant = await resolveTenantContext();
-  const lookup = await readGenesisNomination(tenant);
+  const [lookup, origin] = await Promise.all([
+    readGenesisNomination(tenant),
+    readGenesisActivationOrigin(tenant),
+  ]);
 
   const nomination = lookup.status === "read" ? lookup.nomination : null;
 
@@ -38,7 +49,9 @@ export default async function GenesisNominationPage() {
     : !isGenesisPersistenceConfigured() || lookup.status === "unavailable"
       ? { kind: "persistence-unavailable" }
       : !nomination
-        ? { kind: "no-nomination" }
+        ? isAwaitingPlatformReview(origin, lookup)
+          ? { kind: "awaiting-platform-review" }
+          : { kind: "no-nomination" }
         : !nomination.viewerIsNominatedHuman
           ? { kind: "not-the-nominated-human" }
           : nomination.status === "accepted"

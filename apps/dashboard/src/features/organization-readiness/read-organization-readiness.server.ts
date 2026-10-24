@@ -15,6 +15,11 @@ import {
 } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import { readEffectiveTenantExternalAiDataUse } from "@/features/external-ai-data-use/read-tenant-external-ai-data-use.server";
 import { readGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
+import { isAwaitingPlatformReview } from "@/features/governance-genesis/contracts";
+import {
+  readGenesisActivationOrigin,
+  readGenesisNomination,
+} from "@/features/governance-genesis/genesis-acceptance.server";
 import { readProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
 import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
@@ -31,6 +36,8 @@ export interface OrganizationReadinessDeps {
   readonly readCapabilities?: typeof getCapabilityAvailability;
   readonly readSendOps?: typeof readExternalSendOpsView;
   readonly readDomains?: typeof readWorkDomains;
+  readonly readGenesisOrigin?: typeof readGenesisActivationOrigin;
+  readonly readGenesis?: typeof readGenesisNomination;
 }
 
 export type OrganizationReadinessResult =
@@ -61,7 +68,23 @@ export async function readOrganizationReadiness(
           ? { status: "read", established: r.authority.bootstrap !== null, viewerIsAuthority: r.authority.viewerIsGovernanceAuthority }
           : unavailable,
       unavailable,
-    ),
+    ).then(async (g): Promise<OrganizationReadinessFacts["governance"]> => {
+      /*
+       * TENANT-ACTIVATION-1. Only a not-yet-established Governance asks the genesis reader whether
+       * this organization is awaiting platform review. Any failure there leaves the released row.
+       */
+      if (g.status !== "read" || g.established) return g;
+      const awaitingPlatformReview = await settle(
+        () =>
+          Promise.all([
+            (deps.readGenesisOrigin ?? readGenesisActivationOrigin)(tenant),
+            (deps.readGenesis ?? readGenesisNomination)(tenant),
+          ]),
+        ([origin, lookup]) => isAwaitingPlatformReview(origin, lookup),
+        false,
+      );
+      return { ...g, awaitingPlatformReview };
+    }),
     settle(
       () => (deps.readExternalAi ?? readEffectiveTenantExternalAiDataUse)(tenant.tenantId, ANTHROPIC_MESSAGES_SCOPE, CONFIGURED_ANTHROPIC_ACCOUNT_REF),
       (r): OrganizationReadinessFacts["externalAi"] =>

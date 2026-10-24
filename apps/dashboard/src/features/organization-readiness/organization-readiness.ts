@@ -23,7 +23,16 @@ export interface ReadinessRow {
 
 export interface OrganizationReadinessFacts {
   readonly governance:
-    | { readonly status: "read"; readonly established: boolean; readonly viewerIsAuthority: boolean }
+    | {
+        readonly status: "read";
+        readonly established: boolean;
+        readonly viewerIsAuthority: boolean;
+        /**
+         * TENANT-ACTIVATION-1: a self-service organization with no genesis nomination yet. Only `true`
+         * changes the wording; absent or `false` (including "could not be read") keeps the released row.
+         */
+        readonly awaitingPlatformReview?: boolean;
+      }
     | { readonly status: "unavailable" };
   /** This organization's external-AI data-use authorization for the configured model processor. */
   readonly externalAi:
@@ -63,7 +72,20 @@ export function describeOrganizationReadiness(facts: OrganizationReadinessFacts)
             facts: g.viewerIsAuthority ? "Established. You hold it." : "Established.",
             next: null,
           }
-        : {
+        : g.awaitingPlatformReview === true
+          ? {
+              key: "governance",
+              label: "Governance authority",
+              state: "not-ready",
+              facts:
+                "Not established. This organization was created through sign-up and is awaiting platform review. Inviting people, ratifying Knowledge, creating agents and recording work all wait on it.",
+              next: {
+                actor: "platform-operator",
+                text: "A Hebun platform operator reviews new organizations and nominates their first Governance holder; it is not available in the app today. You then accept on the genesis page and establish it on this page.",
+                href: "/governance/genesis",
+              },
+            }
+          : {
             key: "governance",
             label: "Governance authority",
             state: "not-ready",

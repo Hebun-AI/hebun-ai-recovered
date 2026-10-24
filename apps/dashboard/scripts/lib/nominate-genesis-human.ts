@@ -196,3 +196,78 @@ export function isUniqueViolation(error: unknown): boolean {
     (error as { code?: unknown }).code === "23505"
   );
 }
+
+/**
+ * TENANT-ACTIVATION-1. One self-service organization awaiting a genesis nomination: the minimum an
+ * operator needs to review it and to type the existing nomination command. No ids, no credential
+ * material, no data about the organization beyond its name.
+ */
+export interface PendingSelfServiceTenant {
+  readonly tenantSlug: string;
+  readonly tenantName: string;
+  readonly createdAt: Date;
+  /** The tenant's eligible humans — exactly the ones `resolveNominationTarget` would accept. */
+  readonly memberEmails: readonly string[];
+}
+
+/**
+ * Self-service organizations with no genesis nomination yet, oldest first.
+ *
+ * READ-ONLY BY THE DATABASE, NOT BY CONVENTION. The query runs inside a `read only` transaction
+ * that is always rolled back, so even a mistaken statement here could not write. It is not a
+ * nomination: it names nobody, and nominating still goes through the interactive ceremony below,
+ * one tenant at a time, with the slug retyped.
+ *
+ * Eligibility mirrors `resolveNominationTarget` exactly, so every listed email is one the ceremony
+ * would accept; a tenant with no such human is not listed. A revoked nomination frees the slot, the
+ * same rule the partial unique index enforces.
+ */
+export async function listPendingSelfServiceTenants(
+  client: Client,
+  selfServiceSource: string,
+): Promise<readonly PendingSelfServiceTenant[]> {
+  await client.query("begin transaction read only");
+  try {
+    const result = await client.query<{
+      tenant_slug: string;
+      tenant_name: string;
+      created_at: Date;
+      member_emails: string[];
+    }>(
+      `select c.slug        as tenant_slug,
+              c.name        as tenant_name,
+              c.created_at  as created_at,
+              array_agg(distinct lower(u.email) order by lower(u.email)) as member_emails
+         from companies c
+         join memberships m on m.tenant_id = c.id
+         join users u       on u.id = m.user_id
+         join auth_identities i on i.user_id = u.id
+        where c.provisioning_source = $1
+          and c.lifecycle_status = 'active'
+          and (c.tenant_status is null or c.tenant_status = 'active')
+          and c.authentication_disabled_at is null
+          and u.lifecycle_status = 'active'
+          and i.status = 'active'
+          and i.lifecycle_status = 'active'
+          and i.revoked_at is null
+          and m.status = 'active'
+          and m.revoked_at is null
+          and m.lifecycle_status = 'active'
+          and not exists (
+            select 1 from genesis_nominations g
+             where g.tenant_id = c.id and g.status <> 'revoked'
+          )
+        group by c.id, c.slug, c.name, c.created_at
+        order by c.created_at asc, c.slug asc`,
+      [selfServiceSource],
+    );
+    return result.rows.map((row) => ({
+      tenantSlug: row.tenant_slug,
+      tenantName: row.tenant_name,
+      createdAt: row.created_at,
+      memberEmails: row.member_emails,
+    }));
+  } finally {
+    await client.query("rollback");
+  }
+}

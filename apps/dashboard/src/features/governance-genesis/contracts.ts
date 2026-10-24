@@ -161,3 +161,46 @@ export interface GenesisNominationView {
 export type GenesisNominationLookup =
   | { readonly status: "read"; readonly nomination: GenesisNominationView | null }
   | { readonly status: "unavailable"; readonly reason: "no-authorized-tenant-context" | "persistence-unavailable" };
+
+/*
+ * ── TENANT-ACTIVATION-1: "awaiting platform review" is DERIVED, never stored ─────────────────────
+ *
+ * There is no activation table, status or request row. A self-service organization is awaiting
+ * platform review exactly when two authoritative records say so together: `companies` records that
+ * it was born through sign-up, and `genesis_nominations` holds no row for it. The operator ceremony
+ * that ends the wait writes the nomination; nothing here can, so the state cannot drift from what
+ * the records say.
+ */
+
+/** How this tenant came to exist, read for the session's own tenant only. */
+export type GenesisActivationOrigin =
+  | { readonly status: "read"; readonly selfService: boolean }
+  | { readonly status: "unavailable" };
+
+/**
+ * True only when BOTH reads succeeded and BOTH say so. An unreadable origin or nomination is never
+ * reported as awaiting review — the surface falls back to the released wording instead.
+ */
+export function isAwaitingPlatformReview(
+  origin: GenesisActivationOrigin,
+  lookup: GenesisNominationLookup,
+): boolean {
+  return (
+    origin.status === "read" &&
+    origin.selfService &&
+    lookup.status === "read" &&
+    lookup.nomination === null
+  );
+}
+
+/**
+ * What still has to happen after sign-up, in order, and who does each step. Frozen so the genesis
+ * page and Organization Readiness cannot describe the path differently. It promises no timeframe
+ * and no notification: Hebun sends none.
+ */
+export const GENESIS_ACTIVATION_STEPS: readonly string[] = Object.freeze([
+  "A Hebun platform operator reviews this organization and nominates you as its first Governance holder.",
+  "You accept the nomination on this page.",
+  "You establish this organization's Governance authority on the Organization Authority page.",
+  "You decide whether Heby may use AI assistance with this organization's data, on the same page.",
+]);

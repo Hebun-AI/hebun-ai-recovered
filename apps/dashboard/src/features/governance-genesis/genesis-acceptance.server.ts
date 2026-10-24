@@ -1,8 +1,9 @@
 /*
  * governance-genesis/genesis-acceptance.server.ts — KEY 2 of the two-key genesis ceremony (G2.1).
  *
- * WHAT THIS MODULE MAY DO, EXHAUSTIVELY: read this tenant's genesis nomination, and move exactly one
- * `pending` row to `accepted` when the CURRENTLY AUTHENTICATED human is the one it names.
+ * WHAT THIS MODULE MAY DO, EXHAUSTIVELY: read this tenant's genesis nomination, read whether this
+ * tenant was born through self-service sign-up (TENANT-ACTIVATION-1, wording only), and move exactly
+ * one `pending` row to `accepted` when the CURRENTLY AUTHENTICATED human is the one it names.
  *
  * WHAT IT CANNOT DO, BY CONSTRUCTION:
  *   - it cannot CREATE a nomination. There is no insert in this file, and no product surface in the
@@ -29,10 +30,13 @@
  */
 import { and, eq } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
+import { companies } from "@/db/schema/company";
 import { genesisNominations } from "@/db/schema/genesis-nomination";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGenesisNominationWithin } from "@/features/governance-audit/genesis-nomination-audit.server";
+import { TENANT_PROVISIONING_SOURCE_SELF_SERVICE } from "@/features/tenant-provisioning/contracts";
 import {
+  type GenesisActivationOrigin,
   type GenesisAcceptanceResult,
   type GenesisNominationLookup,
   type GenesisNominationView,
@@ -103,6 +107,40 @@ export async function readGenesisNomination(
     return { status: "read", nomination: view };
   } catch {
     return { status: "unavailable", reason: "persistence-unavailable" };
+  }
+}
+
+/**
+ * TENANT-ACTIVATION-1. Was this tenant born through self-service sign-up?
+ *
+ * Tenant-scoped by predicate: the session's own `tenantId` is the only id that can reach the query,
+ * and only `provisioning_source` is selected. It reads no other tenant, writes nothing, and its
+ * answer is used only to word the wait honestly — it grants and refuses nothing.
+ */
+export async function readGenesisActivationOrigin(
+  tenant: TenantContext | null,
+  deps: GenesisDeps = {},
+): Promise<GenesisActivationOrigin> {
+  if (typeof window !== "undefined") {
+    throw new Error("Genesis activation reads are server-only.");
+  }
+  if (!tenant?.tenantId) return { status: "unavailable" };
+  const db = (deps.getDb ?? resolveGenesisDbOrNull)();
+  if (!db) return { status: "unavailable" };
+  try {
+    const rows = await db
+      .select({ provisioningSource: companies.provisioningSource })
+      .from(companies)
+      .where(eq(companies.id, tenant.tenantId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { status: "unavailable" };
+    return {
+      status: "read",
+      selfService: row.provisioningSource === TENANT_PROVISIONING_SOURCE_SELF_SERVICE,
+    };
+  } catch {
+    return { status: "unavailable" };
   }
 }
 

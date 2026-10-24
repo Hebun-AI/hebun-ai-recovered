@@ -2,6 +2,12 @@
  * Genesis nomination ceremony (G2.1, production posture added by G4) — OPERATOR CLI, KEY 1 of 2.
  *
  *   npm run governance:nominate-genesis -- <tenant-slug> <identity-email>
+ *   npm run governance:nominate-genesis -- --pending      (TENANT-ACTIVATION-1, read-only)
+ *
+ * `--pending` lists self-service organizations that have no genesis nomination yet, so an operator
+ * can find them without hand-written SQL. It goes through the SAME posture and target verification
+ * as a nomination, runs inside a read-only transaction, nominates nobody, and prompts for nothing.
+ * Nominating still means running the ceremony below for one tenant, with the slug retyped.
  *
  * WHAT THIS IS. The deliberate, out-of-band act that names the human eligible to accept a tenant's
  * pre-Governance genesis entitlement. It is a CLI and not a product route on purpose: no
@@ -51,9 +57,11 @@ import { preflight, preflightEnvironment } from "./lib/ceremony-preflight";
 import { resolveCeremonyPosture } from "./lib/production-possession";
 import {
   findExistingNomination,
+  listPendingSelfServiceTenants,
   nominateGenesisHuman,
   resolveNominationTarget,
 } from "./lib/nominate-genesis-human";
+import { TENANT_PROVISIONING_SOURCE_SELF_SERVICE } from "../src/features/tenant-provisioning/contracts";
 
 function fail(message: string): never {
   console.error(`\n  ✖ ${message}\n`);
@@ -85,10 +93,17 @@ async function main(): Promise<void> {
     fail("this ceremony is development-only and refuses to run with NODE_ENV=production.");
   }
 
+  const listPending = process.argv[2]?.trim() === "--pending";
+  if (listPending && process.argv.length > 3) {
+    fail("usage: npm run governance:nominate-genesis -- --pending   (takes no other argument)");
+  }
   const tenantSlug = process.argv[2]?.trim().toLowerCase();
   const email = process.argv[3]?.trim().toLowerCase();
-  if (!tenantSlug || !email) {
-    fail("usage: npm run governance:nominate-genesis -- <tenant-slug> <identity-email>");
+  if (!listPending && (!tenantSlug || !email)) {
+    fail(
+      "usage: npm run governance:nominate-genesis -- <tenant-slug> <identity-email>\n" +
+        "         npm run governance:nominate-genesis -- --pending",
+    );
   }
 
   /*
@@ -118,8 +133,17 @@ async function main(): Promise<void> {
   }
   const ceremonySource = environment.posture.source;
 
+  if (listPending) {
+    try {
+      await printPendingSelfServiceTenants(client);
+    } finally {
+      await client.end();
+    }
+    return;
+  }
+
   try {
-    const target = await resolveNominationTarget(client, tenantSlug, email);
+    const target = await resolveNominationTarget(client, tenantSlug!, email!);
     if (!target) {
       fail(
         `no active human "${email}" with an active membership in tenant "${tenantSlug}". ` +
@@ -177,6 +201,36 @@ async function main(): Promise<void> {
   } finally {
     await client.end();
   }
+}
+
+/**
+ * TENANT-ACTIVATION-1. Print the organizations awaiting review. Writes nothing — the listing runs
+ * in a read-only transaction — and decides nothing: each line is a candidate for the operator to
+ * review out-of-band, not a nomination.
+ */
+async function printPendingSelfServiceTenants(client: Client): Promise<void> {
+  const pending = await listPendingSelfServiceTenants(client, TENANT_PROVISIONING_SOURCE_SELF_SERVICE);
+  console.log("");
+  console.log("  SELF-SERVICE ORGANIZATIONS AWAITING A GENESIS NOMINATION — READ-ONLY");
+  console.log("");
+  if (pending.length === 0) {
+    console.log("  None. Nothing was changed.");
+    console.log("");
+    return;
+  }
+  for (const tenant of pending) {
+    console.log(`  ${tenant.tenantSlug}`);
+    console.log(`    name     : ${tenant.tenantName}`);
+    console.log(`    created  : ${tenant.createdAt.toISOString()}`);
+    console.log(`    members  : ${tenant.memberEmails.join(", ")}`);
+    console.log("");
+  }
+  console.log(`  ${pending.length} awaiting. Nothing was changed. No one was nominated.`);
+  console.log("");
+  console.log("  Sign-up does not verify that an address belongs to the person who used it.");
+  console.log("  Confirm the organization and its founder out-of-band before nominating, then run:");
+  console.log("    npm run governance:nominate-genesis -- <tenant-slug> <identity-email>");
+  console.log("");
 }
 
 main().catch((error) => {
