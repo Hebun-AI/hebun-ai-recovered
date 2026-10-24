@@ -58,6 +58,13 @@ export interface OrganizationReadinessFacts {
 
 const UNREADABLE = "Could not be read right now. That is unknown, not “no”.";
 const OPERATOR = "A platform operator ceremony; not available in the app today.";
+/*
+ * EA1-KIND-ARMING-1, said where it matters. Arming has no act-kind dimension: one arming opens email
+ * sending, Instagram publication and YouTube publication together. A reader who sees only "Armed"
+ * would reasonably assume it covers the one kind they asked for.
+ */
+const ARMING_SCOPE_FACTS =
+  "Armed for this organization. One arming covers email sending, Instagram publication and YouTube publication together; it is not granted per kind.";
 
 export function describeOrganizationReadiness(facts: OrganizationReadinessFacts): readonly ReadinessRow[] {
   const g = facts.governance;
@@ -146,7 +153,13 @@ export function describeOrganizationReadiness(facts: OrganizationReadinessFacts)
     p.status === "unavailable"
       ? { key: "publishing", label: "Executing approved sends and posts", state: "unknown", facts: UNREADABLE, next: null }
       : p.effectiveSend === "reachable"
-        ? { key: "publishing", label: "Executing approved sends and posts", state: "ready", facts: "Armed for this organization.", next: null }
+        ? {
+            key: "publishing",
+            label: "Executing approved sends and posts",
+            state: "ready",
+            facts: ARMING_SCOPE_FACTS,
+            next: null,
+          }
         : {
             key: "publishing",
             label: "Executing approved sends and posts",

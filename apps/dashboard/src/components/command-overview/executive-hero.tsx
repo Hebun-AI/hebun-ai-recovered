@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CircleCheck, CircleDashed, Scale, Sparkles } from "lucide-react";
+import { ArrowRight, CircleCheck, CircleDashed, ListChecks, Scale, Sparkles } from "lucide-react";
 
 import { CommandRegion } from "@/components/command-overview/region";
 import { ExecutivePresentation } from "@/components/command-overview/executive-presentation-client";
@@ -22,6 +22,24 @@ import type {
  *   Ask Hebun           — the intent entry, with the registry's declared and invokable counts. It
  *                         links to Director Intent; it submits nothing from here.
  */
+/*
+ * PRODUCT-INTEGRATION-1 — the way in to this organization's readiness. A link and nothing else: the
+ * Command route may not reach the capability and provider readers that readiness composes, so it
+ * states no count and claims no state; the readiness page reads each row from its owning authority.
+ */
+function ReadinessLink() {
+  return (
+    <Link
+      href="/governance/authority#organization-readiness"
+      className="inline-flex min-w-0 max-w-full items-center gap-2.5 rounded-xl bg-surface/90 px-3 py-2 text-meta text-fg-secondary shadow-xs transition-colors hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+    >
+      <ListChecks className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+      <span className="min-w-0 truncate">Organization readiness · what this organization still needs</span>
+      <ArrowRight className="size-3.5 shrink-0" aria-hidden="true" />
+    </Link>
+  );
+}
+
 function AttentionLine({ waiting }: { readonly waiting: WaitingOnYouState }) {
   if (waiting.status === "unavailable") {
     return (
@@ -95,8 +113,9 @@ export function ExecutiveContext({
         {named ? null : (
           <p className="text-meta text-fg-muted">Organization could not be read · {standing.detail}</p>
         )}
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col items-start gap-2">
           <AttentionLine waiting={waiting} />
+          <ReadinessLink />
         </div>
       </CommandRegion>
 

@@ -28,6 +28,18 @@ export function getGovernanceOverviewModel(): GovernanceOverviewModel {
 
   const availability: readonly GovernanceAreaView[] = [
     {
+      // PRODUCT-INTEGRATION-1: the released authority roster and organization readiness had no way in
+      // from Governance. Linked here rather than added to the Phase 23C Governance L2.
+      area: "Authority & readiness",
+      question: "Who holds Governance authority here, and what does this organization still need?",
+      status: "authoritative-real",
+      authorityOwner: "Governance",
+      backing: "Governance ledger, membership authority and organization readiness",
+      canMutate: false,
+      detail: "The recorded Governance authority, membership decisions, and each readiness requirement read from the authority that owns it. Its decisions are taken on that page, not here.",
+      href: "/governance/authority",
+    },
+    {
       area: "Policies & Rules",
       question: "What policy/rule machinery exists?",
       status: "derived-seeded",

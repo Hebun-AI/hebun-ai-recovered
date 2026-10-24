@@ -211,7 +211,7 @@ export const WORKSPACES: readonly Workspace[] = [
       // detail routes (Timeline, Failures, Workflows, Orchestration, Task Planning, Events)
       // are honesty-fixed and remain reachable via `match`, but are no longer authoritative L2;
       // their redirect/retirement is Phase 22D.
-      { label: "Overview", href: "/operations", icon: Activity, purpose: "What operational state Hebun can observe today." },
+      { label: "Overview", href: "/operations", icon: Activity, purpose: "Content preparation, media, READY packages and publication proposals — and what operational state Hebun can observe today." },
       { label: "Execution", href: "/director/execution-center", icon: Activity, purpose: "What has run, and what capability is available — read-only." },
       { label: "Runtime & Signals", href: "/director/runtime-signals", icon: Activity, purpose: "What the runtime observes about itself." },
       { label: "Execution Substrate", href: "/director/execution-substrate", icon: Layers, purpose: "The execution stack and what is missing — read-only." },
@@ -237,7 +237,7 @@ export const WORKSPACES: readonly Workspace[] = [
       // applications / future Enterprise Domain candidates, kept reachable via `match` and made
       // honest in 25C, with route disposition (redirect / relocation / retirement) owned by 25D.
       { label: "Overview", href: "/workforce", icon: UsersRound, purpose: "Who can perform work — the workforce information model. Read-only, honest empty state." },
-      { label: "Agents", href: "/agents", icon: UsersRound, purpose: "AI agent definitions — seeded, in-memory registry; runtime simulation, not a live workforce." },
+      { label: "Agents", href: "/agents", icon: UsersRound, purpose: "This organization's recorded AI agents — identity, service status, mandate and placement." },
       { label: "Teams & Roles", href: "/workforce/teams", icon: UsersRound, purpose: "How the workforce is organized — seeded groupings and declared roles; no live staffing." },
       { label: "Capabilities", href: "/workforce/capabilities", icon: Sparkles, purpose: "What the workforce is declared capable of — declaration is not execution." },
     ],
@@ -296,9 +296,9 @@ export const WORKSPACES: readonly Workspace[] = [
       // The Architecture Map route (/architecture) is retained as a reachable reference (load-bearing for
       // a dashboard widget), removed from the authoritative L2 — it is not redirected (no false equivalence).
       { label: "Overview", href: "/platform", icon: Layers, purpose: "Platform capability and what is actually connected — contract-only, offline." },
-      { label: "Providers & Models", href: "/director/provider-matrix", icon: Layers, purpose: "Registered providers and models — offline descriptors, read-only, not connected." },
+      { label: "Providers & Models", href: "/director/provider-matrix", icon: Layers, purpose: "Registered models, the model connectivity switch, external-send arming and recorded provider usage." },
       { label: "Provider Runtime", href: "/director/provider-invocation", icon: Activity, purpose: "How far an invocation can progress — routing, invocation contract, live eligibility. Offline." },
-      { label: "Integrations", href: "/integrations", icon: Layers, purpose: "External integrations — none connected; offline descriptors only." },
+      { label: "Integrations", href: "/integrations", icon: Layers, purpose: "This organization's provider connections, and the capabilities each connection makes available." },
       { label: "Infrastructure & Settings", href: "/settings", icon: Layers, purpose: "Real platform configuration and runtime state — in-memory, secrets boundary." },
     ],
   },

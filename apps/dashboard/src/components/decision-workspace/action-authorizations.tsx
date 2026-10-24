@@ -39,6 +39,7 @@ import {
   permitDeliverySentence,
   type MachineDeliveryState,
 } from "@/features/action-authorization/delivery-legibility";
+import { executionRefusalWording } from "@/components/decision-workspace/execution-refusal-wording";
 import {
   elapsedSince,
   type ElapsedObservation,
@@ -671,11 +672,10 @@ function OutcomeLine({
  * EXECUTION-AUTHORITY-1 — the server's refusal, said in words. It reads only the reason the server
  * returned and infers nothing about the viewer: this surface holds no authority information, and
  * Execute stays visible to everyone so the server remains the one place that answers.
+ * PRODUCT-INTEGRATION-1 widened the wording to every refusal the executors return.
  */
 function executionRefusalText(reason: string): string {
-  return reason === "not-the-governance-authority" || reason === "no-governance-authority"
-    ? "only this organization's Governance authority can execute an authorization"
-    : reason;
+  return executionRefusalWording(reason);
 }
 
 /**

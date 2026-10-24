@@ -23,7 +23,8 @@ const ACTOR_WORDING: Record<ReadinessActor, string> = {
 
 export function OrganizationReadinessCard({ rows }: { readonly rows: readonly ReadinessRow[] }) {
   return (
-    <Card>
+    /* `organization-readiness` is the anchor the Command overview's readiness line links to. */
+    <Card id="organization-readiness" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ClipboardCheck aria-hidden className="size-4" />
