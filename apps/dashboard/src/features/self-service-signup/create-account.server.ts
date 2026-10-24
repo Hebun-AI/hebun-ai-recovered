@@ -39,7 +39,10 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { users } from "@/db/schema/user";
 import { establishFirstPasswordCredential } from "@/features/auth-runtime/credential-repository.server";
-import { insertLocalIdentity } from "@/features/auth-runtime/identity-repository.server";
+import {
+  insertLocalIdentity,
+  isEmailClaimed,
+} from "@/features/auth-runtime/identity-repository.server";
 import {
   LOCAL_IDENTITY_ISSUER,
   LOCAL_IDENTITY_PROVIDER,
@@ -90,12 +93,12 @@ class SignupAbort extends Error {
  * free would promise a write the database will refuse.
  */
 async function emailIsRegistered(db: ControlPlaneDatabase, normalizedEmail: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, normalizedEmail))
-    .limit(1);
-  return rows.length > 0;
+  /*
+   * CASE-INSENSITIVE, like sign-in. `users_email_uq` is on the exact string, so an exact comparison
+   * here let `alice@x.test` sign up beside a historical `Alice@x.test` — two humans for one mailbox.
+   * The Identity authority's own claimed-address read is the one comparison both sides now share.
+   */
+  return isEmailClaimed(db, normalizedEmail);
 }
 
 /**

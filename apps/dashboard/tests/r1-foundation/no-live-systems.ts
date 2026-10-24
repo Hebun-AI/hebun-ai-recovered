@@ -68,6 +68,9 @@ function main(): void {
    * only way a browser can cause tenant creation, which is why it is named here rather than matched
    * by a pattern — a second one appearing is a decision somebody has to record. */
   "src/app/register/actions.ts",
+  /* AUTH-EMAIL-OWNERSHIP-1 added one more: requesting and confirming an address proof. The digest key
+   * it needs is resolved inside the authority, never named at the browser-facing boundary. */
+  "src/app/verify-email/actions.ts",
   ]) {
     const source = read(clientFile);
     for (const secretToken of [

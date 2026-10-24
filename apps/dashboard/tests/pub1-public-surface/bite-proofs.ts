@@ -88,8 +88,9 @@ function main(): void {
     MIDDLEWARE,
     BOUNDARY_SUITE,
     "/integrations must not be public",
-    'const PUBLIC_EXACT_PATHS = ["/"];',
-    'const PUBLIC_EXACT_PATHS = ["/", "/integrations"];',
+    /* AUTH-EMAIL-OWNERSHIP-1: the anchor follows the list, which now also holds `/verify-email`. */
+    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email"];',
+    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/integrations"];',
   );
 
   bites(

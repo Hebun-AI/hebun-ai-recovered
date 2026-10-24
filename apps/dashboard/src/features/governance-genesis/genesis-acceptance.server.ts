@@ -33,6 +33,10 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { companies } from "@/db/schema/company";
 import { genesisNominations } from "@/db/schema/genesis-nomination";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import {
+  emailOwnershipProvenPredicate,
+  readEmailOwnershipProof,
+} from "@/features/auth-email-ownership/email-verification.server";
 import { recordGenesisNominationWithin } from "@/features/governance-audit/genesis-nomination-audit.server";
 import { TENANT_PROVISIONING_SOURCE_SELF_SERVICE } from "@/features/tenant-provisioning/contracts";
 import {
@@ -192,7 +196,26 @@ export async function acceptGenesisNomination(
     if (row.status === "accepted") return { status: "refused", reason: "already-accepted" };
     if (row.status === "revoked") return { status: "refused", reason: "revoked" };
 
+    /*
+     * AUTH-EMAIL-OWNERSHIP-1 — PERMANENT AUTHORITY NEEDS A PROVEN ADDRESS.
+     *
+     * Self-service signup admits an address without anyone reading mail at it, and the operator who
+     * nominates a genesis human has nothing more than that address. Acceptance is where permanent
+     * Governance comes into existence, so it is where the proof is required — never retroactively:
+     * a genesis already accepted, and Governance already established, are untouched.
+     *
+     * This read only chooses the refusal wording and pins WHICH proof the audit row will name. The
+     * authority is the predicate inside the UPDATE below, evaluated by the same statement that
+     * accepts, and pinned to this exact proving challenge.
+     */
+    const proof = await readEmailOwnershipProof(db, row.nominatedAuthIdentityId);
+    if (!proof.proven || !proof.challengeId) {
+      return { status: "refused", reason: "email-ownership-unproven" };
+    }
+    const provingChallengeId = proof.challengeId;
+
     let accepted = false;
+    let ownershipLapsed = false;
     await db.transaction(async (tx) => {
       /*
        * The read above informed the refusal wording; THIS predicate is the authority. Between the
@@ -218,13 +241,26 @@ export async function acceptGenesisNomination(
             eq(genesisNominations.nominatedAuthIdentityId, tenant.authIdentityId),
             eq(genesisNominations.nominatedUserId, tenant.userId),
             eq(genesisNominations.status, "pending"),
+            emailOwnershipProvenPredicate(
+              genesisNominations.nominatedAuthIdentityId,
+              provingChallengeId,
+            ),
           ),
         )
         .returning({ id: genesisNominations.id });
 
       if (updated.length === 0) {
-        // Somebody else got there first. Nothing changed, and no history is written for a
-        // no-op — the row's existing `accepted` state is already the truthful record.
+        /*
+         * Either somebody else got there first — the row's existing `accepted` state is already the
+         * truthful record — or the proof read above no longer holds. Which one is read from the row
+         * itself, so the refusal never claims an acceptance that did not happen.
+         */
+        const current = await tx
+          .select({ status: genesisNominations.status })
+          .from(genesisNominations)
+          .where(eq(genesisNominations.id, row.id))
+          .limit(1);
+        ownershipLapsed = current[0]?.status === "pending";
         return;
       }
 
@@ -245,6 +281,7 @@ export async function acceptGenesisNomination(
             nominationSource: row.nominationSource,
             assuranceLevel: tenant.assuranceLevel,
             mfaVerified: false,
+            emailOwnershipChallengeId: provingChallengeId,
           },
         },
         now,
@@ -254,7 +291,7 @@ export async function acceptGenesisNomination(
 
     return accepted
       ? { status: "accepted", nominationId: row.id, acceptedAt: now.toISOString() }
-      : { status: "refused", reason: "already-accepted" };
+      : { status: "refused", reason: ownershipLapsed ? "email-ownership-unproven" : "already-accepted" };
   } catch {
     return { status: "refused", reason: "persistence-unavailable" };
   }

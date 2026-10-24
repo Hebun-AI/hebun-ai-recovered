@@ -25,6 +25,7 @@
 import assert from "node:assert/strict";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { proveEmailOwnership } from "../helpers/email-ownership-proof";
 // Loaded FIRST on purpose: the schema barrel is the only safe entry point for
 // `src/db/schema/*` (a pre-existing _base → company → organization cycle).
 import { createControlPlaneDb } from "../../src/db/client.server";
@@ -261,6 +262,15 @@ async function main(): Promise<void> {
       const context = contextFor(alice, tenant, sessionForGovernance);
       const govDeps = { getDb: () => handle.db, now: () => NOW } as never;
 
+      /*
+       * AUTH-EMAIL-OWNERSHIP-1: acceptance requires a PROVEN address. The human proves it through the
+       * released issue + confirm path from their own session, exactly as a real nominee would.
+       */
+      await proveEmailOwnership(handle.db, {
+        authIdentityId: alice.authIdentityId,
+        sessionContextId: sessionForGovernance,
+        now: NOW,
+      });
       const accepted = await acceptGenesisNomination(context, govDeps);
       assert.equal(accepted.status, "accepted", JSON.stringify(accepted));
       const established = await establishGovernanceAuthority(

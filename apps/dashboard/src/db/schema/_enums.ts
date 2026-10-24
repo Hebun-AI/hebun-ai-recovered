@@ -308,6 +308,12 @@ export const authCredentialStatusEnum = pgEnum("auth_credential_status", [
   "revoked",
 ]);
 
+/* AUTH-EMAIL-OWNERSHIP-1. What a single-use email challenge exists to prove. A closed set: a new
+ * purpose (password recovery is M2) is a deliberate schema decision, never a string a caller picks. */
+export const authEmailChallengePurposeEnum = pgEnum("auth_email_challenge_purpose", [
+  "email-verification",
+]);
+
 /* G2.1 pre-Governance genesis nomination lifecycle.
  *
  *   pending   an operator ceremony nominated a human; nothing is entitled yet.

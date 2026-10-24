@@ -141,6 +141,11 @@ export type GenesisAcceptanceRefusal =
   | "already-accepted"
   /** Revoked nominations can never be accepted. */
   | "revoked"
+  /**
+   * AUTH-EMAIL-OWNERSHIP-1. The nominated human has not proven they read mail at their current
+   * address. They can confirm it from the notice in Hebun and then accept.
+   */
+  | "email-ownership-unproven"
   /** The durable store is not configured or could not be read. */
   | "persistence-unavailable";
 

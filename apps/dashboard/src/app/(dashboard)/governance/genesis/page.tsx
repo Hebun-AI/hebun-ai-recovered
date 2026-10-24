@@ -12,6 +12,7 @@ import {
   GENESIS_OPERATOR_ROOT,
   isAwaitingPlatformReview,
 } from "@/features/governance-genesis/contracts";
+import { readEmailOwnershipState } from "@/features/auth-email-ownership/email-verification.server";
 
 export const metadata = { title: "Genesis Nomination — Hebun AI" };
 
@@ -43,6 +44,11 @@ export default async function GenesisNominationPage() {
   ]);
 
   const nomination = lookup.status === "read" ? lookup.nomination : null;
+  /* Only the human a pending nomination names needs this read; acceptance re-checks it atomically. */
+  const ownershipProven =
+    tenant && nomination?.viewerIsNominatedHuman && nomination.status === "pending"
+      ? (await readEmailOwnershipState(tenant.authIdentityId)).status === "verified"
+      : true;
 
   const block: GenesisBlock | undefined = !tenant
     ? { kind: "unauthenticated" }
@@ -58,7 +64,9 @@ export default async function GenesisNominationPage() {
             ? { kind: "already-accepted", acceptedAt: nomination.acceptedAt }
             : nomination.status === "revoked"
               ? { kind: "revoked" }
-              : undefined;
+              : !ownershipProven
+                ? { kind: "email-ownership-unproven" }
+                : undefined;
 
   return (
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">

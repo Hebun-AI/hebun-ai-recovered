@@ -46,7 +46,12 @@ export type GenesisBlock =
   | { readonly kind: "awaiting-platform-review" }
   | { readonly kind: "not-the-nominated-human" }
   | { readonly kind: "already-accepted"; readonly acceptedAt: string | null }
-  | { readonly kind: "revoked" };
+  | { readonly kind: "revoked" }
+  /** AUTH-EMAIL-OWNERSHIP-1: the nomination names this human, whose address is not yet proven. */
+  | { readonly kind: "email-ownership-unproven" };
+
+const EMAIL_OWNERSHIP_UNPROVEN_TEXT =
+  "This nomination names you. Before you can accept it, confirm your email address with the notice at the top of this page. If no notice is shown, email confirmation is not available in this deployment yet, and the nomination stays pending.";
 
 const REFUSAL_TEXT: Record<GenesisAcceptanceRefusal, string> = {
   unauthenticated: "Your session ended. Sign in again to accept.",
@@ -55,6 +60,7 @@ const REFUSAL_TEXT: Record<GenesisAcceptanceRefusal, string> = {
   "already-accepted": "This nomination was already accepted. Acceptance happens once.",
   revoked: "This nomination was revoked and can no longer be accepted.",
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
+  "email-ownership-unproven": EMAIL_OWNERSHIP_UNPROVEN_TEXT,
 };
 
 /*
@@ -98,7 +104,9 @@ function BlockNotice({ block }: { block: GenesisBlock }) {
             ? "This tenant has a genesis nomination, and it names someone else. Only that human can accept it."
             : block.kind === "revoked"
               ? "This tenant's genesis nomination was revoked and can no longer be accepted."
-              : "This tenant's genesis nomination has been accepted. Acceptance happens once.";
+              : block.kind === "email-ownership-unproven"
+                ? EMAIL_OWNERSHIP_UNPROVEN_TEXT
+                : "This tenant's genesis nomination has been accepted. Acceptance happens once.";
   return (
     <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-muted p-3 text-sm text-fg-muted">
       <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />

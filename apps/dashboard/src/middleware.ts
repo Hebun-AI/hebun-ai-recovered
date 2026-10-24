@@ -91,7 +91,14 @@ const MACHINE_INGRESS_PATHS = [
   "/api/media-storage/acceptance",
 ];
 
-const PUBLIC_EXACT_PATHS = ["/"];
+/*
+ * `/verify-email` (AUTH-EMAIL-OWNERSHIP-1) is the landing page of an emailed confirmation link. It
+ * is exact for the same reason `/` is: it has no children. It must be reachable signed out, because
+ * redirecting a signed-out visitor to /login is exactly how a link's contents would travel onward;
+ * the page reads nothing and does nothing on load, and the act behind its button requires an
+ * authorized session of the identity the link was mailed for.
+ */
+const PUBLIC_EXACT_PATHS = ["/", "/verify-email"];
 
 export function middleware(request: NextRequest): NextResponse {
   if (process.env.HEBUN_AUTH_ENABLED !== "true") {

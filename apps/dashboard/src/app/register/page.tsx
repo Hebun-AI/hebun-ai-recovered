@@ -166,8 +166,9 @@ export default async function RegisterPage(props: {
       </p>
 
       <p className="text-xs text-neutral-500">
-        Password recovery is not available yet — there is no reset flow in this build. Email
-        addresses are not verified, and single sign-on is not implemented.
+        Password recovery is not available yet — there is no reset flow in this build. Creating an
+        account does not confirm your email address; that is a separate step, from a link Hebun
+        mails to you. Single sign-on is not implemented.
       </p>
     </main>
   );

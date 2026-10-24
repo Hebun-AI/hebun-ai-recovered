@@ -208,6 +208,11 @@ export interface PendingSelfServiceTenant {
   readonly createdAt: Date;
   /** The tenant's eligible humans — exactly the ones `resolveNominationTarget` would accept. */
   readonly memberEmails: readonly string[];
+  /**
+   * AUTH-EMAIL-OWNERSHIP-1. The subset of `memberEmails` whose current address is PROVEN. Only such a
+   * human can accept a genesis nomination; the listing says so up front instead of at acceptance.
+   */
+  readonly provenEmails: readonly string[];
 }
 
 /**
@@ -233,11 +238,25 @@ export async function listPendingSelfServiceTenants(
       tenant_name: string;
       created_at: Date;
       member_emails: string[];
+      proven_emails: string[];
     }>(
       `select c.slug        as tenant_slug,
               c.name        as tenant_name,
               c.created_at  as created_at,
-              array_agg(distinct lower(u.email) order by lower(u.email)) as member_emails
+              array_agg(distinct lower(u.email) order by lower(u.email)) as member_emails,
+              /* The same definition as emailOwnershipProvenPredicate in features/auth-email-ownership. */
+              coalesce(
+                array_agg(distinct lower(u.email) order by lower(u.email)) filter (
+                  where i.email_ownership_verified_at is not null
+                    and exists (
+                      select 1 from auth_email_challenges ec
+                       where ec.id = i.email_ownership_challenge_id
+                         and ec.consumed_at is not null
+                         and ec.email_at_issue = lower(btrim(u.email))
+                    )
+                ),
+                '{}'
+              ) as proven_emails
          from companies c
          join memberships m on m.tenant_id = c.id
          join users u       on u.id = m.user_id
@@ -266,6 +285,7 @@ export async function listPendingSelfServiceTenants(
       tenantName: row.tenant_name,
       createdAt: row.created_at,
       memberEmails: row.member_emails,
+      provenEmails: row.proven_emails,
     }));
   } finally {
     await client.query("rollback");

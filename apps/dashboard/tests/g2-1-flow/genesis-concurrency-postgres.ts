@@ -23,6 +23,7 @@
 import assert from "node:assert/strict";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { proveEmailOwnership } from "../helpers/email-ownership-proof";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { acceptGenesisNomination } from "../../src/features/governance-genesis/genesis-acceptance.server";
@@ -221,6 +222,14 @@ async function main(): Promise<void> {
        * proof is RACE 2 above. This exists to show the application path inherits it rather than
        * layering a read-then-write on top that would reintroduce the gap.
        */
+      /*
+       * AUTH-EMAIL-OWNERSHIP-1: acceptance requires a PROVEN address. The human proves it through the
+       * released issue + confirm path from their own session, exactly as a real nominee would.
+       */
+      await proveEmailOwnership(handle.db, {
+        authIdentityId: alice.authIdentityId,
+        sessionContextId: session.rows[0]!.id,
+      });
       const results = await Promise.all(
         [0, 1, 2, 3].map(() => acceptGenesisNomination(tenant, { getDb: () => handle.db })),
       );

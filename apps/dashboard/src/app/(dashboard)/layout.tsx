@@ -8,6 +8,9 @@ import {
 } from "@/features/auth-runtime/request-session.server";
 import { resolveHumanLabels } from "@/features/auth-runtime/human-label-read.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { EmailOwnershipNotice } from "@/components/auth/email-ownership-notice";
+import type { EmailOwnershipState } from "@/features/auth-email-ownership/contracts";
+import { readEmailOwnershipState } from "@/features/auth-email-ownership/email-verification.server";
 
 /**
  * Who the top bar names, from the session this layout just authorized — never written in a file.
@@ -42,15 +45,25 @@ export default async function DashboardLayout({
 }) {
   const env = getAuthEnvironment();
   let account: ShellAccount | null = null;
+  let emailOwnership: EmailOwnershipState = { status: "unavailable" };
   if (env.status === "configured") {
     const result = await resolveRequestAuthentication(env);
     if (result.status !== "authorized") {
       redirect("/login");
     }
-    account = await resolveShellAccount(result.tenantContext);
+    [account, emailOwnership] = await Promise.all([
+      resolveShellAccount(result.tenantContext),
+      /* Fails soft to `unavailable`, which renders nothing: this read must never cost a page. */
+      readEmailOwnershipState(result.tenantContext.authIdentityId),
+    ]);
   } else if (env.status === "invalid") {
     redirect("/login");
   }
 
-  return <HebunShell account={account}>{children}</HebunShell>;
+  return (
+    <HebunShell account={account}>
+      <EmailOwnershipNotice state={emailOwnership} />
+      {children}
+    </HebunShell>
+  );
 }

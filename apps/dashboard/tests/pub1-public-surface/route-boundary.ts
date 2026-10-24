@@ -141,7 +141,7 @@ function main(): void {
         `${entry} must not be a dashboard route — the dashboard did not become public`,
       );
     }
-    assert.deepEqual(exact, ["/"], "the exact-match public list is closed at the public homepage");
+    /* AUTH-EMAIL-OWNERSHIP-1: `/verify-email` joins by EXACT match (Director-approved design gate) — the landing page of an emailed link, which reads nothing and does nothing on load; still no prefix and nothing else. */ assert.deepEqual(exact, ["/", "/verify-email"], "the exact-match public list is closed at the public homepage and the email confirmation page");
     assert.ok(
       !existsSync(abs("src/app/(dashboard)/page.tsx")),
       "the dashboard group must not claim / — that is the public homepage",

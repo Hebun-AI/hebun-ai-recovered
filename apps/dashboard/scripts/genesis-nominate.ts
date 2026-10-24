@@ -222,12 +222,18 @@ async function printPendingSelfServiceTenants(client: Client): Promise<void> {
     console.log(`  ${tenant.tenantSlug}`);
     console.log(`    name     : ${tenant.tenantName}`);
     console.log(`    created  : ${tenant.createdAt.toISOString()}`);
-    console.log(`    members  : ${tenant.memberEmails.join(", ")}`);
+    const proven = new Set(tenant.provenEmails);
+    console.log(
+      `    members  : ${tenant.memberEmails
+        .map((email) => `${email} (${proven.has(email) ? "address confirmed" : "address NOT confirmed"})`)
+        .join(", ")}`,
+    );
     console.log("");
   }
   console.log(`  ${pending.length} awaiting. Nothing was changed. No one was nominated.`);
   console.log("");
   console.log("  Sign-up does not verify that an address belongs to the person who used it.");
+  console.log("  A nominee can accept only after confirming their address in Hebun.");
   console.log("  Confirm the organization and its founder out-of-band before nominating, then run:");
   console.log("    npm run governance:nominate-genesis -- <tenant-slug> <identity-email>");
   console.log("");

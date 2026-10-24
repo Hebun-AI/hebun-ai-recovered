@@ -124,11 +124,31 @@ export interface SessionResolutionRow {
   readonly companyAuthenticationDisabledAt: Date | null;
 }
 
-/** Find the active, verified local identity for an email (sign-in resolution). */
+/**
+ * Find the active local identity for an email (sign-in resolution).
+ *
+ * ── CASE-INSENSITIVE, WITHOUT CHANGING WHAT IS STORED ───────────────────────
+ *
+ * Signup stores addresses lower-cased, seeded and historical rows may carry mixed case, and a human
+ * types whatever case they like. Matching only the exact string meant `Founder@x.test` could create
+ * an account (stored `founder@x.test`) and then never sign in with the address as typed. So the
+ * comparison is `lower(stored) = lower(typed)` — and nothing stored, and no index, changes.
+ *
+ * `users_email_uq` is on the EXACT string, so two historical humans may differ only by case. The
+ * resolution is therefore deterministic and fails closed:
+ *   1. an EXACT match wins — every address that resolved before still resolves to the same human;
+ *   2. otherwise, exactly ONE human matching case-insensitively is that human;
+ *   3. otherwise (two humans differ only by case, none typed exactly) NOBODY — ambiguity is never
+ *      resolved by guessing which person was meant.
+ *
+ * The table is small and unindexed on `lower(email)`; a functional index is the upgrade if it grows.
+ */
 export async function findActiveLocalIdentityByEmail(
   db: ControlPlaneDatabase,
   email: string,
 ): Promise<LocalIdentityRow | undefined> {
+  const typed = email.trim();
+  if (!typed) return undefined;
   const rows = await db
     .select({
       userId: users.id,
@@ -142,7 +162,7 @@ export async function findActiveLocalIdentityByEmail(
     .innerJoin(authIdentities, eq(authIdentities.userId, users.id))
     .where(
       and(
-        eq(users.email, email),
+        sql`lower(${users.email}) = lower(${typed})`,
         eq(users.lifecycleStatus, "active"),
         eq(authIdentities.provider, "local"),
         eq(authIdentities.status, "active"),
@@ -150,9 +170,10 @@ export async function findActiveLocalIdentityByEmail(
         isNull(authIdentities.revokedAt),
       ),
     )
-    .orderBy(asc(authIdentities.createdAt), asc(authIdentities.id))
-    .limit(1);
-  return rows[0];
+    .orderBy(asc(authIdentities.createdAt), asc(authIdentities.id));
+  const exact = rows.find((row) => row.email === typed);
+  if (exact) return exact;
+  return new Set(rows.map((row) => row.userId)).size === 1 ? rows[0] : undefined;
 }
 
 /**
@@ -700,4 +721,99 @@ export async function findRoleForTenant(
     .where(and(eq(roles.id, roleId), eq(roles.tenantId, tenantId)))
     .limit(1);
   return rows[0];
+}
+
+/*
+ * ── AUTH-EMAIL-OWNERSHIP-1: the Identity authority's half of an email ownership proof ───────────
+ *
+ * The challenge authority (`features/auth-email-ownership`) owns the single-use token. What the token
+ * PROVES is an Identity fact, so it is written here and nowhere else — the same split as Credential
+ * authority hashing a secret that Identity authority's caller asked for.
+ */
+
+/** Anything that can lock and amend an identity row: the database or an open transaction on it. */
+export type IdentityOwnershipWriter = Pick<ControlPlaneDatabase, "select" | "update">;
+
+/** The identity an ownership challenge is about, read under a row lock. */
+export interface LockedOwnershipIdentity {
+  readonly authIdentityId: string;
+  readonly userId: string;
+  /** `lower(btrim(users.email))` — the only form a challenge ever records or compares. */
+  readonly normalizedEmail: string;
+  /** `btrim(users.email)` as stored — the address a message is actually sent to. */
+  readonly deliveryEmail: string;
+  /** True only when the identity, its user, and neither's lifecycle stand in the way of a proof. */
+  readonly usable: boolean;
+  readonly emailOwnershipVerifiedAt: Date | null;
+}
+
+/**
+ * Lock ONE identity row for the rest of the caller's transaction and describe it.
+ *
+ * This is what serializes everything that happens to one identity's ownership state: two concurrent
+ * issues, an issue racing a confirmation, two confirmations. `FOR UPDATE OF auth_identities` takes
+ * the identity's row lock only; the user row is read, not locked, because nothing here writes it.
+ */
+export async function lockIdentityForOwnership(
+  db: IdentityOwnershipWriter,
+  authIdentityId: string,
+): Promise<LockedOwnershipIdentity | undefined> {
+  const rows = await db
+    .select({
+      authIdentityId: authIdentities.id,
+      userId: users.id,
+      email: users.email,
+      identityStatus: authIdentities.status,
+      identityLifecycle: authIdentities.lifecycleStatus,
+      identityRevokedAt: authIdentities.revokedAt,
+      userLifecycle: users.lifecycleStatus,
+      emailOwnershipVerifiedAt: authIdentities.emailOwnershipVerifiedAt,
+    })
+    .from(authIdentities)
+    .innerJoin(users, eq(users.id, authIdentities.userId))
+    .where(eq(authIdentities.id, authIdentityId))
+    .for("update", { of: authIdentities })
+    .limit(1);
+  const row = rows[0];
+  if (!row) return undefined;
+  return {
+    authIdentityId: row.authIdentityId,
+    userId: row.userId,
+    normalizedEmail: row.email.trim().toLowerCase(),
+    deliveryEmail: row.email.trim(),
+    usable:
+      row.identityStatus === "active" &&
+      row.identityLifecycle === "active" &&
+      row.identityRevokedAt === null &&
+      row.userLifecycle === "active",
+    emailOwnershipVerifiedAt: row.emailOwnershipVerifiedAt,
+  };
+}
+
+/**
+ * Record that an identity's address was PROVEN by consuming `challengeId`.
+ *
+ * Write-once: predicated on the proof still being absent, so a second proof can never overwrite the
+ * provenance of the first. Returns whether this call wrote it. Never touches `verified_at`, `status`,
+ * or anything sign-in reads — an ownership proof changes no one's access.
+ */
+export async function markEmailOwnershipVerified(
+  db: IdentityOwnershipWriter,
+  input: { readonly authIdentityId: string; readonly challengeId: string; readonly at: Date },
+): Promise<boolean> {
+  const updated = await db
+    .update(authIdentities)
+    .set({
+      emailOwnershipVerifiedAt: input.at,
+      emailOwnershipChallengeId: input.challengeId,
+      updatedAt: input.at,
+    })
+    .where(
+      and(
+        eq(authIdentities.id, input.authIdentityId),
+        isNull(authIdentities.emailOwnershipVerifiedAt),
+      ),
+    )
+    .returning({ id: authIdentities.id });
+  return updated.length === 1;
 }

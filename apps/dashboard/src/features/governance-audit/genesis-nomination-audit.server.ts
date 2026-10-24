@@ -59,6 +59,11 @@ export interface GenesisNominationAuditMetadata {
   /** Recorded honestly so no later phase can narrate a stronger ceremony than happened. */
   readonly assuranceLevel: string;
   readonly mfaVerified: false;
+  /**
+   * AUTH-EMAIL-OWNERSHIP-1. On acceptance: the consumed challenge that proved the accepting human's
+   * address — an id, never the address. Absent on events that predate the requirement.
+   */
+  readonly emailOwnershipChallengeId?: string;
 }
 
 export interface GenesisNominationAuditEvent {

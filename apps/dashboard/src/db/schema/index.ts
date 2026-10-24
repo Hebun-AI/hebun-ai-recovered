@@ -16,6 +16,7 @@ export * from "./permission";
 export * from "./membership";
 export * from "./auth-identity";
 export * from "./auth-credential";
+export * from "./auth-email-challenge";
 export * from "./invitation";
 export * from "./user-session-context";
 export * from "./role-permission";

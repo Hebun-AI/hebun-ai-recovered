@@ -2,6 +2,7 @@
  * these rows only establish the future canonical identity mapping contract. */
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   index,
@@ -13,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { rootColumns } from "./_base";
 import { actorTypeEnum, authIdentityStatusEnum } from "./_enums";
+import { authEmailChallenges } from "./auth-email-challenge";
 import { users } from "./user";
 
 export const authIdentities = pgTable(
@@ -35,6 +37,20 @@ export const authIdentities = pgTable(
     revokedByType: actorTypeEnum("revoked_by_type"),
     revokedById: uuid("revoked_by_id"),
     revocationReason: varchar("revocation_reason", { length: 128 }),
+    /*
+     * AUTH-EMAIL-OWNERSHIP-1. PROVEN mailbox ownership, kept apart from `verified_at` on purpose.
+     *
+     * `verified_at` is required by `auth_identities_active_chk` for every active identity and has
+     * always been written at admission — signup, invitation enrollment and the bootstrap ceremony —
+     * without anyone reading a message at the address. It therefore means "admitted" and is never
+     * read as proof. These two columns are the proof: set together, only by consuming a challenge the
+     * identity's own session presented, and NULL for every identity that has not done that.
+     */
+    emailOwnershipVerifiedAt: timestamp("email_ownership_verified_at", { withTimezone: true }),
+    emailOwnershipChallengeId: uuid("email_ownership_challenge_id").references(
+      (): AnyPgColumn => authEmailChallenges.id,
+      { onDelete: "restrict" },
+    ),
   },
   (t) => [
     uniqueIndex("auth_identities_provider_issuer_subject_uq").on(
@@ -82,6 +98,10 @@ export const authIdentities = pgTable(
     check(
       "auth_identities_revoked_time_chk",
       sql`${t.revokedAt} is null or ${t.revokedAt} >= ${t.linkedAt}`,
+    ),
+    check(
+      "auth_identities_email_ownership_pair_chk",
+      sql`(${t.emailOwnershipVerifiedAt} is null) = (${t.emailOwnershipChallengeId} is null)`,
     ),
   ],
 );

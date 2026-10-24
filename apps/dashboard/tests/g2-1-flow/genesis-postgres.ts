@@ -25,6 +25,7 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 // `src/db/schema/*` (a pre-existing _base → company → organization cycle).
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { proveEmailOwnership } from "../helpers/email-ownership-proof";
 import {
   findExistingNomination,
   nominateGenesisHuman,
@@ -329,6 +330,15 @@ async function main(): Promise<void> {
         false,
       );
 
+      /*
+       * AUTH-EMAIL-OWNERSHIP-1: acceptance requires a PROVEN address. The human proves it through the
+       * released issue + confirm path from their own session, exactly as a real nominee would.
+       */
+      await proveEmailOwnership(handle.db, {
+        authIdentityId: alice.authIdentityId,
+        sessionContextId: aliceSession,
+        now: NOW,
+      });
       const accepted = await acceptGenesisNomination(aliceCtx, deps);
       assert.equal(accepted.status, "accepted");
 

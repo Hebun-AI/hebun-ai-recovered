@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { getControlPlaneDb } from "@/db/client.server";
 import {
@@ -12,6 +13,7 @@ import { issueLocalSession } from "@/features/auth-runtime/session-service.serve
 import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import { createSelfServiceAccount } from "@/features/self-service-signup/create-account.server";
 import type { SignupRefusal } from "@/features/self-service-signup/contracts";
+import { issueEmailVerification } from "@/features/auth-email-ownership/email-verification.server";
 
 /**
  * Create an account, an organization, and sign the new human in.
@@ -68,6 +70,23 @@ export async function registerAction(formData: FormData): Promise<void> {
      */
     redirect(`/register?error=${encodeURIComponent(outcome.reason satisfies SignupRefusal)}`);
   }
+
+  /*
+   * ASK THE NEW HUMAN TO PROVE THEIR ADDRESS — AFTER THE RESPONSE, NEVER INSTEAD OF IT.
+   *
+   * The account exists and is usable whether or not mail can be sent, so a slow, failing or absent
+   * mail provider must neither delay nor fail signup. `after` runs once the response is on its way.
+   * It is registered HERE, before any `redirect()` below throws, so every successful path schedules
+   * it. Nothing it returns reaches the visitor; the banner reads the recorded outcome later.
+   */
+  const createdIdentityId = outcome.account.authIdentityId;
+  after(async () => {
+    try {
+      await issueEmailVerification(createdIdentityId);
+    } catch {
+      /* The human can request a link from the banner; nothing else depends on this. */
+    }
+  });
 
   const issued = await issueLocalSession(getControlPlaneDb(), env, {
     email,

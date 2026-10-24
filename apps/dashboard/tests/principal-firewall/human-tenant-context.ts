@@ -51,12 +51,10 @@ const UNTOUCHED: readonly (readonly [string, string])[] = [
    * PRINCIPAL-FW-1's own commit did not move them, and both still accept only the human context.
    */
   ["src/db/schema/auth-credential.ts", "edc303c"],
-  ["src/db/schema/auth-identity.ts", "edc303c"],
   ["src/db/schema/user-session-context.ts", "edc303c"],
   ["src/db/schema/user.ts", "edc303c"],
   ["src/db/schema/membership.ts", "edc303c"],
   ["src/features/auth-runtime/credential-repository.server.ts", "edc303c"],
-  ["src/features/auth-runtime/identity-repository.server.ts", "edc303c"],
   ["src/features/auth-runtime/password-hash.server.ts", "edc303c"],
   ["src/features/auth-runtime/request-session.server.ts", "edc303c"],
   /*
@@ -498,8 +496,9 @@ function main(): void {
     );
     assert.deepEqual(
       listOf("PUBLIC_EXACT_PATHS"),
-      ['"/"'],
-      "and the exact-match public list is still closed at the homepage",
+      /* AUTH-EMAIL-OWNERSHIP-1: plus the email confirmation landing page, by exact match only. */
+      ['"/"', '"/verify-email"'],
+      "and the exact-match public list is still closed at the homepage and the email confirmation page",
     );
     assert.deepEqual(
       listOf("MACHINE_INGRESS_PATHS"),
@@ -533,6 +532,67 @@ function main(): void {
     assert.ok(!/MachineExecutionPrincipal/.test(code), `${writer} admits no machine principal`);
   }
 
+  /*
+   * AUTH-EMAIL-OWNERSHIP-1: the `auth_identities` schema and the Identity repository are still pinned
+   * to `edc303c` BYTE FOR BYTE — except for exactly the regions that phase was authorized to change,
+   * each NAMED below and cut out by an exact anchor that must appear exactly once. Anything else that
+   * moves in either file still fails here, exactly as before. The regions themselves are then held to
+   * the invariants this firewall protects: an identity belongs to a human `users` row, and sign-in
+   * resolves only an active, unrevoked LOCAL identity of an active human — never by guessing.
+   */
+  const cut = (source: string, from: string, to: string | null, label: string): string => {
+    const at = source.indexOf(from);
+    assert.ok(at >= 0 && source.indexOf(from, at + 1) < 0, `${label}: its anchor appears exactly once`);
+    const stop = to === null ? source.length : source.indexOf(to, at + from.length);
+    assert.ok(stop >= 0, `${label}: its end anchor exists`);
+    return source.slice(0, at) + source.slice(stop);
+  };
+  const releasedOf = (file: string): string =>
+    execFileSync("git", ["show", `edc303c:apps/dashboard/${file}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  {
+    const file = "src/db/schema/auth-identity.ts";
+    let current = read(file);
+    current = cut(current, "  type AnyPgColumn,\n", "  boolean,", "AEO-1 column type import");
+    current = cut(current, 'import { authEmailChallenges } from "./auth-email-challenge";\n', 'import { users }', "AEO-1 challenge import");
+    current = cut(current, "    /*\n     * AUTH-EMAIL-OWNERSHIP-1. PROVEN mailbox ownership", "  },\n  (t) => [", "AEO-1 proof columns");
+    current = cut(current, '    check(\n      "auth_identities_email_ownership_pair_chk",', "  ],\n);", "AEO-1 pair CHECK");
+    assert.equal(current, releasedOf(file), `${file} is byte-identical to edc303c outside the named AEO-1 regions`);
+  }
+  {
+    const file = "src/features/auth-runtime/identity-repository.server.ts";
+    const lookupFrom = (source: string) =>
+      source.includes("/**\n * Find the active local identity for an email (sign-in resolution).")
+        ? "/**\n * Find the active local identity for an email (sign-in resolution)."
+        : "/** Find the active, verified local identity for an email (sign-in resolution). */";
+    const lookupTo = "/**\n * Is a human already known to Hebun at this address?";
+    const released = releasedOf(file);
+    let current = read(file);
+    current = cut(current, "\n/*\n * ── AUTH-EMAIL-OWNERSHIP-1: the Identity authority's half", null, "AEO-1 ownership writers");
+    assert.equal(
+      cut(current, lookupFrom(current), lookupTo, "AEO-1 case-insensitive lookup"),
+      cut(released, lookupFrom(released), lookupTo, "released lookup"),
+      `${file} is byte-identical to edc303c outside the named AEO-1 regions`,
+    );
+    const code = codeOf(read(file));
+    const lookup = code.slice(code.indexOf("export async function findActiveLocalIdentityByEmail"), code.indexOf("export async function isEmailClaimed"));
+    for (const guard of [
+      'eq(users.lifecycleStatus, "active")',
+      'eq(authIdentities.provider, "local")',
+      'eq(authIdentities.status, "active")',
+      'eq(authIdentities.lifecycleStatus, "active")',
+      "isNull(authIdentities.revokedAt)",
+      "rows.find((row) => row.email === typed)",
+      "new Set(rows.map((row) => row.userId)).size === 1 ? rows[0] : undefined",
+    ]) {
+      assert.ok(lookup.includes(guard), `sign-in resolution keeps its guard: ${guard}`);
+    }
+    assert.ok(!/MachineExecutionPrincipal|agentId|agent_id/.test(code), "the Identity repository names no machine or agent principal");
+  }
+  assert.ok(
+    /userId: uuid\("user_id"\)\s*\.notNull\(\)\s*\.references\(\(\) => users\.id/.test(codeOf(read("src/db/schema/auth-identity.ts"))),
+    "an identity still belongs to a human `users` row (NOT NULL foreign key)",
+  );
+
   for (const [file, release] of UNTOUCHED) {
     const released = execFileSync("git", ["show", `${release}:apps/dashboard/${file}`], {
       cwd: ROOT,
@@ -544,7 +604,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 80, "this phase authored no migration — a type needs none"); /* WORK-UPDATE V1: ledger 77 -> 78 (agent_mandates_scope_subset_chk gains 'set-work-declared-state'; additive). */ /* D1 work-planning: ledger 76 -> 77 (tenant_ai_data_use_scopes purpose CHECK gains 'work-planning'; additive). */ /* L-1b: ledger 75 -> 76 (governance_domain gains 'agent-lifecycle'; additive). */ /* AP-4A: ledger 74 -> 75 (work_domains + agent_mandate_responsibilities + work_items work-scope provenance + agent_mandates (tenant_id, id) unique; additive). */ /* AP-1: ledger 73 -> 74 (agents in-service canonical-name unique index + visible-name CHECK). */ /* SCI-2B: ledger 72 -> 73 (knowledge_nodes.integrity_protected_at_insert: one nullable column + one BEFORE INSERT stamp trigger; no backfill). */ /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version immutability: one trigger function + three triggers; no table, column or data change). */ /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */ /* PLAN-FOLLOW-UP-REFERENCE-V1: ledger 78 -> 79 (two insert-only provenance tables; additive). */ /* PLAN-STEP-IDEMPOTENCY-1: ledger 79 -> 80 (heby_action_requests.plan_step_ref, its shape CHECK and the open-plan-step partial unique index; additive). */
+  assert.equal(sqlCount, 81, "this phase authored no migration — a type needs none"); /* WORK-UPDATE V1: ledger 77 -> 78 (agent_mandates_scope_subset_chk gains 'set-work-declared-state'; additive). */ /* D1 work-planning: ledger 76 -> 77 (tenant_ai_data_use_scopes purpose CHECK gains 'work-planning'; additive). */ /* L-1b: ledger 75 -> 76 (governance_domain gains 'agent-lifecycle'; additive). */ /* AP-4A: ledger 74 -> 75 (work_domains + agent_mandate_responsibilities + work_items work-scope provenance + agent_mandates (tenant_id, id) unique; additive). */ /* AP-1: ledger 73 -> 74 (agents in-service canonical-name unique index + visible-name CHECK). */ /* SCI-2B: ledger 72 -> 73 (knowledge_nodes.integrity_protected_at_insert: one nullable column + one BEFORE INSERT stamp trigger; no backfill). */ /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version immutability: one trigger function + three triggers; no table, column or data change). */ /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */ /* PLAN-FOLLOW-UP-REFERENCE-V1: ledger 78 -> 79 (two insert-only provenance tables; additive). */ /* PLAN-STEP-IDEMPOTENCY-1: ledger 79 -> 80 (heby_action_requests.plan_step_ref, its shape CHECK and the open-plan-step partial unique index; additive). */ /* AUTH-EMAIL-OWNERSHIP-1: ledger 80 -> 81 (auth_email_challenges + two nullable auth_identities proof columns; additive). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))
