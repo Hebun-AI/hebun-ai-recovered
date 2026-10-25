@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AGENT_SERVICE_STATUS_LABEL } from "@/features/agent-identity/service-status";
 import {
   AGENT_OUTCOME_NON_CLAIMS,
@@ -144,6 +145,19 @@ function AgentBlock({ agent }: { agent: AgentOutcomeObservation }) {
             value={agent.governance.approvedWithoutExecution}
           />
         </div>
+        {/*
+          * ENTERPRISE-OPERATIONS-1 — a count of decisions still owed, or of authorizations still
+          * unspent, names a place a human acts. A plain link: this surface still offers no control.
+          */}
+        {agent.activity.pending > 0 || agent.governance.permitsActive > 0 ? (
+          <p className="text-[0.65rem] leading-5 text-fg-muted">
+            Pending proposals are decided, and live authorizations executed or revoked, in{" "}
+            <Link href="/approvals" className="underline underline-offset-2">
+              Decisions
+            </Link>
+            .
+          </p>
+        ) : null}
       </Section>
 
       <Section title={AGENT_OUTCOME_WORDING.executionTitle}>

@@ -150,6 +150,29 @@ export function describeRequestLifecycle(view: ActionRequestLifecycleView): read
   return out;
 }
 
+/*
+ * ENTERPRISE-OPERATIONS-1 — where the lifecycle's next step, or its outcome, is acted on or read.
+ * Derived from the same rows `describeRequestLifecycle` speaks for; it adds a place, never a claim.
+ */
+export function lifecycleNextStep(view: ActionRequestLifecycleView): { readonly href: string; readonly label: string } | null {
+  if (view.decision.status === "pending") return { href: "/approvals", label: "Open Approvals" };
+  if (view.decision.status === "rejected" || view.permit === null) return null;
+  if (view.permit.state === "active") return { href: "/approvals", label: "Execute or revoke it in Approvals" };
+  if (view.permit.state === "consumed" && INTERNAL_ACTION_KINDS.includes(view.actionKind)) {
+    return { href: "/director/work", label: "Open the work register" };
+  }
+  return null;
+}
+
+export function LifecycleNextStepLink({ view }: { readonly view: ActionRequestLifecycleView }) {
+  const step = lifecycleNextStep(view);
+  return step ? (
+    <Link href={step.href} className="underline">
+      {step.label}
+    </Link>
+  ) : null;
+}
+
 const LIFECYCLE_UNREADABLE: Readonly<Record<"not-found" | "unavailable", string>> = {
   "not-found": "That request is not readable in this organization.",
   unavailable: "Hebun could not read the request's current state right now. Nothing was changed.",
@@ -196,10 +219,14 @@ export function HebyOriginationAffordance({
     setChosenAgentId(agentId);
     setState({ kind: "checking" });
     startTransition(async () => {
-      setState({
-        kind: "checked",
-        availability: await readAgentOriginationAvailabilityAction(agentId ? { agentId } : undefined),
-      });
+      let availability: AgentOriginationAvailability;
+      try {
+        availability = await readAgentOriginationAvailabilityAction(agentId ? { agentId } : undefined);
+      } catch {
+        /* The read did not answer: offer nothing, and say so, rather than leave the check spinning. */
+        availability = { status: "unavailable", reason: "temporarily-unavailable" };
+      }
+      setState({ kind: "checked", availability });
     });
   };
 
@@ -408,11 +435,14 @@ export function HebyOriginationAffordance({
         {state.lifecycle && state.lifecycle !== "checking" ? (
           <div className="mt-2 border-t border-border pt-2" data-heby-request-lifecycle="">
             {state.lifecycle.status === "read" ? (
-              describeRequestLifecycle(state.lifecycle.lifecycle).map((line) => (
-                <p key={line} className="text-fg">
-                  {line}
-                </p>
-              ))
+              <>
+                {describeRequestLifecycle(state.lifecycle.lifecycle).map((line) => (
+                  <p key={line} className="text-fg">
+                    {line}
+                  </p>
+                ))}
+                <LifecycleNextStepLink view={state.lifecycle.lifecycle} />
+              </>
             ) : (
               <p>{LIFECYCLE_UNREADABLE[state.lifecycle.status]}</p>
             )}
@@ -437,8 +467,11 @@ export function HebyOriginationAffordance({
   if (state.kind === "unknown") {
     return (
       <div className={PANEL} role="status">
-        The request to {state.agentName} did not complete, so Hebun cannot say here whether a proposal was filed.
-        Approvals shows every pending proposal.
+        The request to {state.agentName} did not complete, so Hebun cannot say here whether a proposal was filed.{" "}
+        <Link href="/approvals" className="underline">
+          Approvals
+        </Link>{" "}
+        shows every pending proposal.
       </div>
     );
   }
@@ -446,9 +479,16 @@ export function HebyOriginationAffordance({
   if (state.kind === "refused") {
     return (
       <div className={PANEL} role="status">
-        {state.reason === "proposal-refused" && state.detail === ALREADY_PENDING_DETAIL
-          ? ALREADY_PENDING_WORDING
-          : refusalWordingFor(state.reason, state.agentName)}
+        {state.reason === "proposal-refused" && state.detail === ALREADY_PENDING_DETAIL ? (
+          <>
+            {ALREADY_PENDING_WORDING}{" "}
+            <Link href="/approvals" className="underline">
+              Open Approvals
+            </Link>
+          </>
+        ) : (
+          refusalWordingFor(state.reason, state.agentName)
+        )}
         {state.detail && state.detail !== ALREADY_PENDING_DETAIL ? (
           <span className="mt-1 block">Stated reason: {state.detail}</span>
         ) : null}

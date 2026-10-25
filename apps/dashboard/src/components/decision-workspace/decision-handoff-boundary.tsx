@@ -15,7 +15,8 @@ import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision
  *   Governance    — owns the policy, authority requirements, and restrictions
  *   Knowledge     — owns the evidence and its provenance
  *   Intelligence  — owns advisory analysis, candidates, and recommendations
- *   Operations    — consumes an authorized outcome; a decision is not execution
+ *   Operations    — prepares content and shows runtime activity; it executes nothing
+ *   Work register — owns organizational work, including work executed from a permit here
  *   Heby          — explains and prepares; it never decides, approves, or authorizes
  */
 
@@ -53,9 +54,19 @@ const LINKS: readonly BoundaryLink[] = [
   },
   {
     label: "Operations",
-    reason: "Consumes an authorized outcome. A decision is not execution — Operations runs the authorized work.",
+    /*
+     * ENTERPRISE-OPERATIONS-1. This said "Operations runs the authorized work". It does not: an
+     * authorized act is executed on THIS surface, from its permit, by an explicit human act.
+     */
+    reason: "Prepares content and shows runtime activity. It does not execute: an authorized act runs only from its permit, by Execute now on this surface.",
     href: "/operations",
     hrefLabel: "Open Operations",
+  },
+  {
+    label: "Work register",
+    reason: "Owns organizational work. A recorded work item or a declared-state change that was executed from a permit here is kept there.",
+    href: "/director/work",
+    hrefLabel: "Open work register",
   },
 ];
 

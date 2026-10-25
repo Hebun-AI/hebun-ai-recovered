@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { AgentChoiceSelect, agentChoiceRequired, type AgentOption } from "@/components/agents/agent-choice-select";
@@ -21,6 +22,10 @@ import { WORK_DECLARED_STATES, type WorkDeclaredState } from "@/features/organiz
  */
 /** Shown beside an in-service agent the server said is not responsible for this item's work domain. */
 export const NOT_RESPONSIBLE_NOTE = "not responsible for this work domain";
+/** AP5-WORKSTATE-REASON-COPY-1 — its mandate does not include declared-state changes at all. */
+export const KIND_OUTSIDE_MANDATE_NOTE = "its mandate does not include work state changes";
+/** Its mandate could not be read, so why it is not eligible is unknown. */
+export const ELIGIBILITY_UNKNOWN_NOTE = "eligibility could not be confirmed";
 
 /*
  * WORK-UPDATE-AGENT-SELECTION-1 — what the person must choose, from what the server listed.
@@ -36,7 +41,16 @@ export function workStateAgentChoice(choices: WorkStateAgentChoices | null, chos
       ? choices.agents.map((agent) => ({
           agentId: agent.agentId,
           name: agent.name,
-          ...(agent.responsible ? {} : { unavailableNote: NOT_RESPONSIBLE_NOTE }),
+          ...(agent.responsible
+            ? {}
+            : {
+                unavailableNote:
+                  agent.ineligible === "kind-outside-mandate"
+                    ? KIND_OUTSIDE_MANDATE_NOTE
+                    : agent.ineligible === "unknown"
+                      ? ELIGIBILITY_UNKNOWN_NOTE
+                      : NOT_RESPONSIBLE_NOTE,
+              }),
         }))
       : [];
   const required = agentChoiceRequired(agents);
@@ -60,6 +74,8 @@ export function HebyWorkStateAffordance({
 }) {
   const [toState, setToState] = useState<WorkDeclaredState | "">("");
   const [result, setResult] = useState<OriginateWorkStateResult | null>(null);
+  /* The propose call threw: whether a proposal was filed is not known here, and is said so. */
+  const [interrupted, setInterrupted] = useState(false);
   const [pending, start] = useTransition();
   const [agentChoices, setAgentChoices] = useState<WorkStateAgentChoices | null>(null);
   const [chosenAgentId, setChosenAgentId] = useState("");
@@ -124,17 +140,36 @@ export function HebyWorkStateAffordance({
               start(async () => {
                 if (toState === "" || !agent.ready) return;
                 setProposerName(agent.agentName ?? "The chosen agent");
-                setResult(await proposeWorkStateChangeAction({ workItemId, toState, ...agent.selection }));
+                setInterrupted(false);
+                try {
+                  setResult(await proposeWorkStateChangeAction({ workItemId, toState, ...agent.selection }));
+                } catch {
+                  setResult(null);
+                  setInterrupted(true);
+                }
               })
             }
           >
             {pending ? "Asking Heby…" : "Ask Heby to propose"}
           </Button>
         </div>
+        {interrupted ? (
+          <p className="text-fg-secondary">
+            The request did not complete, so Hebun cannot say whether a proposal was filed. Check{" "}
+            <Link href="/approvals" className="underline underline-offset-2">
+              Approvals
+            </Link>{" "}
+            before asking again.
+          </p>
+        ) : null}
         {result === null ? null : result.status === "proposed" ? (
           <p className="text-fg-secondary">
             {proposerName} proposed declaring this item {result.toState} (from {result.fromState}). It is waiting
-            for review in /approvals; nothing has been approved, executed or changed. Stated reason: {result.reason}
+            for review in{" "}
+            <Link href="/approvals" className="underline underline-offset-2">
+              Approvals
+            </Link>
+            ; nothing has been approved, executed or changed. Stated reason: {result.reason}
           </p>
         ) : (
           <p className="text-fg-secondary">

@@ -16,7 +16,7 @@ import {
   readMyHebyRequestsAction,
   type MyActionRequestLifecyclesRead,
 } from "@/app/(dashboard)/heby/request-lifecycle-actions";
-import { describeRequestLifecycle } from "./heby-origination-affordance";
+import { describeRequestLifecycle, LifecycleNextStepLink } from "./heby-origination-affordance";
 
 const UNREADABLE = "Hebun could not read your requests right now. Nothing was changed.";
 
@@ -91,6 +91,7 @@ export function HebyMyRequests() {
                   {describeRequestLifecycle(item).map((line) => (
                     <p key={line}>{line}</p>
                   ))}
+                  <LifecycleNextStepLink view={item} />
                 </li>
               ))}
             </ol>

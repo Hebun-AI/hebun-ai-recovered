@@ -240,14 +240,37 @@ export async function preflightWorkStateOrigination(
  * `resolveAgentProposer` and asks `preflightWorkStateOrigination` again, and the one writer and the
  * spend ask the ceilings after that. Fails closed: any unreadable answer is `unavailable`.
  */
-export function composeWorkStateAgentChoices(identity: DurableAgentIdentityState, eligible: EligibleAgentsRead): WorkStateAgentChoices {
+export function composeWorkStateAgentChoices(
+  identity: DurableAgentIdentityState,
+  eligible: EligibleAgentsRead,
+  /*
+   * AP5-WORKSTATE-REASON-COPY-1 — per agent, whether its effective mandate admits this kind at all.
+   * Omitted: no reason is attached (the released shape). A `false` or missing entry names the cause.
+   */
+  admitsKind?: ReadonlyMap<string, boolean>,
+): WorkStateAgentChoices {
   if (identity.status !== "known" || eligible.status !== "read") return { status: "unavailable" };
   const responsible = new Set(eligible.agents.map((agent) => agent.agentId));
   return {
     status: "read",
     agents: identity.identities
       .filter((candidate) => candidate.inService)
-      .map((candidate) => ({ agentId: candidate.agentId, name: candidate.name, responsible: responsible.has(candidate.agentId) })),
+      .map((candidate) => {
+        const isResponsible = responsible.has(candidate.agentId);
+        const admits = admitsKind?.get(candidate.agentId);
+        const ineligible =
+          isResponsible || admitsKind === undefined || admits === true
+            ? undefined
+            : admits === false
+              ? ("kind-outside-mandate" as const)
+              : ("unknown" as const);
+        return {
+          agentId: candidate.agentId,
+          name: candidate.name,
+          responsible: isResponsible,
+          ...(ineligible ? { ineligible } : {}),
+        };
+      }),
   };
 }
 
@@ -263,7 +286,20 @@ export async function readWorkStateAgentChoices(
     if (target.status !== "found" || !target.target.inService || target.target.workScope === null) return { status: "unavailable" };
     const kind = AGENT_ORIGINABLE_REGISTRY_KIND[SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS];
     const eligible = await listEligibleAgents(tenant, target.target.workScope, deps, kind);
-    return composeWorkStateAgentChoices(await readDurableAgentIdentityState(tenant, deps), eligible);
+    const identity = await readDurableAgentIdentityState(tenant, deps);
+    /* Whether each in-service agent's mandate admits the kind at all; an unreadable mandate stays unknown. */
+    const admitsKind = new Map<string, boolean>();
+    if (identity.status === "known") {
+      for (const candidate of identity.identities) {
+        if (!candidate.inService) continue;
+        const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, deps);
+        if (mandate.status !== "known") continue;
+        const ceiling = refuseOutsideAgentMandate(mandate, kind);
+        /* Only the two answers that name the cause; "no mandate" or an unreadable one stays unknown. */
+        if (ceiling === null || ceiling === "action-outside-agent-mandate") admitsKind.set(candidate.agentId, ceiling === null);
+      }
+    }
+    return composeWorkStateAgentChoices(identity, eligible, admitsKind);
   } catch {
     return { status: "unavailable" };
   }

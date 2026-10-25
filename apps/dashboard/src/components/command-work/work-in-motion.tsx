@@ -28,8 +28,8 @@ import { type WorkInMotionState } from "@/features/command-overview/workspace-mo
  *
  * V2.1 keeps that attribution and drops the paragraphs around it: the released card explained that
  * Hebun does not create work, that retirement is recorded in place rather than deleted, and that a
- * bounded read is a lower bound. The first belongs to Operations, and the other two are now single
- * lines that appear only when they are true.
+ * bounded read is a lower bound. The first belongs to the work register, and the other two are now
+ * single lines that appear only when they are true.
  */
 export function WorkInMotion({
   state,
@@ -69,7 +69,7 @@ export function WorkInMotion({
           tone="empty"
           compact
           title="No work recorded yet"
-          detail="Record work in Operations to see it here."
+          detail="Record work in the work register to see it here."
         />
       ) : (
         <ul className="flex min-w-0 flex-col divide-y divide-border">
@@ -95,11 +95,16 @@ export function WorkInMotion({
       <div className="mt-auto flex min-w-0 items-center justify-between gap-3">
         <span className="min-w-0 truncate text-label text-fg-muted">
           {state.status === "recorded" && state.inServiceShown > Math.min(3, state.items.length)
-            ? `+${state.inServiceShown - Math.min(3, state.items.length)}${state.truncated ? " or more" : ""} more · progress lives in Operations`
-            : "Progress lives in Operations"}
+            ? `+${state.inServiceShown - Math.min(3, state.items.length)}${state.truncated ? " or more" : ""} more in the work register`
+            : "Recorded and changed in the work register"}
           {state.status === "recorded" && state.retiredShown > 0 ? ` · ${state.retiredShown} retired kept` : ""}
         </span>
-        <QuietLink href="/operations">Open Operations</QuietLink>
+        {/*
+          * ENTERPRISE-OPERATIONS-1. This pointed at Operations, which neither lists nor records work:
+          * the register is `/director/work`, reachable from no navigation row, so Command — the
+          * landing every role reaches — is where it is linked from.
+          */}
+        <QuietLink href="/director/work">Open work register</QuietLink>
       </div>
     </CommandRegion>
   );

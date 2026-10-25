@@ -79,6 +79,13 @@ export interface WorkStateAgentChoice {
   readonly agentId: string;
   readonly name: string;
   readonly responsible: boolean;
+  /**
+   * AP5-WORKSTATE-REASON-COPY-1 — WHY a listed agent is not responsible, when the reader could tell.
+   * `kind-outside-mandate`: its mandate does not include this kind at all; `unknown`: its mandate
+   * could not be read. Absent: the mandate admits the kind and the item's work domain is outside its
+   * responsibility (the only case the chooser's original sentence was true for).
+   */
+  readonly ineligible?: "kind-outside-mandate" | "unknown";
 }
 
 export type WorkStateAgentChoices =

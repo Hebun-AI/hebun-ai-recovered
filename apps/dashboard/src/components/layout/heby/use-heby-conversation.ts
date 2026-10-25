@@ -345,6 +345,21 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
   });
 
   /*
+   * AI-PLAN-UI-THROW-1, closed at its root. A server action that THROWS (rather than returning a
+   * refusal) used to leave its "in progress" placeholder on screen forever, because every call
+   * site below was `try/finally` with no `catch`. The request did not return, so nothing is known
+   * about what the server did; this block claims nothing beyond that and names a next step.
+   */
+  const interrupted = (command: string, lines: readonly string[]): HebyCommandResult => ({
+    command,
+    title: "Unavailable",
+    lines,
+    tone: "unavailable",
+    provenance: "Local — the request did not return, so its outcome is unknown.",
+  });
+  const READ_INTERRUPTED = ["Hebun could not complete this read, so nothing is shown. Nothing was changed by it; try again."];
+
+  /*
    * THE single submission gate, shared by both surfaces.
    *
    * Parse first, PLAN second, dispatch last. Every "/"-prefixed input is classified by the one
@@ -425,6 +440,13 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               ? { commandOutput: planned.result }
               : { commandOutput: refusal("AI plan", "Sign in required", ["Sign in to plan with AI."]), available: false },
           );
+        } catch {
+          patch({
+            commandOutput: interrupted("AI plan", [
+              "Hebun could not prepare an AI plan right now, so no plan is shown.",
+              "Try again, or use /plan for the rule-based plan, which makes no model request.",
+            ]),
+          });
         } finally {
           setReading(false);
         }
@@ -511,6 +533,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 ]),
               });
             }
+          } catch {
+            patch({ commandOutput: interrupted(parsed.command.slash, READ_INTERRUPTED) });
           } finally {
             setReading(false);
           }
@@ -577,6 +601,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 ]),
               });
             }
+          } catch {
+            patch({ commandOutput: interrupted(parsed.command.slash, READ_INTERRUPTED) });
           } finally {
             setReading(false);
           }
@@ -635,6 +661,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 ]),
               });
             }
+          } catch {
+            patch({ commandOutput: interrupted(parsed.command.slash, READ_INTERRUPTED) });
           } finally {
             setReading(false);
           }
@@ -685,6 +713,8 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 ]),
               });
             }
+          } catch {
+            patch({ commandOutput: interrupted(parsed.command.slash, READ_INTERRUPTED) });
           } finally {
             setReading(false);
           }
@@ -799,6 +829,14 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 ]),
               });
             }
+          } catch {
+            // This branch WRITES a pending request, so an interruption may have filed one.
+            patch({
+              commandOutput: interrupted(parsed.command.slash, [
+                "Hebun could not confirm whether this request was filed.",
+                "Check Approvals before trying again, so the same request is not filed twice.",
+              ]),
+            });
           } finally {
             setReading(false);
           }
@@ -855,6 +893,13 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
           notice: { tone: "warn", text: "Sign in to ask Heby a question." },
           pending: null,
           available: false,
+        });
+      }
+    } catch {
+      if (selection.isCurrent(token)) {
+        patch({
+          notice: { tone: "warn", text: "Heby could not answer right now. Whether your question was recorded is not known; reload to see the conversation." },
+          pending: null,
         });
       }
     } finally {

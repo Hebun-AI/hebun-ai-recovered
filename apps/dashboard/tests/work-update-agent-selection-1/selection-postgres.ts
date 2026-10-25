@@ -170,7 +170,8 @@ async function main(): Promise<void> {
     assert.deepEqual(
       listed.status === "read" ? [...listed.agents].sort((x, y) => x.name.localeCompare(y.name)) : listed,
       [
-        { agentId: atlas, name: "Atlas", responsible: false },
+        /* ENTERPRISE-OPERATIONS-1 (AP5-WORKSTATE-REASON-COPY-1): Atlas's mandate lacks the kind, and the read now says so. */
+        { agentId: atlas, name: "Atlas", responsible: false, ineligible: "kind-outside-mandate" },
         { agentId: bolt, name: "Bolt", responsible: true },
         { agentId: heby, name: "Heby", responsible: true },
       ],

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Compass, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +10,8 @@ import type { DirectorIntentModel } from "@/features/director-intent/workspace-m
  * Command · Director Intent (Hebun UI Phase 20B) — the prepared-intent surface that replaces the
  * former "Command Console" (Phase 20A decision D1). It is NOT a shell, terminal, or direct
  * execution, and never routes free text to raw execution. It presents the Phase 17 action
- * lifecycle read-only: only READ_ONLY / side-effect-free preparation is invokable; every mutation
- * stays gated to human authority with no connected substrate. There is no "authorized" state the
+ * lifecycle read-only: only READ_ONLY / side-effect-free preparation is invokable here; every
+ * mutation stays gated to human authority, and the count of connected ones is the model's. There is no "authorized" state the
  * system can produce. Prepared != authorized != executed. Heby prepares and never authorizes;
  * after a human authorizes, performing the act is a separate, separately gated step.
  */
@@ -28,17 +29,33 @@ export function DirectorIntent({ model }: { model: DirectorIntentModel }) {
     <>
       <PageHeader
         title="Director Intent"
-        context="Express what you want Hebun to investigate, prepare, or change. Heby understands and prepares — it never authorizes."
-        action={<Badge variant="neutral">Preparation only</Badge>}
+        context="What Hebun can investigate, prepare, or change, and where each act is decided. You express intent to Heby; Heby understands and prepares — it never authorizes."
+        action={
+          /*
+           * ENTERPRISE-OPERATIONS-1. This page takes no input, yet Command links here as "What do you
+           * want your organization to do?". The intent itself is written in Heby, so say so and go there.
+           */
+          <Link
+            href="/heby"
+            className="inline-flex items-center gap-1 rounded-md border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary"
+          >
+            Tell Heby what you want
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        }
       />
 
       {/* Honest capability boundary */}
       <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border bg-surface-sunken px-4 py-2.5">
         <span className="inline-flex items-center gap-2">
           <span className="text-[0.7rem] uppercase tracking-wide text-fg-muted">Understanding</span>
+          {/*
+            * ENTERPRISE-OPERATIONS-1. This said "No language model connected" — static text on a page
+            * that reads nothing, while Heby answers with a model where an organization allows it.
+            */}
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-secondary">
             <span className="size-2 rounded-full bg-fg-muted" aria-hidden="true" />
-            No language model connected
+            Happens in Heby, not on this page
           </span>
         </span>
         <span className="hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
@@ -94,9 +111,11 @@ export function DirectorIntent({ model }: { model: DirectorIntentModel }) {
           </ol>
           <p className="mt-3 text-xs leading-5 text-fg-muted">
             There is no &ldquo;authorized&rdquo; state the system produces — authorization is a human act.
-            Consequential work halts at human review. One action kind has a connected execution
-            runtime, spendable only by an explicit human act on Decisions and disabled at the
-            durable switch; every other consequential action has no substrate at all.
+            Consequential work halts at human review.{" "}
+            {model.connectedMutationCount} consequential action kind
+            {model.connectedMutationCount === 1 ? " has" : "s have"} a connected execution runtime, each spent only by an
+            explicit human act on Decisions; sends and posts also need this organization to be armed. Every other
+            consequential action has no substrate at all.
           </p>
         </CardContent>
       </Card>

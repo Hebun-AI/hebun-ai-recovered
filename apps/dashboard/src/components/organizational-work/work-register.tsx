@@ -45,6 +45,7 @@
  * confirmed by retyping the title rather than by one click.
  */
 
+import Link from "next/link";
 import { useId, useState, useTransition } from "react";
 import { WorkScopeSelect, workScopeFromChoice, type WorkScopeChoice } from "@/components/work-domain/work-scope-select";
 import { useRouter } from "next/navigation";
@@ -353,8 +354,11 @@ function ProposalFeedback({ result }: { result: RecordWorkProposalResult | null 
   return (
     <p role="status" className="mt-2 text-xs leading-5 text-fg-secondary">
       <strong className="text-fg">Proposed, not recorded.</strong> &ldquo;{result.receipt.title}
-      &rdquo; for {result.receipt.departmentName} is waiting for a decision in Decisions. The
-      register is unchanged.
+      &rdquo; for {result.receipt.departmentName} is waiting for a decision in{" "}
+      <Link href="/approvals" className="underline underline-offset-2">
+        Decisions
+      </Link>
+      . The register is unchanged.
     </p>
   );
 }

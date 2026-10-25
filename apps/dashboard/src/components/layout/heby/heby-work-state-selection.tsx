@@ -7,6 +7,7 @@
  * person; Heby is never shown it (the affordance's origination sends only a fixed sentence).
  */
 import type { WorkStateSelection } from "@/features/heby-action-inlet/work-state-proposal.server";
+import Link from "next/link";
 import { HebyWorkStateAffordance } from "./heby-work-state-affordance";
 
 export function HebyWorkStateSelection({ selection }: { readonly selection: WorkStateSelection }) {
@@ -41,6 +42,10 @@ export function HebyWorkStateSelection({ selection }: { readonly selection: Work
           Nothing was asked and nothing was changed.
         </p>
       )}
+      {/* ENTERPRISE-OPERATIONS-1 — the way back to where this item came from, and where its state lives. */}
+      <Link href="/director/work" className="mt-2 inline-block underline">
+        Back to the work register
+      </Link>
     </section>
   );
 }

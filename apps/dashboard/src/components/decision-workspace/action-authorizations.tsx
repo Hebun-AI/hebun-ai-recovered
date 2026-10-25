@@ -6,6 +6,7 @@ import { InstagramApprovalPreview } from "./instagram-approval-preview";
 import type { InstagramApprovalPreviewsRead } from "@/features/instagram-publishing/approval-preview.server";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
 import {
@@ -40,6 +41,9 @@ import {
   type MachineDeliveryState,
 } from "@/features/action-authorization/delivery-legibility";
 import { executionRefusalWording } from "@/components/decision-workspace/execution-refusal-wording";
+
+/** The organizational work register: where a spent record-work or work-state permit's outcome lives. */
+const WORK_REGISTER_HREF = "/director/work";
 import {
   elapsedSince,
   type ElapsedObservation,
@@ -296,7 +300,7 @@ function RequestCard({
               rejectionReason: reason,
             });
       if (result.status === "refused") {
-        setMessage(`Refused: ${result.reason}`);
+        setMessage(`Refused: ${executionRefusalWording(result.reason)}`);
         return;
       }
       setMessage(
@@ -718,9 +722,19 @@ export function permitOutcomeSentence(item: {
         ? "Executed. Hebun changed the work item's declared state under your authorization; it is on the work register."
         : "Spent. This authorization was consumed, and no provider attempt is recorded against it.";
   }
+  /*
+   * PERMIT-EXPIRED-STATUS-1 — the three unspent ends are different facts and are said apart. Only
+   * `active` can still be executed; an expired or revoked authorization never can, and the reader
+   * must not take either for an approval that is waiting on them. The state is the reader's own
+   * derivation (consumed and revoked outrank the clock); nothing here is re-derived.
+   */
   return item.state === "active"
     ? "Authorized — not executed. Executing spends this authorization permanently."
-    : "Authorized, and never executed.";
+    : item.state === "expired"
+      ? "Authorized, never executed, and now expired — it can no longer be executed. A new proposal and decision are needed."
+      : item.state === "revoked"
+        ? "Authorized, then revoked before it was executed — it can no longer be executed."
+        : "Authorized, and never executed.";
 }
 
 export function PermitRow({
@@ -740,6 +754,8 @@ export function PermitRow({
 }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  /* ENTERPRISE-OPERATIONS-1 — set only by THIS row's successful internal execution. */
+  const [workRecorded, setWorkRecorded] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const revoke = () =>
@@ -750,7 +766,7 @@ export function PermitRow({
         revocationReason: reason,
       });
       setMessage(
-        result.status === "revoked" ? "Revoked." : `Refused: ${result.reason}`,
+        result.status === "revoked" ? "Revoked." : `Refused: ${executionRefusalWording(result.reason)}`,
       );
     });
 
@@ -794,8 +810,9 @@ export function PermitRow({
         setMessage(
           result.status === "executed"
             ? `Changed. Hebun declared the work item ${result.outcome.workItem.declaredState} under your authorization; you authorized it, the system performed it.`
-            : `Not changed (${result.authorityReason ?? executionRefusalText(result.reason)}). Nothing was written, and the authorization is untouched.`,
+            : `Not changed (${executionRefusalText(result.authorityReason ?? result.reason)}). Nothing was written, and the authorization is untouched.`,
         );
+        setWorkRecorded(result.status === "executed");
         return;
       }
       if (internal) {
@@ -808,8 +825,9 @@ export function PermitRow({
                * authorization is still the Director's to spend. Saying so is the difference
                * between a fixable condition and a lost decision.
                */
-              `Not recorded (${executionRefusalText(result.reason)}). Nothing was written, and the authorization is untouched.`,
+              `Not recorded (${executionRefusalText(result.authorityReason ?? result.reason)}). Nothing was written, and the authorization is untouched.`,
         );
+        setWorkRecorded(result.status === "executed");
         return;
       }
       const result = await executeAuthorizedActionAction({ permitId: item.permitId });
@@ -836,7 +854,21 @@ export function PermitRow({
       </div>
 
       {item.executionStatus === null ? (
-        <p className="text-[0.65rem] text-fg-muted">{permitOutcomeSentence(item)}</p>
+        <p className="text-[0.65rem] text-fg-muted">
+          {permitOutcomeSentence(item)}
+          {/*
+           * ENTERPRISE-OPERATIONS-1 — the sentence names the work register; the register is reachable
+           * from nowhere in navigation, so the row that spent the permit links to it.
+           */}
+          {(item.consumedAt !== null || workRecorded) && (internal || workState) ? (
+            <>
+              {" "}
+              <Link href={WORK_REGISTER_HREF} className="underline">
+                Open the work register
+              </Link>
+            </>
+          ) : null}
+        </p>
       ) : (
         <OutcomeLine status={item.executionStatus} providerMessageId={item.providerMessageId} />
       )}

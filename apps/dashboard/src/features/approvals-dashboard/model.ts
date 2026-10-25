@@ -12,6 +12,17 @@ export type QueueItem = {
   | { kind: "content"; content: DashboardContent }
   | { kind: "permit"; permit: ActionPermitView }
 );
+/*
+ * PERMIT-EXPIRED-STATUS-1 — what each permit state means for the person reading the queue. Every
+ * permit sits under "Approved" because it WAS approved; the status says whether it can still run.
+ */
+const PERMIT_STATUS: Readonly<Record<ActionPermitView["state"], string>> = {
+  active: "Authorized · not yet executed",
+  expired: "Authorization expired · cannot be executed",
+  consumed: "Executed · authorization spent",
+  revoked: "Authorization revoked · cannot be executed",
+  none: "Permit state unknown",
+};
 const channelOf = (kind: string) => isPublicationActionKind(kind) ? PUBLICATION_DESTINATION[kind] : null;
 export function buildQueue(data: ApprovalsDashboardRead, requests: readonly PendingActionRequestView[], permits: readonly ActionPermitView[]): QueueItem[] {
   return [
@@ -42,7 +53,7 @@ export function buildQueue(data: ApprovalsDashboardRead, requests: readonly Pend
       kind: "permit", id: `permit:${permit.permitId}`, permit,
       title: permit.targetLabel ?? permit.actionKind, channel: channelOf(permit.actionKind), createdAt: permit.issuedAt,
       filters: ["Approved", ...(permit.executionStatus === "failed" || permit.executionStatus === "refused" ? ["Failed" as const] : [])],
-      status: `Permit ${permit.state}${permit.executionStatus ? ` · ${permit.executionStatus}` : ""}`,
+      status: `${PERMIT_STATUS[permit.state]}${permit.executionStatus ? ` · ${permit.executionStatus}` : ""}`,
       work: ["Work relationship not projected by the permit reader"],
     })),
   ];

@@ -34,7 +34,11 @@ import {
   readMyActionRequestLifecycles,
   type ActionRequestLifecycleView,
 } from "../../src/features/action-authorization/read-action-authorizations.server";
-import { describeRequestLifecycle } from "../../src/components/layout/heby/heby-origination-affordance";
+import { describeRequestLifecycle, lifecycleNextStep } from "../../src/components/layout/heby/heby-origination-affordance";
+import { readWorkRegister } from "../../src/features/organizational-work/read-work.server";
+import { readActionPermits } from "../../src/features/action-authorization/read-action-authorizations.server";
+import { buildQueue } from "../../src/features/approvals-dashboard/model";
+import type { ApprovalsDashboardRead } from "../../src/features/approvals-dashboard/read-dashboard.server";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { WorkScope } from "../../src/features/work-domain/work-scope";
 
@@ -189,6 +193,27 @@ async function main(): Promise<void> {
       const text = await words(id);
       assert.match(text, re);
       assert.doesNotMatch(text, /Work item recorded|Work item reference/);
+    }
+
+    /*
+     * ENTERPRISE-OPERATIONS-1 — the loop on real rows: each lifecycle names where its next step is
+     * acted on, the executed work is on the register a human is linked to, and an expired
+     * authorization is worded as one that cannot run.
+     */
+    assert.equal(lifecycleNextStep(v1)?.href, "/director/work", "an executed record-work leads to the register");
+    for (const [id, href] of [[pendingId, "/approvals"], [approvedId, "/approvals"], [expiredId, null], [rejectedId, null]] as const) {
+      assert.equal(lifecycleNextStep(await lifecycle(id))?.href ?? null, href, `next step for ${id}`);
+    }
+    const register = await readWorkRegister(acme.ctx, deps);
+    assert.ok(register.status === "available" && register.items.some((item) => item.workItemId === okWork.workItemId), "the executed work item is on the register");
+    const permits = await readActionPermits(acme.ctx, deps);
+    assert.equal(permits.status, "read");
+    if (permits.status === "read") {
+      const queue = buildQueue({ content: [], purposes: { status: "unavailable" } } as unknown as ApprovalsDashboardRead, [], permits.items);
+      const statusOf = (permitId: string) => queue.find((q) => q.kind === "permit" && q.permit.permitId === permitId)?.status;
+      assert.equal(statusOf(expiredPermit), "Authorization expired · cannot be executed", "the real expired permit is not worded as executable");
+      assert.equal(statusOf(approvedPermit), "Authorized · not yet executed");
+      assert.equal((await setup.query<{ status: string }>(`select status from action_permits where id = $1`, [expiredPermit])).rows[0]!.status, "active", "the stored lifecycle is untouched: expiry is read, not written");
     }
 
     /* 6 · FAILED EXECUTION: the work authority refuses, the spend rolls back, nothing is claimed. */

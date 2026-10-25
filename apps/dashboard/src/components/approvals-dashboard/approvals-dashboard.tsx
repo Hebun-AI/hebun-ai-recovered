@@ -13,6 +13,7 @@ import { PERMIT_DEFAULT_TTL_SECONDS, PERMIT_TTL_CHOICES } from "@/features/actio
 import type { ApprovalsDashboardRead } from "@/features/approvals-dashboard/read-dashboard.server";
 import { buildQueue, filterQueue, hiddenPendingRequests, canDecide, decideVisibleItems, type QueueItem, type Filter, type Intent, type DecisionOutcome } from "@/features/approvals-dashboard/model";
 import { InstagramApprovalPreview } from "@/components/decision-workspace/instagram-approval-preview";
+import { executionRefusalWording } from "@/components/decision-workspace/execution-refusal-wording";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import { ContentDetails } from "./content-detail";
 
@@ -92,7 +93,7 @@ export function ApprovalsDashboard(props: Props) {
         if (item.kind === "request") {
           const answer = review.intent === "approve" ? await approveActionRequestAction({ requestId: item.request.requestId, justification, requestedTtlSeconds: ttl }) :
             await rejectActionRequestAction({ requestId: item.request.requestId, justification, rejectionReason: reason });
-          return { ok: answer.status !== "refused", detail: answer.status === "refused" ? answer.reason : answer.status === "authorized" ? `Authorized; permit expires ${answer.expiresAt}.` : "Request rejected." };
+          return { ok: answer.status !== "refused", detail: answer.status === "refused" ? executionRefusalWording(answer.reason) : answer.status === "authorized" ? `Authorized; permit expires ${answer.expiresAt}.` : "Request rejected." };
         }
         if (item.kind !== "content" || !item.content.revision) return { ok: false, detail: "Revision unavailable." };
         const input = { artifactId: item.content.artifact.id, revisionId: item.content.revision.id, justification };
@@ -108,7 +109,7 @@ export function ApprovalsDashboard(props: Props) {
         <button type="button" key={label} aria-pressed={filter === value} disabled={pending} onClick={() => { setFilter(value); resetSelection(); }} className={`rounded-xl border bg-surface p-4 text-left transition hover:border-primary/50 ${filter === value ? "border-primary ring-1 ring-primary/20" : "border-border"}`}>
           <span className="flex items-center justify-between text-xs text-fg-muted">{label}<Icon size={17} aria-hidden="true" /></span>
           <span className="mt-3 block text-3xl font-semibold tracking-tight text-fg">{countsKnown ? items.filter((item) => item.filters.includes(value)).length : "—"}</span>
-          <span className="mt-1 block text-[11px] text-fg-muted">{value === "Published" ? "Provider-accepted revisions" : value === "Approved" ? "Accepted reviews / issued permits" : value === "Drafts" ? "Stored draft lifecycle" : "In loaded records"}</span>
+          <span className="mt-1 block text-[11px] text-fg-muted">{value === "Published" ? "Provider-accepted revisions" : value === "Approved" ? "Accepted reviews / permits in any state" : value === "Drafts" ? "Stored draft lifecycle" : "In loaded records"}</span>
         </button>)}
     </div>
     <details className="text-xs leading-5 text-fg-muted"><summary className="cursor-pointer">Count scope · loaded records, overlapping stages, provider-accepted publications</summary><p className="mt-2">Counts cover loaded requests, permits and current artifact revisions, not unique projects or tenant-wide totals. Categories can overlap. Published means the provider accepted a publication and returned an identity; it does not confirm public visibility. Drafts reflects the stored artifact lifecycle.</p></details>
