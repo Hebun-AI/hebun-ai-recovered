@@ -30,8 +30,11 @@ function overviewHonest(): void {
   const model = getWorkforceWorkspaceModel();
   assert.equal(model.workers.length, 0, "Overview surfaces no workers");
   assert.ok(model.entityTypes.length > 0, "Overview keeps its entity-type information model");
+  // PRODUCT-INTEGRATION-1: the Overview reads no records, so it may not claim "0 connected" for an
+  // organization whose members and durable agents exist. Each type links to its recording surface.
   for (const type of model.entityTypes) {
-    assert.equal(type.connected, 0, `${type.label} connects zero identities`);
+    assert.ok(["/director/organization", "/agents"].includes(type.recordedOn.href), `${type.label} links to where it is recorded`);
+    assert.ok(!("connected" in type), `${type.label} claims no count`);
   }
   const overviewPage = read(`${APP}/workforce/page.tsx`);
   assert.ok(/getWorkforceWorkspaceModel/.test(overviewPage), "Overview page builds the honest model");

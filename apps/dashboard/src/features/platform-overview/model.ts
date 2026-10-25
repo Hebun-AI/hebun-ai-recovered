@@ -1,9 +1,11 @@
 /*
  * platform-overview/model.ts — the authoritative Platform Overview truth model (Hebun UI Phase 24B).
  *
- * Pure and static. It states what platform capability exists and what is actually connected — nothing
- * is connected or live. It fabricates no health, uptime, latency, availability %, request/token/cost,
- * or connection. The real, non-authoritative dependency availability (Executive Overview technical
+ * Pure and static. It states what the offline provider SUBSTRATE is — descriptors, contracts, routing,
+ * invocation and adapters — and that substrate connects nothing. Live, per-organization state (connections,
+ * model connectivity, arming, execution) is NOT stated here: it is read on the surfaces that own it, which
+ * this model only links to (PRODUCT-INTEGRATION-1). It fabricates no health, uptime, latency,
+ * availability %, request/token/cost, or connection. The real, non-authoritative dependency availability (Executive Overview technical
  * sections) is rendered separately by the surface from `@/features/platform/workspace-model`.
  */
 
@@ -13,12 +15,13 @@ export function getPlatformOverviewModel(): PlatformOverviewModel {
   return {
     state: {
       provenance: "contract-only",
-      headline: "Contract-only · offline",
+      headline: "Provider substrate · contract-only",
       note:
-        "Platform holds a real, deterministic, offline provider substrate: descriptors, contracts, " +
-        "routing, invocation, and adapters. Nothing is connected. There is no live model SDK, no " +
-        "network dispatch, and no configured credential. Persistence is in-memory. Platform describes " +
-        "and configures capability; it does not execute it.",
+        "Platform holds a deterministic, offline provider substrate: descriptors, contracts, routing, " +
+        "invocation, and adapters. The substrate itself connects nothing and executes nothing. Live state " +
+        "is read where it is owned: this organization's connections on Integrations; model connectivity, " +
+        "external-send arming and recorded usage on Providers & Models; execution under Decisions and " +
+        "Operations.",
     },
     availability: [
       {
@@ -57,33 +60,29 @@ export function getPlatformOverviewModel(): PlatformOverviewModel {
       },
       {
         area: "Providers & Models",
-        state: "not-connected",
+        state: "external-authority",
         authorityOwner: "Platform",
         detail:
-          "Six providers are registered as offline descriptors; none is configured or connected. " +
-          "No live model is loaded.",
+          "Registered model descriptors, the platform model connectivity switch, external-send arming " +
+          "and recorded provider usage, read live on that page.",
         href: "/director/provider-matrix",
       },
       {
         area: "Integrations",
-        state: "not-connected",
-        authorityOwner: "Platform",
-        detail: "No external integration is configured or connected. The mock integration catalog is excluded.",
+        state: "external-authority",
+        authorityOwner: "Integration authority",
+        detail:
+          "This organization's provider connections and the capabilities each makes available, read live " +
+          "for the signed-in organization on that page. Nothing about them is stated here.",
         href: "/integrations",
       },
       {
-        area: "Persistence",
-        state: "in-memory",
-        authorityOwner: "Platform",
-        detail: "The active persistence provider is in-memory: structurally empty and non-durable.",
-      },
-      {
         area: "Provider / model execution",
-        state: "not-connected",
+        state: "external-authority",
         authorityOwner: "Operations",
         detail:
-          "No live model invocation exists (no SDK, no network). Execution and runtime observation are " +
-          "Operations' authority; Computer Use remains simulation-only.",
+          "Model calls and approved external acts do not run through this substrate. Execution and runtime " +
+          "observation are Operations' authority, under human decisions; Computer Use remains simulation-only.",
       },
       {
         area: "Heby platform access",
@@ -101,13 +100,13 @@ export function getPlatformOverviewModel(): PlatformOverviewModel {
       { concept: "Organizational memory & knowledge", owner: "Knowledge", note: "The settled record is Knowledge, not Platform." },
     ],
     executionBoundary: [
-      { stage: "REGISTERED", reached: true, note: "Provider descriptors are registered as offline contracts." },
-      { stage: "CONFIGURED", reached: false, note: "No provider is configured; credentials are placeholders and ignored." },
-      { stage: "CONNECTED", reached: false, note: "No provider is connected; the substrate is offline with no network." },
-      { stage: "INVOKABLE", reached: false, note: "No live invocation path exists; invocation is simulation-only." },
+      { stage: "REGISTERED", reached: true, note: "Provider descriptors are registered in this substrate as offline contracts." },
+      { stage: "CONFIGURED", reached: false, note: "No descriptor here is configured; substrate credentials are placeholders and ignored." },
+      { stage: "CONNECTED", reached: false, note: "The substrate connects nothing; live connections are held by Integrations, not here." },
+      { stage: "INVOKABLE", reached: false, note: "Invocation through this substrate is simulation-only." },
       { stage: "AUTHORIZED", reached: false, note: "Authorization is not a Platform runtime state — it belongs to Decisions and Operations." },
-      { stage: "EXECUTED", reached: false, note: "Nothing has executed." },
-      { stage: "SUCCESSFUL", reached: false, note: "No live result exists." },
+      { stage: "EXECUTED", reached: false, note: "Nothing executes through this substrate." },
+      { stage: "SUCCESSFUL", reached: false, note: "This substrate produces no live result." },
     ],
     heby: {
       mode: "platform-inspection",

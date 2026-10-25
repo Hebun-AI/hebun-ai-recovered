@@ -7,12 +7,12 @@ import { HebyWhy } from "@/components/command-center/heby-why";
 /*
  * Workforce Directory (Phase 11 §10) — the primary Workforce surface.
  *
- * When real workforce identities are connected, each actor would appear here with
- * its type, role, capabilities, responsibilities, availability, and current
- * assignment. None is connected, so the region is honestly empty and instead names
- * the two entity types the model must represent (Human, AI Agent) — each with 0
- * connected. No profile is fabricated; the seeded agent roster on the legacy Agents
- * page is not surfaced as organizational workforce.
+ * A combined directory (one worker with type, role, capabilities, responsibilities,
+ * availability and assignment) is not built. The region names the two entity types
+ * and links each to the surface that records it (members → Organization, durable
+ * agents → Agents) without counting either: this page reads no records, so any
+ * count here would be a claim it cannot back. No profile is fabricated; the seeded
+ * agent-crud roster is not surfaced as organizational workforce.
  */
 
 const TYPE_ICON = { human: User, "ai-agent": Bot } as const;
@@ -24,12 +24,12 @@ export function WorkforceDirectory({ model }: { model: WorkforceWorkspaceModel }
       title="Workforce Directory"
       accent
       className="h-full"
-      action={<CapabilityMarker label="No identities connected" />}
+      action={<CapabilityMarker label="Not listed here" />}
     >
       <div className="flex flex-col gap-3">
         <WorkforceEmptyState
-          title="No workforce identities connected yet"
-          detail="A workforce identity is a human or AI agent the organization can assign work to and hold responsible. No identity model is connected, and none is fabricated. Once connected, each worker appears here with its role, capabilities, responsibilities, availability, and current assignment."
+          title="This overview lists no workers"
+          detail="A workforce identity is a human or AI agent the organization can assign work to and hold responsible. This overview reads no records: members are listed on Organization and recorded AI agents on Agents. A combined directory showing each worker's role, capabilities, responsibilities, availability and assignment together is not built, and none is fabricated here."
         />
         <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border bg-surface">
           {model.entityTypes.map((entity) => {
@@ -41,9 +41,13 @@ export function WorkforceDirectory({ model }: { model: WorkforceWorkspaceModel }
                   <p className="text-sm font-medium text-fg">{entity.label}</p>
                   <p className="text-[0.7rem] leading-5 text-fg-muted">{entity.describes}</p>
                 </div>
-                <span className="shrink-0 self-center rounded-full border border-border bg-surface-sunken px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-muted">
-                  0 connected
-                </span>
+                <Link
+                  href={entity.recordedOn.href}
+                  className="inline-flex shrink-0 items-center gap-0.5 self-center text-xs font-medium text-primary hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+                >
+                  {entity.recordedOn.label}
+                  <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </Link>
               </li>
             );
           })}

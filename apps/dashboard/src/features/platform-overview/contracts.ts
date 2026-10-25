@@ -18,7 +18,7 @@ export type PlatformAvailabilityState =
   | "external-authority";
 
 export interface PlatformStateBanner {
-  /** The whole workspace is contract/offline — nothing is connected or live. */
+  /** The provider SUBSTRATE is contract/offline; live per-organization state is read on its own surfaces. */
   readonly provenance: "contract-only";
   readonly headline: string;
   readonly note: string;

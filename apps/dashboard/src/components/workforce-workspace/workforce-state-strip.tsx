@@ -4,8 +4,9 @@ import { HebyWhy } from "@/components/command-center/heby-why";
 /*
  * Workforce State strip (Phase 11 §9) — a compact scan of honest structural facts.
  *
- * No workforce identity model is connected, so the strip says exactly that. NO
- * fabricated humans, AI-agent counts, capability coverage, availability, or
+ * This overview reads no records, so the strip says where each kind is listed instead
+ * of counting it (PRODUCT-INTEGRATION-1: "None connected" denied real members and
+ * agents). NO fabricated humans, AI-agent counts, capability coverage, availability, or
  * capacity — and the Operations `active-agents` count is NOT reused as a workforce
  * count, because operational runtime records are not organizational identities.
  */
@@ -26,16 +27,16 @@ export function WorkforceStateStrip() {
         <span className="text-[0.7rem] uppercase tracking-wide text-fg-muted">Scope</span>
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-muted">
           <span className="size-2 rounded-full bg-fg-muted" aria-hidden="true" />
-          Identity model not connected
+          Information model · reads no records
         </span>
       </span>
 
       <span className="hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
 
-      <Cell label="Humans" value="None connected" />
-      <Cell label="AI agents" value="None connected" />
-      <Cell label="Capabilities" value="Not mapped" />
-      <Cell label="Assignments" value="None" />
+      <Cell label="Humans" value="Listed on Organization" />
+      <Cell label="AI agents" value="Listed on Agents" />
+      <Cell label="Capabilities" value="Not mapped here" />
+      <Cell label="Assignments" value="Not surfaced" />
 
       <span className="ml-auto flex items-center gap-2">
         <span className="text-[0.7rem] text-fg-muted">Freshness unknown</span>

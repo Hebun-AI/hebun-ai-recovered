@@ -40,7 +40,7 @@ export function PlatformOverview({ dependencies }: { dependencies: readonly Plat
     <div className="flex min-w-0 flex-col gap-5">
       <div className="flex items-center gap-2 text-sm text-fg-secondary">
         <Layers className="size-4 text-primary" aria-hidden="true" />
-        Platform describes and configures provider/model/tool capability — and states honestly that nothing is connected, live, or executing.
+        Platform describes and configures provider/model/tool capability. Its substrate connects and executes nothing; live connections and execution are read on the surfaces that own them.
       </div>
 
       <section className="flex min-w-0 flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-4">

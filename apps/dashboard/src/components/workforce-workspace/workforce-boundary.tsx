@@ -13,7 +13,7 @@ import { WorkforceRegion, CapabilityMarker } from "./workforce-region";
  *   Knowledge  — organizational memory and knowledge
  *   Decisions  — human decision authority (approve / reject / authorize)
  *   Command    — organizational objectives and direction
- *   Agents     — the AI agent definitions surface (seeded, in-memory; not a live workforce)
+ *   Agents     — this organization's durable AI agents; its seeded catalog stays labelled simulation
  *
  * Workforce may describe authority; it never grants it. There is no approve, assign,
  * grant-permission, or change-role control here — role is not authority, capability is not
@@ -60,7 +60,7 @@ const LINKS: readonly BoundaryLink[] = [
   },
   {
     label: "Agents",
-    reason: "The Agents surface shows seeded, in-memory agent definitions over a simulation runtime. Those definitions are not a live organizational workforce.",
+    reason: "This organization's recorded AI agents — identity, service status, mandate and placement — are on Agents. Where the seeded agent catalog appears, it is labelled as an in-memory simulation and is not part of the organization's workforce.",
     href: "/agents",
     hrefLabel: "Open Agents",
   },

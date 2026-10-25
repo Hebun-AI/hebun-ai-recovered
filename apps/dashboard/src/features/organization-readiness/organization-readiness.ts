@@ -57,14 +57,16 @@ export interface OrganizationReadinessFacts {
 }
 
 const UNREADABLE = "Could not be read right now. That is unknown, not “no”.";
-const OPERATOR = "A platform operator ceremony; not available in the app today.";
+const OPERATOR = "a platform operator ceremony; it is not available in the app today.";
 /*
- * EA1-KIND-ARMING-1, said where it matters. Arming has no act-kind dimension: one arming opens email
- * sending, Instagram publication and YouTube publication together. A reader who sees only "Armed"
- * would reasonably assume it covers the one kind they asked for.
+ * EA1-KIND-ARMING-1, said where it matters, in every state the row can read. Arming has no act-kind
+ * dimension: one arming covers email sending, Instagram publication and YouTube publication together.
+ * The sentence names the mechanism only. It never says any kind is authorized, and an armed
+ * organization is reminded that each act still needs its own approval.
  */
-const ARMING_SCOPE_FACTS =
-  "Armed for this organization. One arming covers email sending, Instagram publication and YouTube publication together; it is not granted per kind.";
+const SHARED_ARMING_SCOPE =
+  "Arming is not granted per kind: one arming covers email sending, Instagram publication and YouTube publication together.";
+const ARMED_FACTS = `Armed for this organization. ${SHARED_ARMING_SCOPE} Each send or post still needs its own approval.`;
 
 export function describeOrganizationReadiness(facts: OrganizationReadinessFacts): readonly ReadinessRow[] {
   const g = facts.governance;
@@ -157,7 +159,7 @@ export function describeOrganizationReadiness(facts: OrganizationReadinessFacts)
             key: "publishing",
             label: "Executing approved sends and posts",
             state: "ready",
-            facts: ARMING_SCOPE_FACTS,
+            facts: ARMED_FACTS,
             next: null,
           }
         : {
@@ -165,11 +167,12 @@ export function describeOrganizationReadiness(facts: OrganizationReadinessFacts)
             label: "Executing approved sends and posts",
             state: "not-ready",
             facts:
-              p.tenantArming === "armed"
+              (p.tenantArming === "armed"
                 ? "Armed for this organization, but switched off for the platform."
                 : p.tenantArming === "withdrawn"
                   ? "Arming withdrawn for this organization. Proposals can still be filed and approved; nothing is executed."
-                  : "Not armed for this organization. Proposals can still be filed and approved; nothing is executed.",
+                  : "Not armed for this organization. Proposals can still be filed and approved; nothing is executed.") +
+              ` ${SHARED_ARMING_SCOPE}`,
             next: { actor: "platform-operator", text: `Arming is ${OPERATOR}` },
           };
 

@@ -4,13 +4,15 @@
  *
  * PROVENANCE CONTRACT (no-fake-data):
  *
- *   Hebun has NO real, populated organizational-workforce identity model. The only
- *   "agent" data in the repository is the agent-crud seed roster (fabricated agent
- *   records with names, departments, capabilities, and costs) surfaced by the
- *   legacy /agents page — SYNTHETIC, deliberately NOT imported here. There is no
- *   human/employee identity model at all. The Executive Overview `active-agents`
- *   count is an OPERATIONAL runtime record count, not a set of organizational
- *   workforce identities, and is not converted into "N AI employees" here.
+ *   This overview reads no organization's records. Real per-organization records
+ *   exist and are owned elsewhere: members (Membership Authority, listed in the
+ *   people register on /director/organization) and durable AI agents with service
+ *   status, mandate, placement and capability truth (on /agents). This model links
+ *   to them and never counts or restates them (PRODUCT-INTEGRATION-1): a static page
+ *   that said "0 connected" denied what those surfaces show. The agent-crud seed
+ *   roster is still SYNTHETIC and still NOT imported here. The Executive Overview
+ *   `active-agents` count is an OPERATIONAL runtime record count, not a set of
+ *   organizational workforce identities, and is not converted into "N AI employees".
  *
  *   So this model carries only the workspace's INFORMATION MODEL as static
  *   explanatory structure — the two workforce entity types (Human, AI Agent) and
@@ -25,22 +27,24 @@ export interface EntityTypeView {
   readonly type: "human" | "ai-agent";
   readonly label: string;
   readonly describes: string;
-  /** Honest count — no workforce identity is connected, so always 0. */
-  readonly connected: 0;
+  /** Where this organization's records of this type are read. Linked, never counted here. */
+  readonly recordedOn: { readonly label: string; readonly href: string };
 }
 
 const ENTITY_TYPES: readonly EntityTypeView[] = [
   {
     type: "human",
     label: "Human",
-    describes: "A person who can perform or own work. No human workforce identity is connected.",
-    connected: 0,
+    describes:
+      "A person who can perform or own work. This organization's members are listed in the people register on Organization; this overview does not list or count them.",
+    recordedOn: { label: "Organization", href: "/director/organization" },
   },
   {
     type: "ai-agent",
     label: "AI Agent",
-    describes: "A software agent that can perform work. Agent runtime activity is observed in Operations; it is not yet an organizational workforce identity.",
-    connected: 0,
+    describes:
+      "A software agent that can perform work. This organization's recorded AI agents (identity, service status, mandate and placement) are on Agents; this overview does not list or count them.",
+    recordedOn: { label: "Agents", href: "/agents" },
   },
 ];
 
@@ -105,7 +109,7 @@ export interface WorkforceWorkspaceModel {
   readonly conceptLayers: readonly ConceptLayerView[];
   readonly capabilityChain: readonly CapabilityChainLink[];
   readonly inspectorLenses: readonly WorkforceLensView[];
-  /** Populated workforce identities. Always empty: none is connected or fabricated. */
+  /** Workers listed on this overview. Always empty: it reads no records and fabricates none. */
   readonly workers: readonly never[];
 }
 
