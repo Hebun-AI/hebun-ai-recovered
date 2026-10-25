@@ -1144,12 +1144,13 @@ export function WorkRegisterPanel({
                         {/*
                           * WORK-UPDATE V1 (Option A): a plain link. The Work register is not an AI origination
                           * surface; asking an agent happens in Heby, which resolves this id for the session.
+                          * AGENT-EXECUTION-1: Heby also assigns a responsible agent a draft for this work there.
                           */}
                         <a
                           href={`/heby?workItem=${encodeURIComponent(item.workItemId)}`}
                           className="mt-2 inline-block text-xs text-fg-secondary underline underline-offset-2 hover:text-fg"
                         >
-                          Ask Heby to propose a state change
+                          Ask Heby: propose a state change or assign an agent a draft
                         </a>
                         <WorkItemControls item={item} members={members} />
                       </>

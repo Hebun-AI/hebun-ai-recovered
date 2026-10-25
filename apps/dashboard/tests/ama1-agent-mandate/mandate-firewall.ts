@@ -526,6 +526,8 @@ function noProposalEnforcementExists(): void {
       /* WF-4. The shared permit spend re-reads the effective mandate for agent-proposed requests. */
       path.join("src", "features", "action-authorization", "consume-action-permit.server.ts"),
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
+      /* AGENT-EXECUTION-1. The agent work seam applies the one shared ceiling before an agent performs work. */
+      path.join("src", "features", "agent-work", "assign-work-draft.server.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
       /* APF-1. Machine delivery re-reads the effective mandate before it spends a permit. */
@@ -539,7 +541,7 @@ function noProposalEnforcementExists(): void {
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "fourteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
+    "fifteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FIVE enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
   );
 
   /*

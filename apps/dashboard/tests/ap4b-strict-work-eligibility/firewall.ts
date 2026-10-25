@@ -40,6 +40,8 @@ const ORIGINATION = "src/features/agent-origination/originate-action.server.ts";
 const PROJECTION = "src/features/origination-availability/list-eligible-agents.server.ts";
 const AVAILABILITY = "src/features/origination-availability/read-origination-availability.server.ts";
 const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
+/* AGENT-EXECUTION-1 — the agent work seam: the gate before an agent performs work for a work item. */
+const AGENT_WORK = "src/features/agent-work/assign-work-draft.server.ts";
 
 /* F1 */
 assert.match(code(CEILING), /export function refuseOutsideAgentResponsibility\(/, "F1: the decision lives in the ceiling");
@@ -50,9 +52,10 @@ for (const asker of [WRITER, SPEND, ISSUER]) {
 assert.match(code(MACHINE), /consumeActionPermitAsMachine/, "F1: the machine executor spends through the shared spend, which asks");
 assert.deepEqual(
   SRC.filter((f) => /refuseOutsideAgentResponsibility\(/.test(code(f))).sort(),
-  [CEILING, SPEND, ISSUER, PROJECTION, WRITER].sort(),
-  "F1: the responsibility decision has exactly these askers",
+  [CEILING, SPEND, ISSUER, PROJECTION, WRITER, AGENT_WORK].sort(),
+  "F1: the responsibility decision has exactly these askers (AGENT-EXECUTION-1 added the agent work seam, which asks it before an agent works on a scoped item)",
 );
+assert.match(code(AGENT_WORK), /readWorkStateTarget\(/, "F1: the agent work seam reads the scope from the Work Authority, never from the client");
 assert.match(code(WRITER), /work-scope-required/, "F1: the one writer refuses unscoped record-work");
 
 /* F2 */
@@ -64,7 +67,7 @@ assert.deepEqual(
   [AVAILABILITY],
   "F2: only the availability projection reads the eligibility projection",
 );
-for (const enforcer of [WRITER, SPEND, ISSUER, MACHINE, HUMAN_EXECUTOR, ORIGINATION, CEILING, WORK_WRITER]) {
+for (const enforcer of [WRITER, SPEND, ISSUER, MACHINE, HUMAN_EXECUTOR, ORIGINATION, CEILING, WORK_WRITER, AGENT_WORK]) {
   assert.ok(!code(enforcer).includes("list-eligible-agents") && !code(enforcer).includes("listEligibleAgents"), `F2: ${enforcer} cannot reach the projection`);
 }
 

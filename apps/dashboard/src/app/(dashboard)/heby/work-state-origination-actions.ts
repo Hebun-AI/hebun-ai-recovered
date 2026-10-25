@@ -19,6 +19,13 @@ import {
   readWorkStateAgentChoices,
 } from "@/features/origination-availability/read-origination-availability.server";
 import type { WorkStateAgentChoices } from "@/features/origination-availability/contracts";
+import { revalidatePath } from "next/cache";
+import {
+  assignWorkDraft,
+  readWorkDraftChoices,
+  type AssignWorkDraftResult,
+  type WorkDraftChoices,
+} from "@/features/agent-work/assign-work-draft.server";
 
 export async function proposeWorkStateChangeAction(input: {
   readonly workItemId: string;
@@ -43,4 +50,36 @@ export async function proposeWorkStateChangeAction(input: {
  */
 export async function readWorkStateAgentChoicesAction(input: { readonly workItemId: string }): Promise<WorkStateAgentChoices> {
   return readWorkStateAgentChoices(await resolveTenantContext(), typeof input?.workItemId === "string" ? input.workItemId : "");
+}
+
+/*
+ * AGENT-EXECUTION-1 — the agent work doors for the same work item. The tenant comes from the session;
+ * the client sends ids and words, which the seam answers against this tenant's records. Linking the
+ * draft as this work's evidence is NOT here: it is the person's own act on /director/work (WEV-1).
+ */
+export async function readWorkDraftChoicesAction(input: { readonly workItemId: string }): Promise<WorkDraftChoices> {
+  return readWorkDraftChoices(await resolveTenantContext(), input?.workItemId);
+}
+
+export async function assignWorkDraftAction(input: {
+  readonly workItemId: string;
+  readonly agentId: string;
+  readonly prompt: string;
+  readonly title: string;
+  readonly artifactType: string;
+  readonly intendedDestination?: string;
+}): Promise<AssignWorkDraftResult> {
+  const result = await assignWorkDraft(
+    {
+      workItemId: input?.workItemId,
+      agentId: input?.agentId,
+      prompt: input?.prompt,
+      title: input?.title,
+      artifactType: input?.artifactType,
+      ...(input?.intendedDestination === undefined ? {} : { intendedDestination: input.intendedDestination }),
+    },
+    { resolveTenant: resolveTenantContext },
+  );
+  if (result.status === "prepared" || result.status === "prepared-stale") revalidatePath("/operations");
+  return result;
 }

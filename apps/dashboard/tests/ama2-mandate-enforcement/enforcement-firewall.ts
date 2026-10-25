@@ -50,6 +50,8 @@ const PRODUCT_SURFACE = "src/app/(dashboard)/agents/page.tsx";
 const WF1_AVAILABILITY = "src/features/origination-availability/read-origination-availability.server.ts";
 /* AP-4B. Read-only: which agents' responsibility admits a work scope. Enforces nothing; enforcers may not import it. */
 const AP4B_ELIGIBILITY = path.join("src", "features", "origination-availability", "list-eligible-agents.server.ts");
+/* AGENT-EXECUTION-1 — the agent work seam: it enforces the same shared ceiling before an agent performs work. */
+const AE1_AGENT_WORK = path.join("src", "features", "agent-work", "assign-work-draft.server.ts");
 /* WF-4 — the shared permit spend, applying the same ceiling at spend time to agent-proposed requests. */
 const WF4_SPEND = "src/features/action-authorization/consume-action-permit.server.ts";
 const CONTRACTS = "src/features/action-authorization/contracts.ts";
@@ -124,8 +126,8 @@ function exactlyOneEnforcementSeam(): void {
   assert.deepEqual(
     consumers,
     /* WF-4 added the shared permit spend: it re-reads the effective mandate for agent-proposed requests. */
-    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER, WF1_AVAILABILITY, WF4_SPEND, AP4B_ELIGIBILITY].sort(),
-    "exactly SEVEN modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer, the machine executor and the shared permit spend (WF-4) enforce the same one; WF-1's availability projection reads one to decide only whether to OFFER origination; AP-4B's eligibility projection reads one to LIST who is responsible, deciding nothing",
+    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER, WF1_AVAILABILITY, WF4_SPEND, AP4B_ELIGIBILITY, AE1_AGENT_WORK].sort(),
+    "exactly EIGHT modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer, the machine executor, the shared permit spend (WF-4) and the agent work seam (AGENT-EXECUTION-1) enforce the same one; WF-1's availability projection reads one to decide only whether to OFFER origination; AP-4B's eligibility projection reads one to LIST who is responsible, deciding nothing",
   );
 
   /*
