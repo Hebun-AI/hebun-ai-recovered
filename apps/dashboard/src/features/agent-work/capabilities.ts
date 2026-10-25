@@ -110,3 +110,18 @@ export function refuseOutsideAgentWorkCapability(
   }
   return refusal ?? "action-outside-agent-mandate";
 }
+
+/*
+ * AGENT-EXECUTION-2 — WHO AN ELIGIBLE AGENT IS FOR THIS WORK. The registry has no "role" field and none
+ * is added: an agent's specialty is what its mandate already records, its responsibility. For work of one
+ * recorded kind (a domain scope), an agent responsible for that kind of work and NOT organization-wide is
+ * that work's SPECIALIST; an organization-wide agent (Heby) is the COORDINATOR, even when it also holds the
+ * domain. Organization-level work has no specialist. Pure; asked of the same mandate read the ceiling used,
+ * and only meaningful for an agent the ceiling already admitted.
+ */
+export type AgentWorkRole = "specialist" | "coordinator";
+
+export function agentWorkRole(read: MandateReadForResponsibility, workScope: WorkScope): AgentWorkRole {
+  if (workScope.kind !== "domain" || read.status !== "known" || !read.mandate) return "coordinator";
+  return read.mandate.responsibility.some((grant) => grant.kind === "organization") ? "coordinator" : "specialist";
+}

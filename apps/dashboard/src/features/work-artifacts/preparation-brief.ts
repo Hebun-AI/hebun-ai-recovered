@@ -71,6 +71,19 @@ export const CONTENT_DRAFT_PREPARATION_BRIEF: readonly string[] = [
 ] as const;
 
 /**
+ * AGENT-EXECUTION-2 — what the model is told when a person delegated the draft to the work's specialist
+ * agent rather than the organization-wide coordinator. Minted Hebun words only (SCI-1): no agent name, no
+ * domain name, no tenant text. Applies to every artifact type, so a specialist's plan or message is framed
+ * the same way; a coordinator's preparation is unchanged.
+ */
+export const SPECIALIST_PREPARATION_BRIEF: readonly string[] = [
+  "A person delegated this draft to a specialist agent: the agent this organization made responsible for this one kind of work, not its organization-wide assistant.",
+  "Write as that specialist. Stay within the kind of work the person's instruction describes, be concrete and practical about it, and leave out general advice that belongs to other areas.",
+  "Do not claim credentials, experience, past results or completed work that no record in the GROUNDING CONTEXT shows.",
+  "Your entire reply is the draft a human will review; it is not sent, published or acted on.",
+] as const;
+
+/**
  * The one destination sentence. "Prepared for", never "publishing to": the destination is the
  * human's declaration of where this draft was prepared to go, and the model is told exactly that.
  */
@@ -117,8 +130,17 @@ export function preparationBriefFor(input: {
    * prepared from stays byte-identical.
    */
   readonly currentRevision?: { readonly revisionNo: number; readonly content: string };
+  /*
+   * AGENT-EXECUTION-2 — the author is the work's SPECIALIST (`agentWorkRole`), decided by the preparation
+   * seam from the author's mandate and the work's recorded scope, never by the client. A boolean, so the
+   * model is told THAT a specialist writes, never which agent or which domain: those are tenant-authored
+   * names (the `organization` class), which `assistance` is not allowed to carry.
+   */
+  readonly specialist?: boolean;
 }): PreparationBrief | undefined {
-  if (input.artifactType !== CONTENT_DRAFT_TYPE) return undefined;
+  if (input.artifactType !== CONTENT_DRAFT_TYPE) {
+    return input.specialist ? { instruction: hebunInstruction([...SPECIALIST_PREPARATION_BRIEF].join(" ")), material: [] } : undefined;
+  }
   /*
    * SCI-1 — INSTRUCTION FROM HEBUN'S OWN WORDS ONLY. The standing brief, the destination sentence (a
    * closed vocabulary) and the revision sentences (an integer) are minted; the revision TEXT and the
@@ -129,6 +151,7 @@ export function preparationBriefFor(input: {
   if (input.intendedDestination) {
     lines.push(contentDraftDestinationSentence(input.intendedDestination));
   }
+  if (input.specialist) lines.push(...SPECIALIST_PREPARATION_BRIEF);
   const parts: HebunInstruction[] = [hebunInstruction(lines.join(" "))];
   const material: string[] = [];
   if (input.currentRevision) {

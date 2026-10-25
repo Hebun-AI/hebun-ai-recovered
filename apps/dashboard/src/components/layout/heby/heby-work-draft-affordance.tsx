@@ -13,7 +13,7 @@ import type {
   WorkDraftChoices,
   WorkDraftView,
 } from "@/features/agent-work/assign-work-draft.server";
-import { agentWorkCapability } from "@/features/agent-work/capabilities";
+import { agentWorkCapability, type AgentWorkRole } from "@/features/agent-work/capabilities";
 import {
   CONTENT_DESTINATION_LABELS,
   CONTENT_DESTINATIONS,
@@ -86,10 +86,26 @@ export function describeWorkDraft(draft: WorkDraftView): string {
   return `${ARTIFACT_TYPE_LABELS[draft.artifactType]} “${draft.title}” · revision ${draft.revisionNo} · ${author} · ${state}`;
 }
 
+/*
+ * AGENT-EXECUTION-2 — how Heby names an agent's place in this work, from the server's role. A specialist
+ * is responsible for this kind of work only; the coordinator is organization-wide.
+ */
+export const ROLE_WORDING: Readonly<Record<AgentWorkRole, string>> = {
+  specialist: "specialist for this kind of work",
+  coordinator: "organization-wide",
+};
+
+/** Heby's one sentence for its recommendation, or `null` when the server recommended no one. */
+export function describeRecommendation(read: Extract<WorkDraftChoices, { status: "read" }>): string | null {
+  const agent = read.agents.find((candidate) => candidate.agentId === read.recommendedAgentId);
+  if (!agent) return null;
+  return `Heby recommends ${agent.name}: it is the only agent responsible for this kind of work and not organization-wide, so it writes as this work's specialist. You decide who is assigned.`;
+}
+
 export function describeAssignment(result: AssignWorkDraftResult, agentName: string): string {
   switch (result.status) {
     case "prepared":
-      return `${result.agentName} wrote the draft (revision ${result.revisionNo}). It is not yet this work's evidence: link it below if it belongs to this work. It waits for review in Operations; nothing was sent, published or changed.`;
+      return `${result.agentName}${result.agentRole === "specialist" ? ", as this work's specialist," : ""} wrote the draft (revision ${result.revisionNo}). It is not yet this work's evidence: link it below if it belongs to this work. It waits for review in Operations; nothing was sent, published or changed.`;
     case "prepared-stale":
       return `${agentName} wrote the draft (revision ${result.revisionNo}), but ${
         STALE_WORDING[result.reason] ?? result.reason
@@ -134,13 +150,14 @@ export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: s
   const read = choices?.status === "read" ? choices : null;
   const agents: AgentOption[] = (read?.agents ?? []).map((agent) => ({
     agentId: agent.agentId,
-    name: agent.name,
+    name: `${agent.name} (${ROLE_WORDING[agent.role]})`,
     ...(agent.openDraftId ? { unavailableNote: "has a draft on this work waiting for review" } : {}),
   }));
   /* One responsible agent is chosen for the person; with several, nobody is chosen by default. */
   const selectable = agents.filter((agent) => agent.unavailableNote === undefined);
   const agentId = agents.length === 1 ? (selectable[0]?.agentId ?? "") : chosenAgentId;
-  const agentName = (agents.length === 1 ? agents[0]?.name : agents.find((agent) => agent.agentId === agentId)?.name) ?? "The agent";
+  const agentName = read?.agents.find((agent) => agent.agentId === agentId)?.name ?? "the agent";
+  const recommendation = read ? describeRecommendation(read) : null;
   /* A prepared draft waiting for the person's link blocks another assignment: link it (or leave) first. */
   const ready =
     linkable === null &&
@@ -201,6 +218,21 @@ export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: s
               </p>
             ) : (
               <>
+                {recommendation && agents.length > 1 ? (
+                  <p className="text-fg">
+                    {recommendation}{" "}
+                    {chosenAgentId !== read!.recommendedAgentId ? (
+                      <button
+                        type="button"
+                        className="underline underline-offset-2"
+                        disabled={pending}
+                        onClick={() => setChosenAgentId(read!.recommendedAgentId!)}
+                      >
+                        Choose {read!.agents.find((agent) => agent.agentId === read!.recommendedAgentId)?.name}
+                      </button>
+                    ) : null}
+                  </p>
+                ) : null}
                 {agents.length > 1 ? (
                   <AgentChoiceSelect
                     id={`heby-work-draft-agent-${workItemId}`}

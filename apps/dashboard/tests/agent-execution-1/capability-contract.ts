@@ -134,7 +134,7 @@ assert.match(describeWorkDraft(draft({ retired: true, review: "accepted" })), /r
 assert.match(describeWorkDraft(draft({ author: { kind: "human" } })), /written by a person/);
 assert.match(REVIEW_WORDING.unknown, /could not be read/);
 
-const prepared = describeAssignment({ status: "prepared", workItemId: "w", artifactId: "a", revisionNo: 1, agentName: "Writer" }, "Writer");
+const prepared = describeAssignment({ status: "prepared", workItemId: "w", artifactId: "a", revisionNo: 1, agentName: "Writer", agentRole: "coordinator" }, "Writer");
 assert.match(prepared, /It is not yet this work's evidence: link it below/, "prepared is not linked, and says so");
 assert.match(prepared, /nothing was sent, published or changed\./);
 const stale = describeAssignment({ status: "prepared-stale", artifactId: "a", revisionNo: 1, reason: "agent-no-longer-eligible" }, "Writer");

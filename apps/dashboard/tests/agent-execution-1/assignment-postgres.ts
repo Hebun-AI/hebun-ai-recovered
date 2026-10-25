@@ -258,7 +258,9 @@ async function main(): Promise<void> {
     assert.equal(e1.status, "prepared", JSON.stringify(e1));
     const artifactId = e1.status === "prepared" ? e1.artifactId : "";
     assert.equal(e1.status === "prepared" && e1.agentName, "Writer");
-    assert.deepEqual(Object.keys(e1).sort(), ["agentName", "artifactId", "revisionNo", "status", "workItemId"], "E1: the result carries ids, never the answer, its evidence or the draft text");
+    /* AGENT-EXECUTION-2 adds `agentRole`, a closed enum ("specialist" | "coordinator") read from the mandate — not answer text. */
+    assert.deepEqual(Object.keys(e1).sort(), ["agentName", "agentRole", "artifactId", "revisionNo", "status", "workItemId"], "E1: the result carries ids, never the answer, its evidence or the draft text");
+    assert.equal(e1.status === "prepared" && e1.agentRole, "coordinator", "E1: an organization-work author is the coordinator");
     const after1 = await world();
     assert.deepEqual(
       { calls: after1.calls - before1.calls, artifacts: after1.artifacts - before1.artifacts, references: after1.references - before1.references, decisions: after1.decisions - before1.decisions, requests: after1.requests - before1.requests },

@@ -50,7 +50,7 @@
 import { sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { agentWorkCapability, refuseOutsideAgentWorkCapability } from "./capabilities";
+import { agentWorkCapability, agentWorkRole, refuseOutsideAgentWorkCapability, type AgentWorkRole } from "./capabilities";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
@@ -115,6 +115,8 @@ async function readTarget(tenant: TenantContext, workItemId: unknown, deps: Agen
   };
 }
 
+type EligibleAgent = { readonly agentId: string; readonly name: string; readonly role: AgentWorkRole };
+
 /**
  * In-service agents whose in-force mandate admits one of the capability's responsibility-scoped kinds
  * AND whose responsibility covers this scope — the shared ceiling, asked per kind, never re-derived.
@@ -123,16 +125,16 @@ async function eligibleAgents(
   tenant: TenantContext,
   workScope: WorkScope,
   deps: AgentWorkDeps,
-): Promise<{ readonly status: "read"; readonly agents: readonly { readonly agentId: string; readonly name: string }[] } | { readonly status: "unavailable" }> {
+): Promise<{ readonly status: "read"; readonly agents: readonly EligibleAgent[] } | { readonly status: "unavailable" }> {
   const identity = await readDurableAgentIdentityState(tenant, { getDb: deps.getDb });
   if (identity.status !== "known") return { status: "unavailable" };
-  const agents: { agentId: string; name: string }[] = [];
+  const agents: EligibleAgent[] = [];
   for (const candidate of identity.identities) {
     if (!candidate.inService) continue;
     const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, { getDb: deps.getDb });
     if (mandate.status !== "known") return { status: "unavailable" };
     if (!refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)) {
-      agents.push({ agentId: candidate.agentId, name: candidate.name });
+      agents.push({ agentId: candidate.agentId, name: candidate.name, role: agentWorkRole(mandate, workScope) });
     }
   }
   return { status: "read", agents };
@@ -224,7 +226,14 @@ export type WorkDraftChoices =
       readonly workItemId: string;
       /** Whether this person may link a draft to this work (Governance authority). */
       readonly mayAssign: boolean;
-      readonly agents: readonly { readonly agentId: string; readonly name: string; readonly openDraftId: string | null }[];
+      readonly agents: readonly (EligibleAgent & { readonly openDraftId: string | null })[];
+      /**
+       * AGENT-EXECUTION-2 — the agent Heby recommends, by one server-side rule: the work's ONLY specialist
+       * (responsible for this kind of work, not organization-wide), when it has no draft waiting. `null`
+       * when there is none or more than one; the person then chooses. A recommendation is never a choice:
+       * the assignment re-checks everything for whichever agent the person sends.
+       */
+      readonly recommendedAgentId: string | null;
       /** In-service agents not responsible for this work's scope, by count — never named as options. */
       readonly notResponsible: number;
       readonly drafts: readonly WorkDraftView[];
@@ -251,11 +260,14 @@ export async function readWorkDraftChoices(
   ]);
   if (eligible.status !== "read" || drafts.status !== "read" || identities.status !== "known") return { status: "unavailable" };
   const inService = identities.identities.filter((identity) => identity.inService).length;
+  const agents = eligible.agents.map((agent) => ({ ...agent, openDraftId: openDraftBy(drafts.drafts, agent.agentId)?.artifactId ?? null }));
+  const specialists = agents.filter((agent) => agent.role === "specialist");
   return {
     status: "read",
     workItemId: target.target.workItemId,
     mayAssign: authority.authorized,
-    agents: eligible.agents.map((agent) => ({ ...agent, openDraftId: openDraftBy(drafts.drafts, agent.agentId)?.artifactId ?? null })),
+    agents,
+    recommendedAgentId: specialists.length === 1 && specialists[0]!.openDraftId === null ? specialists[0]!.agentId : null,
     notResponsible: inService - eligible.agents.length,
     drafts: drafts.drafts,
   };
@@ -295,6 +307,7 @@ export type AssignWorkDraftResult =
       readonly artifactId: string;
       readonly revisionNo: number;
       readonly agentName: string;
+      readonly agentRole: AgentWorkRole;
     }
   /**
    * The agent wrote the draft, but while it was writing it stopped being responsible for this work, or the
@@ -384,7 +397,7 @@ export async function assignWorkDraft(input: AssignWorkDraftInput, deps: AssignW
     if (!stillEligible.agents.some((candidate) => candidate.agentId === agent.agentId)) {
       return { status: "prepared-stale", ...made, reason: "agent-no-longer-eligible" };
     }
-    return { status: "prepared", workItemId: target.target.workItemId, ...made, agentName: agent.name };
+    return { status: "prepared", workItemId: target.target.workItemId, ...made, agentName: agent.name, agentRole: agent.role };
   };
 
   return db.transaction(async (tx) => {
