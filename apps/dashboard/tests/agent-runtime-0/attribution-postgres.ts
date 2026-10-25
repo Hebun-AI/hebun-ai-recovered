@@ -24,7 +24,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import type { HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import {
   generateHebyModelAnswer,
@@ -224,6 +224,8 @@ async function main(): Promise<void> {
      * ═════════════════════════════════════════════════════════════════════ */
     await seedGovernanceAuthority(setup, acme, { getDb: () => handle.db }, { tag: "a0a0a" });
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
+    /* AGENT-EXECUTION-1: an agent drafts only under an in-force mandate with organization responsibility; this fixture now has one, as a real organization would. */
+    await seedAgentMandate(setup, acme, established.status === "established" ? established.identity.agentId : "", dbDeps as never, { tag: "ae1-a0" });
     assert.equal(established.status, "established");
     const acmeAgentId = established.status === "established" ? established.identity.agentId : "";
     assert.notEqual(acmeAgentId, acme.userId, "an agent id is not a person's id");

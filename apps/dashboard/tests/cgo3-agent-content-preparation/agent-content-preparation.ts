@@ -20,7 +20,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer, type ClaudeTransport } from "../../src/features/heby-model";
 import { createDurableConversationRepository } from "../../src/features/heby-conversation/durable-conversation-repository.server";
@@ -100,19 +100,33 @@ function theModelNeverChoosesTheDestination(): void {
 
 /**
  * CGO-3 CHANGED NO AUTHORITY. The agent mandate governs what an agent may PROPOSE; it has never
- * governed what an artifact may say, and the artifact domain still imports it nowhere.
+ * governed what an artifact may say.
+ *
+ * AGENT-EXECUTION-1 NARROWED, IT DID NOT WIDEN. The Director bound the named author of a draft to its
+ * mandate, so the preparation seam now READS the effective mandate and asks the one shared ceiling —
+ * a refusal, never a grant. It still writes no mandate, never touches the proposal scope itself, and
+ * the artifact writer still imports the mandate nowhere.
  */
 function noMandateWasWidened(): void {
   const featureDir = path.join(REPO_ROOT, "src/features/work-artifacts");
   for (const file of ["prepare-work-artifact.server.ts", "write-work-artifacts.server.ts"]) {
     const source = readFileSync(path.join(featureDir, file), "utf8");
     const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-    for (const forbidden of ["agent-mandate", "proposalScope", "proposal_scope"]) {
+    const forbiddenHere =
+      file === "prepare-work-artifact.server.ts"
+        ? ["establishAgentMandate", "agent-mandate-ceiling", "proposalScope", "proposal_scope", "agent_mandates"]
+        : ["agent-mandate", "proposalScope", "proposal_scope"];
+    for (const forbidden of forbiddenHere) {
       assert.equal(
         code.includes(forbidden),
         false,
-        `${file} must not touch the mandate — preparing content is not proposing an act`,
+        `${file} must not touch the mandate beyond asking the shared ceiling — preparing content is not proposing an act (${forbidden})`,
       );
+    }
+    if (file === "prepare-work-artifact.server.ts") {
+      const mandateImports = [...code.matchAll(/import \{([^}]*)\} from "@\/features\/agent-mandate\/[^"]+"/g)].map((m) => m[1]!.replace(/\s+/g, " ").trim());
+      assert.deepEqual(mandateImports, ["readEffectiveAgentMandate, type AgentMandateReadDeps,"], "the seam reads the effective mandate, and nothing else of the mandate authority");
+      assert.match(code, /refuseOutsideAgentWorkCapability\(/, "the decision is the shared ceiling's, through the work capability's one condition");
     }
     /* And no execution, scheduling or provider reach arrived with it. */
     for (const forbidden of ["fetch(", "https://", "setInterval", "cron", "publishAt"]) {
@@ -171,6 +185,8 @@ async function main(): Promise<void> {
 
     await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "c3" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, agentIdentityDeps);
+    /* AGENT-EXECUTION-1: an agent drafts only under an in-force mandate with organization responsibility; this fixture now has one, as a real organization would. */
+    await seedAgentMandate(setup, acme, established.status === "established" ? established.identity.agentId : "", agentIdentityDeps as never, { tag: "ae1-c3" });
     assert.equal(established.status, "established", "the tenant has a durable agent");
     /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
     const baselineDecisionRecords = (
@@ -270,7 +286,8 @@ async function main(): Promise<void> {
     ]) {
       const { rows } = await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`);
       assert.equal(
-        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : 0),
+        /* AGENT-EXECUTION-1: the fixture's own mandate is the one agent_mandates row, recorded before preparation. */
+        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : table === "agent_mandates" ? 1 : 0),
         0,
         `an agent preparing content wrote no ${table} row: preparation is not an act`,
       );

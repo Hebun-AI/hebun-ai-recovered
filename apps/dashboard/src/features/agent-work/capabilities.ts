@@ -17,7 +17,16 @@
  * pins every entry to the mandate vocabulary and the platform data-use policy, so an entry cannot
  * claim a kind or a data class those authorities do not hold.
  */
-import type { AgentOriginableActionKind } from "@/features/agent-origination/contracts";
+import { AGENT_ORIGINABLE_REGISTRY_KIND, type AgentOriginableActionKind } from "@/features/agent-origination/contracts";
+import {
+  refuseOutsideAgentMandate,
+  refuseOutsideAgentResponsibility,
+  type AgentMandateCeilingRefusal,
+  type AgentResponsibilityRefusal,
+  type MandateReadForCeiling,
+  type MandateReadForResponsibility,
+} from "@/features/action-authorization/agent-mandate-ceiling";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 
 export type AgentWorkCapabilityId = "prepare-work-draft";
 
@@ -77,4 +86,27 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
 
 export function agentWorkCapability(id: AgentWorkCapabilityId): AgentWorkCapability {
   return AGENT_WORK_CAPABILITIES.find((capability) => capability.id === id)!;
+}
+
+export type AgentWorkCeilingRefusal = AgentMandateCeilingRefusal | AgentResponsibilityRefusal;
+
+/**
+ * The capability's mandate condition, answered by the ONE shared ceiling and nothing else: `null` when
+ * some kind in `mandateKindsAnyOf` is admitted by the mandate AND its responsibility covers `workScope`.
+ * Pure — the caller hands it what the Agent Mandate Authority said. When no kind admits, the refusal of
+ * the kind that came closest is returned (responsibility over kind), so the person is told the real gap.
+ */
+export function refuseOutsideAgentWorkCapability(
+  capability: AgentWorkCapability,
+  read: MandateReadForCeiling & MandateReadForResponsibility,
+  workScope: WorkScope,
+): AgentWorkCeilingRefusal | null {
+  let refusal: AgentWorkCeilingRefusal | null = null;
+  for (const alias of capability.mandateKindsAnyOf) {
+    const kind = AGENT_ORIGINABLE_REGISTRY_KIND[alias];
+    const refused = refuseOutsideAgentMandate(read, kind) ?? refuseOutsideAgentResponsibility(read, kind, workScope);
+    if (!refused) return null;
+    if (refusal === null || refusal === "action-outside-agent-mandate") refusal = refused;
+  }
+  return refusal ?? "action-outside-agent-mandate";
 }

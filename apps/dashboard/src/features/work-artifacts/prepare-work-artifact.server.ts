@@ -72,6 +72,15 @@ import {
   type HebyModelAnswerResult,
 } from "@/features/heby-answer/model-answer.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
+import {
+  readEffectiveAgentMandate,
+  type AgentMandateReadDeps,
+} from "@/features/agent-mandate/read-agent-mandate.server";
+import {
+  agentWorkCapability,
+  refuseOutsideAgentWorkCapability,
+} from "@/features/agent-work/capabilities";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import { resolveSource } from "@/features/heby-runtime/source-resolver";
 import type { HebyModelFallback } from "@/features/heby-runtime/contracts";
@@ -193,7 +202,19 @@ export interface PrepareWorkArtifactDeps {
    * Defaults to the writer's handle so a caller that injected one database never reads another.
    */
   readonly read?: WorkArtifactReadDeps;
+  /** AGENT-EXECUTION-1. The mandate read's handle; defaults to the identity read's, then the writer's. */
+  readonly mandate?: AgentMandateReadDeps;
+  /**
+   * AGENT-EXECUTION-1 — the work the named author must be responsible for. SERVER-DERIVED ONLY: it is a
+   * dependency, never an input field, so no client payload can widen it. Omitted, the draft is
+   * organization work (Operations prepares for the organization, not for a work domain), and the author
+   * needs organization-level responsibility. The AGENT-EXECUTION-1 assignment seam passes the work
+   * item's own recorded scope.
+   */
+  readonly workScope?: WorkScope;
 }
+
+const ORGANIZATION_WORK: WorkScope = Object.freeze({ kind: "organization" as const });
 
 /**
  * Why preparation produced no artifact. Each value is a fact about what happened; none of them is
@@ -213,6 +234,20 @@ export type PreparationRefusal =
    * authority is unreachable" are three different facts and a human acts differently on each.
    */
   | AgentAuthorshipRefusal
+  /**
+   * AGENT-EXECUTION-1 preflight. The named author's in-force mandate does not admit drafting this work
+   * (the shared ceiling's own refusal, passed through unchanged), or the mandate could not be read.
+   */
+  | "agent-mandate-authority-unavailable"
+  | "no-agent-mandate"
+  | "action-outside-agent-mandate"
+  | "work-scope-required"
+  | "work-outside-agent-responsibility"
+  /**
+   * AGENT-EXECUTION-1 post-invocation. While the model was writing, the author's mandate or
+   * responsibility was withdrawn; the message record stays, no revision was filed.
+   */
+  | "agent-mandate-changed-while-preparing"
   /** CGO-9 preflight. The Director's Claude provider control is off, so no model was invoked. */
   | "model-connectivity-disabled"
   /** CGO-9 preflight. The released validator refused the classification or title; see `problems`. */
@@ -293,6 +328,8 @@ export function toPreparationClientResult(result: PrepareWorkArtifactResult): Pr
  * "no model runtime is connected" as though it were prepared work. Refused instead, and the
  * answer is handed back so the human sees exactly what happened.
  */
+const PREPARATION_CAPABILITY = agentWorkCapability("prepare-work-draft");
+
 export async function prepareWorkArtifact(
   input: PrepareWorkArtifactInput,
   deps: HebyModelAnswerDeps & PrepareWorkArtifactDeps,
@@ -320,6 +357,25 @@ export async function prepareWorkArtifact(
   if (authorship.status === "refused") {
     return { status: "refused", reason: authorship.reason };
   }
+
+  /*
+   * 2b. AGENT-EXECUTION-1 — WHETHER THAT AUTHOR MAY DO THIS WORK. Naming an in-service agent as the
+   * author used to be the only check, so any agent could be recorded as having written any draft. The
+   * author's in-force mandate must admit the work capability and its responsibility must cover the
+   * work's scope — the ONE shared ceiling, asked here so every preparation path (Operations, the
+   * observation-grounded path, Heby's work assignment) passes through it. Before the model: a refused
+   * author spends no call.
+   */
+  const workScope = deps.workScope ?? ORGANIZATION_WORK;
+  const mandateDeps: AgentMandateReadDeps = deps.mandate ?? { getDb: deps.agentIdentity?.getDb ?? deps.write?.getDb };
+  const askCeiling = async () =>
+    refuseOutsideAgentWorkCapability(
+      PREPARATION_CAPABILITY,
+      await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps),
+      workScope,
+    );
+  const ceilingRefusal = await askCeiling();
+  if (ceilingRefusal) return { status: "refused", reason: ceilingRefusal };
 
   /* 3. THE DIRECTOR'S CLAUDE PROVIDER CONTROL. The same fail-closed read the answer flow makes. */
   const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
@@ -457,6 +513,9 @@ export async function prepareWorkArtifact(
   if (!answer.persistence.durable) {
     return { status: "refused", reason: "not-durable", answer };
   }
+
+  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */
+  if (await askCeiling()) return { status: "refused", reason: "agent-mandate-changed-while-preparing", answer };
 
   const content = answer.outcome.response.body.join("\n");
   const sourceMessageId = answer.persistence.assistantMessageId;

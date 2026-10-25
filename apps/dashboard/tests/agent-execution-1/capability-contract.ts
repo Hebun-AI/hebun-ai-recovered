@@ -58,8 +58,20 @@ assert.doesNotMatch(code(SEAM), /observationSupplement|conversationId|artifactId
 
 /* ── C4 · a composition, not an authority ── */
 const seam = code(SEAM);
-for (const banned of [".insert(", ".update(", ".delete(", "db.transaction", "from \"@/db/schema", "sql`"]) {
+for (const banned of [".insert(", ".update(", ".delete(", "from \"@/db/schema"]) {
   assert.ok(!seam.includes(banned), `the seam writes nothing itself (${banned})`);
+}
+/* Its one statement of its own is the assignment lock: a transaction-scoped advisory lock, no row. */
+assert.deepEqual([...seam.matchAll(/sql`([^`]*)`/g)].map((m) => m[1]!.replace(/\$\{[^}]*\}/g, "?")), [
+  "select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.assign'), hashtext(?)) as locked",
+]);
+assert.equal(seam.split("db.transaction(").length - 1, 1, "one transaction: the lock's");
+{
+  const body = seam.slice(seam.indexOf("const prepareUnderLock"), seam.indexOf("db.transaction("));
+  assert.ok(body.includes("openDraftBy(drafts.drafts, agentId)") && body.includes("deps.prepare ?? prepareWorkArtifact"), "the open-draft read and the model call run only under the lock");
+  const locked = seam.slice(seam.indexOf("db.transaction("));
+  assert.ok(locked.indexOf("pg_try_advisory_xact_lock") < locked.indexOf("return prepareUnderLock()"), "the lock is taken before anything runs under it");
+  assert.equal(seam.split("prepareUnderLock()").length - 1, 1, "and nothing runs it outside the lock");
 }
 const imports = [...seam.matchAll(/from "([^"]+)"/g)].map((m) => m[1]!).sort();
 assert.deepEqual(
@@ -67,10 +79,8 @@ assert.deepEqual(
   [
     "./capabilities",
     "@/db/client.server",
-    "@/features/action-authorization/agent-mandate-ceiling",
     "@/features/agent-identity/read-durable-agent-identity.server",
     "@/features/agent-mandate/read-agent-mandate.server",
-    "@/features/agent-origination/contracts",
     "@/features/auth/tenant/tenant-context",
     "@/features/governance-decision/authority-read.server",
     "@/features/heby-runtime/contracts",
@@ -82,11 +92,13 @@ assert.deepEqual(
     "@/features/work-artifacts/prepare-work-artifact.server",
     "@/features/work-artifacts/read-work-artifacts.server",
     "@/features/work-domain/work-scope",
+    "drizzle-orm",
   ],
   "the seam reaches only these authorities (a new reach is a deliberate edit here)",
 );
 assert.doesNotMatch(seam, /declareWorkEvidenceReference|write-work\.server|list-eligible-agents/, "the seam never links evidence and never uses the read-only eligibility projection as a gate");
-assert.match(seam, /refuseOutsideAgentMandate\(mandate, kind\) && !refuseOutsideAgentResponsibility\(mandate, kind, workScope\)/, "the shared ceiling decides, per kind");
+assert.match(seam, /refuseOutsideAgentWorkCapability\(CAPABILITY, mandate, workScope\)/, "the shared ceiling decides, through the capability's one condition");
+assert.match(seam, /workScope: target\.target\.workScope/, "the preparation seam is handed the work item's recorded scope, server-side");
 assert.match(seam, /agentId: agent\.agentId/, "the agent handed to the preparation seam is the one the eligibility read listed");
 assert.ok(seam.indexOf("resolveGovernanceAuthority") < seam.indexOf("deps.prepare ?? prepareWorkArtifact"), "authority is asked before the model");
 assert.ok(seam.indexOf("openDraftBy(drafts.drafts, agentId)") < seam.indexOf("deps.prepare ?? prepareWorkArtifact"), "the open-draft rule is asked before the model");

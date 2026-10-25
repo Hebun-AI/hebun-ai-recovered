@@ -179,7 +179,8 @@ function everyRefusalSaysWhichOutcomeItIs(): void {
     "the wording covers exactly the seam's refusals",
   );
   /* CONTENT-AGENT-2 adds `changed-while-preparing`: the writer refused under its lock AFTER the model answered. */
-  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused", "changed-while-preparing"]);
+  /* AGENT-EXECUTION-1 adds `agent-mandate-changed-while-preparing`: the author's mandate was withdrawn while the model wrote. */
+  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused", "changed-while-preparing", "agent-mandate-changed-while-preparing"]);
   for (const [reason, sentence] of Object.entries(HEBUN_PREPARATION_REFUSAL_WORDING)) {
     if (POST_INVOCATION.has(reason)) {
       assert.ok(sentence.includes("No prepared work was written"), `${reason} says no prepared work was written`);
@@ -250,11 +251,19 @@ function outOfScopeStaysOut(): void {
       "fetch(", "https://", "publish(", "publishat", "schedule(", "setinterval", "cron",
       "action_permits", "actionpermits", "executeauthorizedaction", "recordactionrequest",
       "higgsfield", "provider-youtube", "provider-instagram", "provider-tiktok", "observechannel",
-      "generateimage", "generatevideo", "storage.from(", "social-intelligence", "agent-mandate",
+      "generateimage", "generatevideo", "storage.from(", "social-intelligence",
+      /* AGENT-EXECUTION-1: the seam reads the author's effective mandate (asserted below); nothing else may. */
+      ...(file === SEAM ? [] : ["@/features/agent-mandate", "agent-mandate-ceiling"]),
     ]) {
       assert.equal(code.includes(banned), false, `${file} must not reach "${banned}"`);
     }
   }
+  /* The seam's one reach into the mandate authority is the effective read, asked through the shared ceiling. */
+  assert.deepEqual(
+    [...codeOf(read(SEAM)).matchAll(/from "(@\/features\/agent-mandate\/[^"]+)"/g)].map((m) => m[1]),
+    ["@/features/agent-mandate/read-agent-mandate.server"],
+    "the preparation seam reaches only the mandate read",
+  );
   assert.equal(
     codeOf(read(HEBUN)).includes("observationSupplement"),
     false,

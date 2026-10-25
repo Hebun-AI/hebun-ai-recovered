@@ -79,9 +79,14 @@ const MUTATIONS: readonly Mutation[] = [
         find: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason };\n  }\n",
         replace: "",
       },
+      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too. */
       {
-        find: "  const content = answer.outcome.response.body.join(\"\\n\");",
-        replace: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason, answer };\n  }\n  const content = answer.outcome.response.body.join(\"\\n\");",
+        find: "  const ceilingRefusal = await askCeiling();",
+        replace: "  const ceilingRefusal = authorship.status === \"resolved\" ? await askCeiling() : null;",
+      },
+      {
+        find: "  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
+        replace: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason, answer };\n  }\n  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
       },
     ],
     because: "PREFLIGHT REFUSAL CARRIES NO ANSWER \u2014 no durable agent",
@@ -95,9 +100,14 @@ const MUTATIONS: readonly Mutation[] = [
         find: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason };\n  }\n",
         replace: "",
       },
+      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too. */
       {
-        find: "  const content = answer.outcome.response.body.join(\"\\n\");",
-        replace: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason, answer };\n  }\n  const content = answer.outcome.response.body.join(\"\\n\");",
+        find: "  const ceilingRefusal = await askCeiling();",
+        replace: "  const ceilingRefusal = authorship.status === \"resolved\" ? await askCeiling() : null;",
+      },
+      {
+        find: "  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
+        replace: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason, answer };\n  }\n  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
       },
     ],
     because: "NO DURABLE AGENT, NO MODEL INVOCATION",

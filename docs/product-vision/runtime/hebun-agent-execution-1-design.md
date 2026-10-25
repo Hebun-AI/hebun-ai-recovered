@@ -91,9 +91,31 @@ No state is persisted by this milestone.
 ## 6 · Limits, stated
 
 - **Real provider execution UNVERIFIED locally.** Local verification used the fake model transport (no
-  provider credentials are used outside production). Production acceptance needs one Director-authorized
-  live assignment in a tenant with `assistance` authorization.
-- **Duplicates.** The open-draft rule sees drafts linked to the work. Two simultaneous assignments, or an
-  assignment whose draft the person never links, can leave an extra draft (reviewable text, no effect).
-- **The existing Operations preparation path** (`/operations`) still names any in-service agent as author
-  with no mandate bound; this milestone did not change a production-accepted path.
+  provider credentials are used outside production, and none were read). Production acceptance needs one
+  Director-authorized live assignment in a tenant with `assistance` authorization.
+- **Sequential unlinked drafts.** Concurrent assignments of the same (work item, agent) are serialised by a
+  transaction-scoped `pg_try_advisory_xact_lock` held from the open-draft read until the draft is filed; the
+  loser is refused `assignment-in-progress` before the model (E15, two connection pools). Once a draft is
+  filed and before the person links it, a deliberate second assignment can still write a second draft:
+  nothing records which work an unlinked draft was for, and no table is added to record it.
+- **Lock cost.** The holder keeps one pooled connection idle in transaction (no row locks) for the model
+  call's duration.
+
+## 7 · Hardening (same milestone)
+
+- **The Operations preparation path is bound to the mandate.** `prepareWorkArtifact` — the one seam every
+  preparation path calls (Operations, the observation-grounded path, the assignment seam) — asks the shared
+  ceiling of the named author before the model and again before filing:
+  `refuseOutsideAgentWorkCapability` (in `capabilities.ts`, built only from `refuseOutsideAgentMandate` and
+  `refuseOutsideAgentResponsibility`). The scope is a server-side dependency, never an input field: the
+  assignment seam passes the work item's recorded scope; Operations has no work item, so its drafts are
+  organization work and need organization-level responsibility. A mandate withdrawn during the model call
+  files nothing (`agent-mandate-changed-while-preparing`).
+- **Behaviour change for customers.** An Operations draft by an agent with no mandate, without a drafting
+  kind (`record-work`/`set-work-declared-state`), or with domain-only responsibility is now refused before
+  the model, with the reason stated. Production mandates were not read in this milestone, so which existing
+  agents are affected is UNVERIFIED until the release gate.
+- **Observed, not changed:** media generation (`request-media-generation`, the async video lifecycle) also
+  records a named in-service agent as author with no mandate bound. Media is not a work capability in this
+  contract and its authority states that Governance is not consulted by design; binding it is a separate
+  Director decision.

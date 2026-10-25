@@ -16,7 +16,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import type { PublicKnowledgeDeps } from "../../src/features/heby-answer/knowledge-evidence.server";
 import { readRevisionGenerationEvidence } from "../../src/features/heby-answer/revision-generation-evidence.server";
@@ -85,7 +85,10 @@ async function main(): Promise<void> {
     const repo = createDurableConversationRepository(handle.db);
     const dbDeps = { getDb: () => handle.db } as never;
     await seedGovernanceAuthority(setup, seeded, dbDeps, { tag: "kt52" });
-    assert.equal((await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps)).status, "established");
+    const heby = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
+    assert.equal(heby.status, "established");
+    /* AGENT-EXECUTION-1: an agent drafts only under an in-force mandate with organization responsibility; this fixture now has one, as a real organization would. */
+    await seedAgentMandate(setup, seeded, heby.status === "established" ? heby.identity.agentId : "", dbDeps as never, { tag: "ae1-kt52" });
 
     const sent: string[] = [];
     const transport: ClaudeTransport = {

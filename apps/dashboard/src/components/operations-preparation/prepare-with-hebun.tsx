@@ -67,6 +67,12 @@ export const HEBUN_PREPARATION_REFUSAL_WORDING: Record<PreparationRefusal, strin
   "selected-agent-unresolvable": `The chosen agent is not one of your organization's agents. ${NOT_ASKED}`,
   "selected-agent-retired": `The chosen agent is retired. ${NOT_ASKED}`,
   "agent-identity-authority-unavailable": `The agent identity authority could not be read. ${NOT_ASKED}`,
+  /* AGENT-EXECUTION-1 preflight: the shared mandate ceiling, asked of the named author. */
+  "agent-mandate-authority-unavailable": `The agent's mandate could not be read, so it is unknown rather than absent. ${NOT_ASKED}`,
+  "no-agent-mandate": `The chosen agent has no mandate, so it may not write drafts. ${NOT_ASKED}`,
+  "action-outside-agent-mandate": `The chosen agent's mandate does not admit work drafting. ${NOT_ASKED}`,
+  "work-scope-required": `The work this draft is for has no recorded scope. ${NOT_ASKED}`,
+  "work-outside-agent-responsibility": `The chosen agent is not responsible for this work. A draft prepared here is organization work, so it needs an agent responsible for the organization. ${NOT_ASKED}`,
   "model-connectivity-disabled": `Claude is switched off by the Director's provider control. ${NOT_ASKED}`,
   "invalid-input": `The request is incomplete — see the problems listed. ${NOT_ASKED}`,
   "artifact-not-found": `That draft could not be found for your organization. ${NOT_ASKED}`,
@@ -81,6 +87,7 @@ export const HEBUN_PREPARATION_REFUSAL_WORDING: Record<PreparationRefusal, strin
   "no-model-answer": `Hebun did not return a model-written draft. ${NOT_FILED}`,
   "not-durable": `The exchange could not be durably recorded, so nothing can be attributed to it. ${NOT_FILED}`,
   "write-refused": `The prepared text could not be filed. ${NOT_FILED}`,
+  "agent-mandate-changed-while-preparing": `While Hebun was writing, the agent's mandate or responsibility was withdrawn, so nothing was filed. ${NOT_FILED}`,
   /* CONTENT-AGENT-2 post-invocation: the writer refused under its lock. */
   "changed-while-preparing": `While Hebun was writing, the draft was revised or its review changed, so nothing was filed on top of it. ${NOT_FILED}`,
 };

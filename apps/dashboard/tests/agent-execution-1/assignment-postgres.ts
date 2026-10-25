@@ -18,6 +18,15 @@
  *   E10 an instruction that tries to name a tenant, an agent or an approval changes none of them
  *   E11 another tenant reads nothing of this work's drafts
  *   E12 reads write nothing
+ *   E13 OPERATIONS PATH (prepareWorkArtifact, no work item): the named author must hold an in-force mandate
+ *       admitting work drafting AND organization-level responsibility — no mandate · send-only · domain-only
+ *       refused before the model; a client-supplied `workScope` input field widens nothing; revising an
+ *       existing draft is held to the same ceiling; an organization-responsible agent prepares
+ *   E14 the mandate is withdrawn while the model writes → `agent-mandate-changed-while-preparing`, no revision
+ *   E15 CONCURRENCY: five simultaneous assignments of the same (work, agent), across two separate connection
+ *       pools (two server instances) → exactly one model call and one draft, four `assignment-in-progress`;
+ *       a different agent on the same work is not blocked
+ *   E16 an assignment that throws releases its lock: the next assignment proceeds
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -170,12 +179,25 @@ async function main(): Promise<void> {
     /* The model, faked at the transport — everything above it is the released stack. */
     let calls = 0;
     let failNext = false;
+    /* E14/E15 hooks: run something while the model is "writing", or hold the call open until released. */
+    let duringSend: (() => Promise<void>) | null = null;
+    let hold: Promise<void> | null = null;
+    let entered: (() => void) | null = null;
     const transport: ClaudeTransport = {
       async send(request) {
         calls++;
         if (failNext) {
           failNext = false;
           throw new Error("provider down");
+        }
+        if (duringSend) {
+          const run = duringSend;
+          duringSend = null;
+          await run();
+        }
+        if (hold) {
+          entered?.();
+          await hold;
         }
         return { id: `req_ae1_${calls}`, model: request.model, content: [{ type: "text", text: DRAFT_TEXT }], stopReason: "end_turn", usage: { inputTokens: 30, outputTokens: 12 } };
       },
@@ -378,6 +400,95 @@ async function main(): Promise<void> {
     await readWorkDraftChoices(acme, orgWork, dbDeps);
     await readWorkDrafts(acme, orgWork, dbDeps);
     assert.deepEqual(await world(), beforeReads, "E12: reads write nothing");
+
+    /* ── E13 · the Operations path is held to the same ceiling ── */
+    const prepDeps = (ctx: TenantContext) => ({ ...(preparation as object), resolveTenant: async () => ctx }) as Parameters<typeof prepareWorkArtifact>[1];
+    const operations = (ctx: TenantContext, agentId: string, extra: Record<string, unknown> = {}) =>
+      prepareWorkArtifact(
+        { prompt: "Prepare a plan for the quarterly stock review.", route: "/operations", artifactType: "operational-plan", title: `Ops ${randomUUID().slice(0, 6)}`, agentId, ...extra } as never,
+        prepDeps(ctx),
+      );
+    await nothingHappened("E13 no mandate", () => operations(acme, noMandate), "no-agent-mandate");
+    await nothingHappened("E13 send-only mandate", () => operations(acme, sendOnly), "action-outside-agent-mandate");
+    const opsOnly = await agent(acme, "OpsOnly");
+    await mandate(acme, opsOnly, ["record-work"], [{ kind: "domain", workDomainId: ops.workDomain.workDomainId }]);
+    await nothingHappened("E13 domain-only responsibility", () => operations(acme, opsOnly), "work-outside-agent-responsibility");
+    await nothingHappened(
+      "E13 a client-supplied workScope input widens nothing",
+      () => operations(acme, opsOnly, { workScope: { kind: "domain", workDomainId: ops.workDomain.workDomainId } }),
+      "work-outside-agent-responsibility",
+    );
+    await nothingHappened("E13 revising a draft is held to the same ceiling", () => operations(acme, opsOnly, { artifactId, title: "" }), "work-outside-agent-responsibility");
+    await nothingHappened("E13 another tenant's agent", () => operations(acme, globexAgent), "selected-agent-unresolvable");
+    const before13 = await world();
+    const e13 = await operations(acme, writer);
+    assert.equal(e13.status, "prepared", JSON.stringify(e13));
+    assert.equal((await world()).calls - before13.calls, 1, "E13: an organization-responsible agent prepares, one call");
+    /* The same domain-only agent still drafts for work in ITS domain, through the assignment seam. */
+    const opsWork = await scopedWork(acme, { kind: "domain", workDomainId: ops.workDomain.workDomainId });
+    assert.equal((await ask(acme, opsWork, opsOnly)).status, "prepared", "E13: domain responsibility admits that domain's work");
+
+    /* ── E14 · mandate withdrawn while the model writes: nothing is filed ── */
+    const before14 = await world();
+    duringSend = () => mandate(acme, writer, ["record-work"], [{ kind: "domain", workDomainId: ops.workDomain.workDomainId }]);
+    const e14 = await operations(acme, writer);
+    assert.equal(e14.status === "refused" && e14.reason, "agent-mandate-changed-while-preparing", `E14: a mandate withdrawn mid-call files nothing ${JSON.stringify(e14)}`);
+    const after14 = await world();
+    assert.deepEqual([after14.calls - before14.calls, after14.artifacts - before14.artifacts, after14.revisions - before14.revisions], [1, 0, 0], "E14: the call happened, nothing was filed");
+    await mandate(acme, writer, ["record-work"], [{ kind: "organization" }, { kind: "domain", workDomainId: ops.workDomain.workDomainId }]);
+
+    /* ── E15 · concurrency: the database serialises, across two connection pools ── */
+    const second = createControlPlaneDb(harness.dbUrl);
+    try {
+      const raceWork = await scopedWork(acme, { kind: "organization" });
+      let release!: () => void;
+      hold = new Promise<void>((r) => (release = r));
+      const inside = new Promise<void>((r) => (entered = r));
+      const before15 = await world();
+      let settled = 0;
+      const racers = Array.from({ length: 5 }, (_, i) =>
+        ask(acme, raceWork, writer, i % 2 === 1 ? { getDb: () => second.db } : {}).finally(() => settled++),
+      );
+      await inside;
+      /* The holder is inside the model call; every other request must already have been refused. */
+      /* Bounded: without the lock the others would wait inside the model call too, and that is the failure. */
+      const deadline = Date.now() + 30_000;
+      while (settled < 4 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20));
+      release();
+      const results = await Promise.all(racers);
+      hold = null;
+      entered = null;
+      const statuses = results.map((r) => (r.status === "refused" ? r.reason : r.status)).sort();
+      assert.deepEqual(statuses, ["assignment-in-progress", "assignment-in-progress", "assignment-in-progress", "assignment-in-progress", "prepared"], `E15: one assignment wins, the others are refused in progress ${JSON.stringify(results)}`);
+      const after15 = await world();
+      assert.deepEqual([after15.calls - before15.calls, after15.artifacts - before15.artifacts], [1, 1], "E15: one model call, one draft");
+
+      /* A different agent on the same work is a different task: not blocked by the first. */
+      const writer2 = await agent(acme, "Writer2");
+      await mandate(acme, writer2, ["record-work"], [{ kind: "organization" }]);
+      const pairWork = await scopedWork(acme, { kind: "organization" });
+      let release2!: () => void;
+      hold = new Promise<void>((r) => (release2 = r));
+      let arrivals = 0;
+      let bothInside!: () => void;
+      const both = new Promise<void>((r) => (bothInside = r));
+      entered = () => {
+        if (++arrivals === 2) bothInside();
+      };
+      const pair = [ask(acme, pairWork, writer), ask(acme, pairWork, writer2, { getDb: () => second.db })];
+      await both;
+      release2();
+      assert.deepEqual((await Promise.all(pair)).map((r) => r.status), ["prepared", "prepared"], "E15: two agents, two tasks, both run");
+      hold = null;
+      entered = null;
+    } finally {
+      await second.dispose();
+    }
+
+    /* ── E16 · a request that throws releases its lock ── */
+    const throwWork = await scopedWork(acme, { kind: "organization" });
+    await assert.rejects(ask(acme, throwWork, writer, { prepare: async () => { throw new Error("crash mid-assignment"); } }));
+    assert.equal((await ask(acme, throwWork, writer)).status, "prepared", "E16: the lock did not outlive the failed request");
 
     assert.equal(networkCalls, 0, "no network was reached");
     finished = true;

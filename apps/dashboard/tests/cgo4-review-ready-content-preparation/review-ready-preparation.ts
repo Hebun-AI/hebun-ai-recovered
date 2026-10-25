@@ -25,7 +25,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
   HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS, HEBY_MODEL_SYSTEM_INSTRUCTIONS,
@@ -227,6 +227,8 @@ async function main(): Promise<void> {
 
     await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "c4" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, agentIdentityDeps);
+    /* AGENT-EXECUTION-1: an agent drafts only under an in-force mandate with organization responsibility; this fixture now has one, as a real organization would. */
+    await seedAgentMandate(setup, acme, established.status === "established" ? established.identity.agentId : "", agentIdentityDeps as never, { tag: "ae1-c4" });
     assert.equal(established.status, "established", "the tenant has a durable agent");
     /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
     const baselineDecisionRecords = (
@@ -375,7 +377,8 @@ async function main(): Promise<void> {
     ]) {
       const { rows } = await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`);
       assert.equal(
-        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : 0),
+        /* AGENT-EXECUTION-1: the fixture's own mandate is the one agent_mandates row, recorded before preparation. */
+        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : table === "agent_mandates" ? 1 : 0),
         0,
         `preparation wrote no ${table} row`,
       );

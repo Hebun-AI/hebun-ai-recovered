@@ -54,6 +54,8 @@ export const ASSIGN_REFUSAL_WORDING: Readonly<Record<AssignWorkDraftRefusal, str
     "That agent is not in service, or its mandate does not cover this work's scope. Nothing was asked.",
   "eligibility-unavailable": "Hebun could not confirm which agents are responsible for this work. Nothing was asked.",
   "draft-open": "This agent already has a draft on this work waiting for review. Review or revise it in Operations first.",
+  "assignment-in-progress":
+    "This agent is already writing a draft for this work from another request. Wait for that result. Nothing was asked twice.",
 };
 
 export const STALE_WORDING: Readonly<Record<string, string>> = {

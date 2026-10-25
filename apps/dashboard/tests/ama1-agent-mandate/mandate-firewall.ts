@@ -540,8 +540,10 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "origination-availability", "read-origination-availability.server.ts"),
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
+      /* AGENT-EXECUTION-1. The preparation seam asks the same ceiling of every agent named as a draft's author. */
+      path.join("src", "features", "work-artifacts", "prepare-work-artifact.server.ts"),
     ],
-    "fifteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FIVE enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
+    "sixteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the SIX enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam and the preparation seam that every agent-authored draft passes through), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
   );
 
   /*

@@ -29,7 +29,9 @@
  * Everything that does not need the model is asked before it, so a refused assignment spends no call:
  * tenant → work item (in service, scoped) → the person's authority to link evidence → the agent's
  * capability (in service, and the ONE shared ceiling: the in-force mandate admits a responsibility-scoped
- * kind and its responsibility covers the scope) → no open draft by the same agent for this work. The
+ * kind and its responsibility covers the scope) → no other assignment of this agent to this work in
+ * flight (an advisory lock) → no open draft by the same agent for this work. The preparation seam asks
+ * the same ceiling again for the work item's scope, so the two can never disagree. The
  * model call itself is gated by the External-AI Data Use decision inside the preparation seam
  * (`assistance` × conversation, work-artifact). After the draft exists, the work item and the agent's
  * capability are asked AGAIN: a mandate withdrawn while the agent was writing is reported, and the
@@ -45,16 +47,12 @@
  *
  * Server-only.
  */
-import type { ControlPlaneDatabase } from "@/db/client.server";
+import { sql } from "drizzle-orm";
+import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { AGENT_ORIGINABLE_REGISTRY_KIND } from "@/features/agent-origination/contracts";
-import { agentWorkCapability } from "./capabilities";
+import { agentWorkCapability, refuseOutsideAgentWorkCapability } from "./capabilities";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
-import {
-  refuseOutsideAgentMandate,
-  refuseOutsideAgentResponsibility,
-} from "@/features/action-authorization/agent-mandate-ceiling";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { readWorkStateTarget } from "@/features/organizational-work/read-work.server";
 import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
@@ -87,6 +85,14 @@ export interface AssignWorkDraftDeps extends AgentWorkDeps {
   readonly prepare?: typeof prepareWorkArtifact;
   /** Extra dependencies handed to the preparation seam unchanged (a test's model transport). */
   readonly preparation?: Omit<Parameters<typeof prepareWorkArtifact>[1], "resolveTenant">;
+}
+
+function resolveDbOrNull(): ControlPlaneDatabase | null {
+  try {
+    return getControlPlaneDb();
+  } catch {
+    return null;
+  }
 }
 
 /* ═══ ELIGIBILITY — the capability contract, answered by the authorities that own it ═══════════ */
@@ -125,11 +131,9 @@ async function eligibleAgents(
     if (!candidate.inService) continue;
     const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, { getDb: deps.getDb });
     if (mandate.status !== "known") return { status: "unavailable" };
-    const admitted = CAPABILITY.mandateKindsAnyOf.some((alias) => {
-      const kind = AGENT_ORIGINABLE_REGISTRY_KIND[alias];
-      return !refuseOutsideAgentMandate(mandate, kind) && !refuseOutsideAgentResponsibility(mandate, kind, workScope);
-    });
-    if (admitted) agents.push({ agentId: candidate.agentId, name: candidate.name });
+    if (!refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)) {
+      agents.push({ agentId: candidate.agentId, name: candidate.name });
+    }
   }
   return { status: "read", agents };
 }
@@ -279,7 +283,9 @@ export type AssignWorkDraftRefusal =
   /** Agent identity or mandate could not be read; eligibility is unknown, not absent. */
   | "eligibility-unavailable"
   /** This agent already has a draft on this work waiting for a human; review or revise it first. */
-  | "draft-open";
+  | "draft-open"
+  /** The same agent is already being assigned this work by another request; nothing was asked twice. */
+  | "assignment-in-progress";
 
 export type AssignWorkDraftResult =
   /** The agent wrote the draft. It is not yet this work's evidence: the person links it, as a second act. */
@@ -326,46 +332,68 @@ export async function assignWorkDraft(input: AssignWorkDraftInput, deps: AssignW
   const agent = eligible.agents.find((candidate) => candidate.agentId === agentId);
   if (!agent) return { status: "refused", reason: "agent-not-eligible" };
 
-  const drafts = await readWorkDrafts(tenant, target.target.workItemId, deps);
-  if (drafts.status !== "read") return { status: "refused", reason: "persistence-unavailable" };
   /*
-   * ponytail: read-then-prepare, not locked — two simultaneous assignments by the same person can both
-   * pass and leave two drafts. Both are reviewable text; nothing consequential follows from either. A
-   * per-work advisory lock around this read and the link is the upgrade if duplicates are seen.
+   * ONE ASSIGNMENT PER (WORK, AGENT) AT A TIME. The open-draft rule reads drafts that exist; two requests
+   * arriving together would both read "none" and both spend a model call. A transaction-scoped advisory
+   * lock on this tenant's (work item, agent) pair is held from that read until the draft is filed, and a
+   * second request that cannot take it is refused before the model — Postgres serialises, not this
+   * process, so it holds across server instances. The lock is released by COMMIT/ROLLBACK, so a crashed
+   * request cannot leave it held. It is a lock, not a record: nothing new is stored.
+   *
+   * ponytail: holds one pooled connection (idle in transaction, no row locks) for the model call's
+   * duration per in-flight assignment; a separate lock pool if concurrent assignments approach the pool.
    */
-  const open = openDraftBy(drafts.drafts, agentId);
-  if (open) return { status: "refused", reason: "draft-open", openDraftId: open.artifactId };
+  const db = deps.getDb ? deps.getDb() : resolveDbOrNull();
+  if (!db) return { status: "refused", reason: "persistence-unavailable" };
+  const lockKey = `${tenant.tenantId}:${target.target.workItemId}:${agent.agentId}`;
+  const prepareUnderLock = async (): Promise<AssignWorkDraftResult> => {
+    const drafts = await readWorkDrafts(tenant, target.target.workItemId, deps);
+    if (drafts.status !== "read") return { status: "refused", reason: "persistence-unavailable" };
+    const open = openDraftBy(drafts.drafts, agentId);
+    if (open) return { status: "refused", reason: "draft-open", openDraftId: open.artifactId };
 
-  const prepared = await (deps.prepare ?? prepareWorkArtifact)(
-    {
-      prompt: input?.prompt,
-      route: PREPARATION_ROUTE,
-      artifactType: input?.artifactType as WorkArtifactType,
-      ...(input?.intendedDestination === undefined ? {} : { intendedDestination: input.intendedDestination as ContentDestination }),
-      title: typeof input?.title === "string" ? input.title : "",
-      agentId: agent.agentId,
-    },
-    { ...deps.preparation, resolveTenant: deps.resolveTenant },
-  );
-  if (prepared.status !== "prepared") {
-    const client = toPreparationClientResult(prepared);
-    return {
-      status: "not-prepared",
-      reason: prepared.reason,
-      ...("modelFallback" in client && client.modelFallback ? { modelFallback: client.modelFallback } : {}),
-    };
-  }
-  const made = { artifactId: prepared.artifactId, revisionNo: prepared.revisionNo };
+    const prepared = await (deps.prepare ?? prepareWorkArtifact)(
+      {
+        prompt: input?.prompt,
+        route: PREPARATION_ROUTE,
+        artifactType: input?.artifactType as WorkArtifactType,
+        ...(input?.intendedDestination === undefined ? {} : { intendedDestination: input.intendedDestination as ContentDestination }),
+        title: typeof input?.title === "string" ? input.title : "",
+        agentId: agent.agentId,
+      },
+      /* The work item's own recorded scope — server-derived — is what the author's responsibility must cover. */
+      { ...deps.preparation, resolveTenant: deps.resolveTenant, workScope: target.target.workScope },
+    );
+    if (prepared.status !== "prepared") {
+      const client = toPreparationClientResult(prepared);
+      return {
+        status: "not-prepared",
+        reason: prepared.reason,
+        ...("modelFallback" in client && client.modelFallback ? { modelFallback: client.modelFallback } : {}),
+      };
+    }
+    const made = { artifactId: prepared.artifactId, revisionNo: prepared.revisionNo };
 
-  /* STALE CONTEXT. Ask again: the work and the agent's responsibility as they stand now. */
-  const after = await readTarget(tenant, target.target.workItemId, deps);
-  if (after.status === "refused" || JSON.stringify(after.target.workScope) !== JSON.stringify(target.target.workScope)) {
-    return { status: "prepared-stale", ...made, reason: "work-changed" };
-  }
-  const stillEligible = await eligibleAgents(tenant, after.target.workScope, deps);
-  if (stillEligible.status !== "read") return { status: "prepared-stale", ...made, reason: "eligibility-unavailable" };
-  if (!stillEligible.agents.some((candidate) => candidate.agentId === agent.agentId)) {
-    return { status: "prepared-stale", ...made, reason: "agent-no-longer-eligible" };
-  }
-  return { status: "prepared", workItemId: target.target.workItemId, ...made, agentName: agent.name };
+    /* STALE CONTEXT. Ask again: the work and the agent's responsibility as they stand now. */
+    const after = await readTarget(tenant, target.target.workItemId, deps);
+    if (after.status === "refused" || JSON.stringify(after.target.workScope) !== JSON.stringify(target.target.workScope)) {
+      return { status: "prepared-stale", ...made, reason: "work-changed" };
+    }
+    const stillEligible = await eligibleAgents(tenant, after.target.workScope, deps);
+    if (stillEligible.status !== "read") return { status: "prepared-stale", ...made, reason: "eligibility-unavailable" };
+    if (!stillEligible.agents.some((candidate) => candidate.agentId === agent.agentId)) {
+      return { status: "prepared-stale", ...made, reason: "agent-no-longer-eligible" };
+    }
+    return { status: "prepared", workItemId: target.target.workItemId, ...made, agentName: agent.name };
+  };
+
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute(
+      sql`select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.assign'), hashtext(${lockKey})) as locked`,
+    );
+    if ((locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {
+      return { status: "refused", reason: "assignment-in-progress" } as const;
+    }
+    return prepareUnderLock();
+  });
 }

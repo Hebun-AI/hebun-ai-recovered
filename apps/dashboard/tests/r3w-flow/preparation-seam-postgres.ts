@@ -18,7 +18,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
   type HebyModelAnswerDeps,
@@ -219,6 +219,8 @@ async function main(): Promise<void> {
     /* The tenant establishes its durable agent identity through the released AGENT-ID-0 authority. */
     await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "r3w-prep" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, agentIdentityDeps);
+    /* AGENT-EXECUTION-1: an agent drafts only under an in-force mandate with organization responsibility; this fixture now has one, as a real organization would. */
+    await seedAgentMandate(setup, acme, established.status === "established" ? established.identity.agentId : "", agentIdentityDeps as never, { tag: "ae1-r3w" });
     const govBaselineDecisions = (await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)).rows[0]!.n;
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
