@@ -7,6 +7,7 @@ import type { InstagramApprovalPreviewsRead } from "@/features/instagram-publish
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { utcInstant } from "@/lib/format";
 import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
 import {
@@ -305,7 +306,7 @@ function RequestCard({
       }
       setMessage(
         result.status === "authorized"
-          ? `Authorized. Permit expires ${new Date(result.expiresAt).toLocaleString()}. Nothing has been executed.`
+          ? `Authorized. Permit expires ${utcInstant(result.expiresAt)}. Nothing has been executed.`
           : "Refused and recorded.",
       );
     });
@@ -849,7 +850,7 @@ export function PermitRow({
         <StructuralMarker label={item.state} />
         <span className="text-xs text-fg-secondary">{item.actionKind}</span>
         <span className="text-[0.65rem] text-fg-muted">
-          expires {new Date(item.expiresAt).toLocaleString()}
+          expires {utcInstant(item.expiresAt)}
         </span>
       </div>
 

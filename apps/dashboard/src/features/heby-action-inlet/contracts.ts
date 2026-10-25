@@ -169,6 +169,18 @@ export const SET_WORK_DECLARED_STATE_PROPOSAL_EFFECTS: readonly string[] = Objec
   "writes one work audit event authored by the system",
 ]);
 
+/**
+ * OPERATIONAL-RELIABILITY-1 — the governed internal acts: spending the permit and making the change
+ * are one transaction (GIA-1, GIA-2, WORK-UPDATE V1). The registry's `internal-authority` postures are
+ * the authority; this list is the client-safe copy, and a test pins it to them so a new internal act
+ * cannot be missing here, as `set-work-declared-state` once was from Heby's lifecycle.
+ */
+export const GOVERNED_INTERNAL_ACTION_KINDS: readonly string[] = Object.freeze([
+  RECORD_WORK_ACTION_KIND,
+  PLACE_HUMAN_ACTION_KIND,
+  SET_WORK_DECLARED_STATE_ACTION_KIND,
+]);
+
 /** What it does NOT do. Each line is a fact about the released seam, not a reassurance. */
 export const SET_WORK_DECLARED_STATE_PROPOSAL_NON_EFFECTS: readonly string[] = Object.freeze([
   "does not retitle, reassign, re-scope or retire the work item",

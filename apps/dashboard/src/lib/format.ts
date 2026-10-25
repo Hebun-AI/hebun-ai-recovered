@@ -16,3 +16,15 @@ export function usd(value: number): string {
     maximumFractionDigits: 0,
   }).format(value);
 }
+
+const UTC_INSTANT = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+
+/**
+ * A stored instant as "25 Oct 2026, 10:21 UTC". Fixed locale and zone: a server-rendered time must read
+ * the same in the browser, or hydration fails (React #418). The stored value is not changed or rounded
+ * anywhere but in this text; an unparseable value is shown as stored.
+ */
+export function utcInstant(iso: string): string {
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? iso : `${UTC_INSTANT.format(parsed)} UTC`;
+}

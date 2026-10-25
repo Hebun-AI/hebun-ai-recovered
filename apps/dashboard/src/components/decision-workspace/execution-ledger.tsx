@@ -7,6 +7,7 @@ import {
   reconciliationReasonFor,
   type ExecutionAttemptStatus,
 } from "@/features/action-execution/contracts";
+import { utcInstant } from "@/lib/format";
 import type { ExecutionLedgerEntry } from "@/features/action-execution/execution-ledger-projection.server";
 
 /*
@@ -78,14 +79,14 @@ function LedgerRow({ entry, readAtMs }: { entry: ExecutionLedgerEntry; readAtMs:
         <StructuralMarker label={entry.status} />
         <span className="text-xs text-fg-secondary">{entry.actionKind}</span>
         <span className="text-[0.65rem] text-fg-muted">
-          started {new Date(entry.startedAt).toLocaleString()}
+          started {utcInstant(entry.startedAt)}
         </span>
         {reason && Number.isFinite(ageMs) && ageMs >= 0 ? (
           <span className="text-[0.65rem] text-fg-muted">age {formatAge(ageMs)}</span>
         ) : null}
         {entry.completedAt ? (
           <span className="text-[0.65rem] text-fg-muted">
-            concluded {new Date(entry.completedAt).toLocaleString()}
+            concluded {utcInstant(entry.completedAt)}
           </span>
         ) : null}
       </div>

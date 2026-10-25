@@ -40,7 +40,13 @@ import {
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { readGovernedWorkOutcomes } from "@/features/organizational-work/read-governed-work-outcomes.server";
 import type { GovernedWorkOutcome } from "@/features/organizational-work/read-governed-work-outcomes.server";
-import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { RECORD_WORK_ACTION_KIND, SET_WORK_DECLARED_STATE_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import {
+  isWorkDeclaredState,
+  WORK_AUDIT_RECORDED,
+  WORK_AUDIT_STATE_DECLARED,
+  type WorkDeclaredState,
+} from "@/features/organizational-work/work-contracts";
 import { asCanonicalPayload } from "./canonical-payload";
 import { splitPayload, toEvidence } from "./decision-projection";
 import type { EvidenceProjection, PayloadLockView } from "./decision-projection";
@@ -431,9 +437,17 @@ export interface ActionRequestLifecycleView {
    * HEBY-VERIFIED-WORK-OUTCOMES. For a `record-work` request whose permit was spent, the work that
    * spend produced, as Organizational Work links and reads it; `reference-unavailable` when that
    * authority cannot name it (no declared link, or it could not be read). `null` otherwise.
+   *
+   * OPERATIONAL-RELIABILITY-1 — the same for a spent `set-work-declared-state` request: the item whose
+   * state that spend changed, named by the `work.state-declared` row the Work Authority wrote in the
+   * spend's transaction. `stateChange` is the change the human approved (the bound payload), present
+   * only with that link; it is never inferred from the permit alone.
    */
   readonly workOutcome:
-    | ({ readonly status: "recorded" } & GovernedWorkOutcome)
+    | ({
+        readonly status: "recorded";
+        readonly stateChange?: { readonly fromState: WorkDeclaredState; readonly toState: WorkDeclaredState };
+      } & GovernedWorkOutcome)
     | { readonly status: "reference-unavailable" }
     | null;
 }
@@ -484,20 +498,45 @@ function labelOf(request: LifecycleRow["request"]): string {
   return parts.length > 0 ? parts.join(" · ") : request.expectedEffect;
 }
 
-/** The spend whose work outcome this row may name: a consumed `record-work` permit, else none. */
-const spentRecordWorkHandoff = (row: LifecycleRow): string | null =>
-  row.request.actionKind === RECORD_WORK_ACTION_KIND && row.permitStatus === "consumed" ? row.permitHandoffId : null;
+/* The governed work acts whose spend names a work item, and the audit action that names it. */
+const WORK_LINK_ACTION: Readonly<Record<string, typeof WORK_AUDIT_RECORDED | typeof WORK_AUDIT_STATE_DECLARED>> = {
+  [RECORD_WORK_ACTION_KIND]: WORK_AUDIT_RECORDED,
+  [SET_WORK_DECLARED_STATE_ACTION_KIND]: WORK_AUDIT_STATE_DECLARED,
+};
 
-/** One read of the work outcomes for these rows' spends, through the authority that declared them. */
+/** The spend whose work outcome this row may name: a consumed `record-work` or state-change permit, else none. */
+const spentWorkHandoff = (row: LifecycleRow): string | null =>
+  WORK_LINK_ACTION[row.request.actionKind] !== undefined && row.permitStatus === "consumed" ? row.permitHandoffId : null;
+
+/** One read per act of the work outcomes for these rows' spends, through the authority that declared them. */
 async function workOutcomesFor(
   tenant: TenantContext,
   rows: readonly LifecycleRow[],
   getDb: (() => ControlPlaneDatabase | null) | undefined,
 ): Promise<ReadonlyMap<string, GovernedWorkOutcome> | null> {
-  const handoffs = rows.map(spentRecordWorkHandoff).filter((id): id is string => id !== null);
-  if (handoffs.length === 0) return new Map();
-  const read = await readGovernedWorkOutcomes(tenant, handoffs, { getDb });
-  return read.status === "read" ? read.byHandoff : null;
+  const byHandoff = new Map<string, GovernedWorkOutcome>();
+  for (const action of new Set(Object.values(WORK_LINK_ACTION))) {
+    const handoffs = rows
+      .filter((row) => WORK_LINK_ACTION[row.request.actionKind] === action)
+      .map(spentWorkHandoff)
+      .filter((id): id is string => id !== null);
+    if (handoffs.length === 0) continue;
+    const read = await readGovernedWorkOutcomes(tenant, handoffs, { getDb }, action);
+    if (read.status !== "read") return null;
+    for (const [handoff, work] of read.byHandoff) byHandoff.set(handoff, work);
+  }
+  return byHandoff;
+}
+
+/** The state change the human approved, from the bound payload — or `undefined` if it is not one. */
+function approvedStateChange(request: LifecycleRow["request"]) {
+  if (request.actionKind !== SET_WORK_DECLARED_STATE_ACTION_KIND) return undefined;
+  const payload = asCanonicalPayload(request.canonicalPayload);
+  const fromState = payload?.["fromState"];
+  const toState = payload?.["toState"];
+  return isWorkDeclaredState(fromState) && isWorkDeclaredState(toState) && fromState !== toState
+    ? { fromState, toState }
+    : undefined;
 }
 
 function toLifecycleView(
@@ -505,7 +544,8 @@ function toLifecycleView(
   now: Date,
   outcomes: ReadonlyMap<string, GovernedWorkOutcome> | null,
 ): ActionRequestLifecycleView {
-  const handoff = spentRecordWorkHandoff(row);
+  const handoff = spentWorkHandoff(row);
+  const stateChange = approvedStateChange(row.request);
   const work = handoff === null ? undefined : outcomes?.get(handoff);
   const { request } = row;
   return {
@@ -537,7 +577,11 @@ function toLifecycleView(
             providerAccepted: row.attemptStatus === "accepted" && row.providerMessageId !== null,
           },
     workOutcome:
-      handoff === null ? null : work ? { status: "recorded", ...work } : { status: "reference-unavailable" },
+      handoff === null
+        ? null
+        : work
+          ? { status: "recorded", ...work, ...(stateChange ? { stateChange } : {}) }
+          : { status: "reference-unavailable" },
   };
 }
 

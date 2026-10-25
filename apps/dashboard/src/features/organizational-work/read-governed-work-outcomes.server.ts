@@ -10,7 +10,11 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { workItems } from "@/db/schema/work-item";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { readGovernedWorkLinks } from "@/features/governance-activity/governed-work-link-read.server";
+import {
+  readGovernedWorkLinks,
+  type GovernedWorkLinkAction,
+} from "@/features/governance-activity/governed-work-link-read.server";
+import { WORK_AUDIT_RECORDED } from "./work-contracts";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { getControlPlaneDb } from "@/db/client.server";
 import type { WorkReadDeps } from "./read-work.server";
@@ -40,6 +44,8 @@ export async function readGovernedWorkOutcomes(
   tenant: TenantContext | null,
   handoffIds: readonly string[],
   deps: WorkReadDeps = {},
+  /** OPERATIONAL-RELIABILITY-1 — which declared link: the item a spend recorded, or whose state it changed. */
+  action: GovernedWorkLinkAction = WORK_AUDIT_RECORDED,
 ): Promise<GovernedWorkOutcomesRead> {
   if (typeof window !== "undefined") throw new Error("Organizational work reads are server-only.");
   if (!tenant?.tenantId) return { status: "unavailable" };
@@ -53,7 +59,7 @@ export async function readGovernedWorkOutcomes(
   if (!db) return { status: "unavailable" };
 
   /* The declared link, through the sink's own declared reader — this authority never reads the ledger. */
-  const links = await readGovernedWorkLinks(tenant.tenantId, handoffIds, { getDb: () => db });
+  const links = await readGovernedWorkLinks(tenant.tenantId, handoffIds, { getDb: () => db }, action);
   if (links === null) return { status: "unavailable" };
   const linked = new Map<string, string | null>();
   /* More than one row for one spend is not a link; it is a contradiction, and it reads as unknown. */

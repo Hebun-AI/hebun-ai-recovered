@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type ComponentProps } from "react";
 import { useRouter } from "next/navigation";
+import { utcInstant } from "@/lib/format";
 import { Check, Clock3, FileText, Search, Send, ShieldCheck, TriangleAlert } from "lucide-react";
 import { ActionAuthorizations, RequestCard, PermitRow, parameterDisplay } from "@/components/decision-workspace/action-authorizations";
 import { approveActionRequestAction, rejectActionRequestAction } from "@/app/(dashboard)/approvals/actions";
@@ -93,7 +94,7 @@ export function ApprovalsDashboard(props: Props) {
         if (item.kind === "request") {
           const answer = review.intent === "approve" ? await approveActionRequestAction({ requestId: item.request.requestId, justification, requestedTtlSeconds: ttl }) :
             await rejectActionRequestAction({ requestId: item.request.requestId, justification, rejectionReason: reason });
-          return { ok: answer.status !== "refused", detail: answer.status === "refused" ? executionRefusalWording(answer.reason) : answer.status === "authorized" ? `Authorized; permit expires ${answer.expiresAt}.` : "Request rejected." };
+          return { ok: answer.status !== "refused", detail: answer.status === "refused" ? executionRefusalWording(answer.reason) : answer.status === "authorized" ? `Authorized; permit expires ${utcInstant(answer.expiresAt)}.` : "Request rejected." };
         }
         if (item.kind !== "content" || !item.content.revision) return { ok: false, detail: "Revision unavailable." };
         const input = { artifactId: item.content.artifact.id, revisionId: item.content.revision.id, justification };

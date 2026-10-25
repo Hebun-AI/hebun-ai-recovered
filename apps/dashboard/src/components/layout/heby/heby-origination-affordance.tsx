@@ -35,7 +35,10 @@ import {
   type ActionRequestLifecycleRead,
   type ActionRequestLifecycleView,
 } from "@/app/(dashboard)/heby/request-lifecycle-actions";
-import { PLACE_HUMAN_ACTION_KIND, RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import {
+  GOVERNED_INTERNAL_ACTION_KINDS,
+  SET_WORK_DECLARED_STATE_ACTION_KIND,
+} from "@/features/heby-action-inlet/contracts";
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "@/features/origination-availability/contracts";
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
 import { WorkScopeSelect, workScopeFromChoice, choiceFromWorkScope } from "@/components/work-domain/work-scope-select";
@@ -82,8 +85,8 @@ type State =
   | { readonly kind: "unknown"; readonly agentName: string }
   | { readonly kind: "refused"; readonly agentName: string; readonly reason: OriginationRefusal; readonly detail?: string };
 
-/* Internal acts: spending the permit and making the change are one transaction (GIA-1). */
-const INTERNAL_ACTION_KINDS: readonly string[] = [RECORD_WORK_ACTION_KIND, PLACE_HUMAN_ACTION_KIND];
+/* Internal acts: spending the permit and making the change are one transaction (GIA-1, GIA-2, WORK-UPDATE V1). */
+const INTERNAL_ACTION_KINDS = GOVERNED_INTERNAL_ACTION_KINDS;
 const when = (iso: string | null) => (iso ? ` ${new Date(iso).toUTCString()}` : "");
 const PROPOSER_WORDING: Readonly<Record<string, string>> = { agent: "an agent", human: "a person" };
 
@@ -104,6 +107,29 @@ function describeWorkOutcome(outcome: ActionRequestLifecycleView["workOutcome"])
         : `Work domain: ${outcome.scope.name}`;
   return [`Work item recorded: ${outcome.title}.`, `${scope} · work item ${outcome.workItemId}.`];
 }
+
+/**
+ * OPERATIONAL-RELIABILITY-1 — a spent state change. The spend is "executed"; that the change was
+ * applied is said only when the Work Authority's own `work.state-declared` link names this spend.
+ * Without it Hebun says it cannot confirm, and claims no effect.
+ */
+function describeWorkStateOutcome(consumedAt: string | null, outcome: ActionRequestLifecycleView["workOutcome"]): readonly string[] {
+  if (outcome === null || outcome.status === "reference-unavailable") {
+    return [
+      `Executed${when(consumedAt)}. Hebun could not confirm the work register's record of this change, so no effect is claimed here.`,
+    ];
+  }
+  const change = outcome.stateChange;
+  return [
+    change
+      ? `Executed${when(consumedAt)}. The work register recorded the change: ${outcome.title} moved from ${change.fromState} to ${change.toState}.`
+      : `Executed${when(consumedAt)}. The work register recorded a change of state for ${outcome.title}.`,
+    `Work item ${outcome.workItemId}.`,
+  ];
+}
+
+/** Whether the Work Authority's own record names this spent state change. */
+const workStateConfirmed = (view: ActionRequestLifecycleView) => view.workOutcome?.status === "recorded";
 
 export function describeRequestLifecycle(view: ActionRequestLifecycleView): readonly string[] {
   const out = [`Proposed${when(view.proposedAt)} by ${PROPOSER_WORDING[view.proposedByActorType] ?? "the system"}.`];
@@ -129,6 +155,8 @@ export function describeRequestLifecycle(view: ActionRequestLifecycleView): read
     out.push(`The authorization expired${when(permit.expiresAt)} without being used. Nothing was executed.`);
   } else if (permit.state === "revoked") {
     out.push(`The authorization was revoked${when(permit.revokedAt)}. Nothing was executed under it.`);
+  } else if (view.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND) {
+    out.push(...describeWorkStateOutcome(permit.consumedAt, view.workOutcome));
   } else if (INTERNAL_ACTION_KINDS.includes(view.actionKind)) {
     out.push(
       `Executed${when(permit.consumedAt)}. Using the authorization and making the change are one transaction, so the change is recorded.`,
@@ -159,7 +187,10 @@ export function lifecycleNextStep(view: ActionRequestLifecycleView): { readonly 
   if (view.decision.status === "rejected" || view.permit === null) return null;
   if (view.permit.state === "active") return { href: "/approvals", label: "Execute or revoke it in Approvals" };
   if (view.permit.state === "consumed" && INTERNAL_ACTION_KINDS.includes(view.actionKind)) {
-    return { href: "/director/work", label: "Open the work register" };
+    /* An unconfirmed state change still leads to the register, worded as a check, not an outcome. */
+    return view.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND && !workStateConfirmed(view)
+      ? { href: "/director/work", label: "Check the work register" }
+      : { href: "/director/work", label: "Open the work register" };
   }
   return null;
 }
