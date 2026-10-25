@@ -5737,6 +5737,7 @@ re-graded here.
 | PRODUCT-INTEGRATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` |
 | ENTERPRISE-OPERATIONS-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` |
 | OPERATIONAL-RELIABILITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` |
+| AGENT-EXECUTION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` |
 
 ---
 
@@ -5872,3 +5873,11 @@ before §16.1 are not yet indexed (Phase B).
 | EO1-PROD-UNOBSERVED-STATES-1 | ENTERPRISE-OPERATIONS-1 | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` | Verification gap | DEFERRED | A read-only observation of a thrown Heby action, a worded refusal, and an active, expired or revoked permit when one occurs naturally |
 | EO1-WORKSTATE-LIFECYCLE-WORDING-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | Legibility | CLOSED | — |
 | APPROVALS-EXPIRY-HYDRATION-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | UX failure legibility | CLOSED | — |
+| AE1-OPERATIONS-AUTHOR-MANDATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Agent authority | CLOSED | — |
+| AE1-CONCURRENT-ASSIGNMENT-DUPLICATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Duplicate prevention | CLOSED | — |
+| AE1-WITHHELD-DIAGNOSABILITY-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Verification reliability | DEFERRED | A Director-selected change recording validator issue codes (never the withheld text) for withheld preparations |
+| AE1-DRAFT-ACTION-CLAIM-RULE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Product reach | DEFERRED | A Director architecture decision on applying the action-claim rule to drafts; the validator is not relaxed meanwhile |
+| AE1-ASSIGN-UI-WORDING-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Legibility | DEFERRED | A Director-selected wording change: the unchosen-agent button label and a reason-specific withheld message |
+| AE1-MEDIA-AUTHORSHIP-MANDATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Agent authority | DEFERRED | A Director decision on binding image and video generation authorship to the agent mandate |
+| AE1-UNLINKED-SECOND-DRAFT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Duplicate prevention | DEFERRED | A Director decision if a deliberate second assignment before linking is observed to leave unwanted drafts |
+| AE1-NONMEMBER-TENANT-COMPAT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Verification gap | DEFERRED | A read-only access path to tenants the Director is not a member of, if any exist |
