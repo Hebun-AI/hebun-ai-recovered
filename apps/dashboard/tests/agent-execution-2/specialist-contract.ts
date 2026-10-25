@@ -3,17 +3,16 @@
  *
  *   R1  agentWorkRole: a specialist is responsible for domain work and NOT organization-wide; organization
  *       work, an organization-wide grant, or an unread mandate is never a specialist
- *   R2  the specialist brief is minted Hebun text (SCI-1): a constant, no interpolation, no tenant name; it
- *       reaches every artifact type for a specialist and nothing changes for anyone else
- *   R3  the specialist flag is server-derived: the preparation seam computes it from the author's mandate
- *       read and the server-side scope; no client input carries it
+ *   R2  no specialist claim reaches the model: the brief and the preparation seam are AE-1's (the domain-less
+ *       brief made the model decline the task in production acceptance, 2026-10-25)
+ *   R3  no client input carries a role
  *   R4  Heby's words: the recommendation names the specialist and leaves the choice to the person
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { agentWorkRole } from "../../src/features/agent-work/capabilities";
-import { preparationBriefFor, SPECIALIST_PREPARATION_BRIEF } from "../../src/features/work-artifacts/preparation-brief";
+import { preparationBriefFor } from "../../src/features/work-artifacts/preparation-brief";
 import { describeAssignment, describeRecommendation } from "../../src/components/layout/heby/heby-work-draft-affordance";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -30,25 +29,12 @@ assert.equal(agentWorkRole(mandate([{ kind: "domain", workDomainId: D, inService
 assert.equal(agentWorkRole({ status: "unavailable" } as never, domainWork), "coordinator", "an unread mandate is never a specialist");
 assert.equal(agentWorkRole({ status: "known", mandate: null } as never, domainWork), "coordinator");
 
-/* ── R2 ── */
-const brief = SPECIALIST_PREPARATION_BRIEF.join(" ");
-for (const type of ["operational-plan", "message-draft"] as const) {
-  assert.equal(preparationBriefFor({ artifactType: type }), undefined, `${type}: unchanged without a specialist`);
-  const made = preparationBriefFor({ artifactType: type, specialist: true });
-  assert.ok(made && String(made.instruction).includes(brief), `${type}: a specialist is briefed`);
-  assert.deepEqual(made?.material, [], `${type}: the specialist brief carries no material`);
-}
-const content = preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram", specialist: true });
-assert.ok(content && String(content.instruction).includes(brief), "content-draft: specialist sentences are appended");
-assert.ok(!String(preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram" })!.instruction).includes(SPECIALIST_PREPARATION_BRIEF[0]!));
+/* ── R2 / R3 · the role is Heby's and the person's, never the model's ── */
 const BRIEF_SRC = code("src/features/work-artifacts/preparation-brief.ts");
-const constant = BRIEF_SRC.slice(BRIEF_SRC.indexOf("SPECIALIST_PREPARATION_BRIEF: readonly string[] = ["), BRIEF_SRC.indexOf("] as const;", BRIEF_SRC.indexOf("SPECIALIST_PREPARATION_BRIEF")));
-assert.ok(constant.length > 0 && !constant.includes("${"), "the specialist brief is a constant with no interpolation");
-
-/* ── R3 ── */
 const PREPARE = code("src/features/work-artifacts/prepare-work-artifact.server.ts");
-assert.match(PREPARE, /const specialist = authorMandate !== undefined && agentWorkRole\(authorMandate, workScope\) === "specialist";/);
-assert.doesNotMatch(PREPARE, /input\.specialist/, "the preparation seam never reads a specialist flag from its input");
+assert.doesNotMatch(BRIEF_SRC, /specialist/i, "the preparation brief makes no specialist claim");
+assert.doesNotMatch(PREPARE, /specialist|agentWorkRole/, "the preparation seam does not derive or forward a role");
+assert.equal(preparationBriefFor({ artifactType: "operational-plan" }), undefined, "a plan is prepared exactly as in AE-1");
 assert.doesNotMatch(code("src/features/agent-work/assign-work-draft.server.ts"), /specialist:/, "the assignment seam passes no specialist flag");
 assert.doesNotMatch(code("src/app/(dashboard)/heby/work-state-origination-actions.ts"), /specialist|role/i, "the client action carries ids and words only");
 

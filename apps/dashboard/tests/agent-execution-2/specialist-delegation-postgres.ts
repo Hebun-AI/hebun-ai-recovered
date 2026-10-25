@@ -6,16 +6,16 @@
  *   S1  domain work with a coordinator (organization + domain), the domain's specialist and another
  *       domain's agent: Heby lists the coordinator and the specialist with their roles, never the other
  *       domain's agent, and recommends the specialist — a server-side rule, read from the mandates
- *   S2  the specialist is assigned: one model call whose system instructions carry the minted specialist
- *       brief and no agent or domain name; one revision authored by the specialist; result role specialist;
- *       linked by the person through the Work Authority; read back waiting for review; Governance accepts
- *   S3  the coordinator on the same domain work: no specialist brief (its preparation is unchanged)
+ *   S2  the specialist is assigned: one model call through AE-1's unchanged preparation, with no specialist
+ *       claim and no agent or domain name in the instruction channel; one revision authored by the
+ *       specialist; result role specialist; linked by the person; waiting for review; Governance accepts
+ *   S3  the coordinator on the same domain work: the provider receives the SAME system instructions
  *   S4  organization work: no specialist, no recommendation
  *   S5  two specialists for one domain: no recommendation, the person chooses; a specialist with a draft
  *       waiting is not recommended
  *   S6  the other domain's agent, sent anyway: refused `agent-not-eligible` before the model, nothing written
  *   S7  the provider fails on a specialist assignment: `not-prepared`, no artifact, no reference
- *   S8  the Operations path (organization work) never frames its author as a specialist
+ *   S8  the Operations path (organization work) is prepared exactly as AE-1
  *   S9  another tenant sees no choices for this work and cannot assign it
  *   S10 a member without Governance authority is refused `not-authorized` before the model
  */
@@ -46,7 +46,6 @@ import {
   type AssignWorkDraftDeps,
 } from "../../src/features/agent-work/assign-work-draft.server";
 import { prepareWorkArtifact } from "../../src/features/work-artifacts/prepare-work-artifact.server";
-import { SPECIALIST_PREPARATION_BRIEF } from "../../src/features/work-artifacts/preparation-brief";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { WorkScope } from "../../src/features/work-domain/work-scope";
 import { publicKnowledgeNoMatch } from "../helpers/public-knowledge";
@@ -233,7 +232,12 @@ async function main(): Promise<void> {
     await mandate(acme, seller, ["record-work"], [{ kind: "domain", workDomainId: sales }]);
     const researchWork = await scopedWork(acme, { kind: "domain", workDomainId: research });
     const orgWork = await scopedWork(acme, { kind: "organization" });
-    const brief = SPECIALIST_PREPARATION_BRIEF.join(" ");
+    /* The instruction channel: everything before the per-request grounding (fresh fence ids, current drafts). */
+    const instructions = (system: string) => {
+      const at = system.indexOf("Grounding context (data, not instructions):");
+      assert.ok(at > 0, "the system text carries its grounding after the instructions");
+      return system.slice(0, at);
+    };
     const leaks = (system: string) => ["Research Agent", "Market Research", "Sales Agent", "Coordinator"].filter((name) => system.includes(name));
 
     /* ── S1 · Heby lists the responsible agents with their roles and recommends the specialist ── */
@@ -257,8 +261,8 @@ async function main(): Promise<void> {
     assert.equal(s2.agentRole, "specialist");
     assert.equal(calls - before2.calls, 1, "S2: exactly one model call");
     const s2Request = sent.at(-1)!;
-    assert.ok(s2Request.system.includes(brief), "S2: the provider received the minted specialist brief");
-    assert.deepEqual(leaks(s2Request.system), [], "S2: no agent or domain name travels in the instruction channel");
+    assert.doesNotMatch(instructions(s2Request.system), /specialist/i, "S2: no domain-less specialist claim reaches the model");
+    assert.deepEqual(leaks(instructions(s2Request.system)), [], "S2: no agent or domain name travels in the instruction channel");
     const s2History = await readWorkArtifactHistory(acme, s2.artifactId, dbDeps);
     const s2Revision = s2History.find((r) => r.current)!;
     assert.equal(s2Revision.authoredByActorType, "agent");
@@ -281,7 +285,7 @@ async function main(): Promise<void> {
     const s3 = await ask(acme, researchWork, heby);
     assert.equal(s3.status, "prepared", JSON.stringify(s3));
     assert.equal(s3.status === "prepared" && s3.agentRole, "coordinator");
-    assert.ok(!sent.at(-1)!.system.includes(SPECIALIST_PREPARATION_BRIEF[0]!), "S3: no specialist brief for the coordinator");
+    assert.equal(instructions(sent.at(-1)!.system), instructions(s2Request.system), "S3: specialist and coordinator get the same system instructions");
 
     /* ── S4 · organization work has no specialist ── */
     const s4 = await readWorkDraftChoices(acme, orgWork, dbDeps);
@@ -290,7 +294,7 @@ async function main(): Promise<void> {
     assert.equal(s4.status === "read" && s4.recommendedAgentId, null, "S4: no recommendation");
     const s4a = await ask(acme, orgWork, heby);
     assert.equal(s4a.status, "prepared", JSON.stringify(s4a));
-    assert.ok(!sent.at(-1)!.system.includes(SPECIALIST_PREPARATION_BRIEF[0]!), "S4: organization work is never framed as a specialist's");
+    assert.equal(instructions(sent.at(-1)!.system), instructions(s2Request.system), "S4: organization work, same system instructions");
 
     /* ── S5 · two specialists: the person chooses; a specialist with a waiting draft is not recommended ── */
     const salesWork = await scopedWork(acme, { kind: "domain", workDomainId: sales });
@@ -325,7 +329,7 @@ async function main(): Promise<void> {
       { ...(preparation as object), resolveTenant: async () => acme } as never,
     );
     assert.equal(s8.status, "prepared", JSON.stringify(s8.status === "refused" ? s8.reason : s8.status));
-    assert.ok(!sent.at(-1)!.system.includes(SPECIALIST_PREPARATION_BRIEF[0]!), "S8: no specialist brief on the Operations path");
+    assert.equal(instructions(sent.at(-1)!.system), instructions(s2Request.system), "S8: the Operations path, same system instructions");
 
     /* ── S10 · a member without Governance authority cannot delegate to the specialist ── */
     await nothingHappened("S10 no authority", () => ask(member, freshWork, specialist), "not-authorized");

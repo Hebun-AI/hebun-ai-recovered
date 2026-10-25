@@ -15,7 +15,8 @@ Two gaps made "specialist" delegation a label only:
 - **Heby did not know who the specialist was.** Every responsible agent was listed alike; nothing said which
   one the work's kind of work belongs to.
 - **The model never knew a specialist was writing.** The agent identity supplied authorship only: a
-  specialist's draft and the coordinator's were the same model request with a different author id.
+  specialist's draft and the coordinator's were the same model request with a different author id. This gap stays
+  open after the acceptance fix (section 4).
 
 ## 2 · Agent chosen, and why
 
@@ -40,30 +41,42 @@ when it has no draft waiting; otherwise `null` and the person chooses. Heby says
 never preselects (AP-5A: the agent control has no default). The recommendation grants nothing; the
 assignment re-checks whichever agent is sent.
 
-## 4 · Specialist execution
+## 4 · Specialist execution — what reaches the model
 
-`prepareWorkArtifact` computes `specialist` from the author's mandate read and the server-derived scope (the
-assignment seam's work scope; Operations is organization work, so never). `preparationBriefFor` then adds
-`SPECIALIST_PREPARATION_BRIEF` — minted Hebun sentences, no interpolation — to the instruction channel for
-every artifact type. No agent name and no domain name reaches the model: those are tenant-authored labels
-(EAI class `organization`) and `assistance` × `organization` is not an allowed platform cell. The declared
-data classes are unchanged (`work-artifact`). A coordinator's preparation is byte-identical to before.
+`63bab3de` added a minted `SPECIALIST_PREPARATION_BRIEF` ("write as the specialist …") without naming the
+domain, because agent and domain names are EAI class `organization`, which `assistance` may not carry.
+Production acceptance (2026-10-25, work `92e70b3e`, one model call) showed that a domain-less specialist
+claim breaks the task: the model declined ("You've asked me to write as a specialist agent … please provide
+the specialist agent's name or role identifier"), and that text was filed as artifact
+`98904a8e-e1c7-422f-bfee-354f88bac798@1`. It is **not a task output**; it is linked to the work and awaits
+Governance review, and is left untouched (no retire, delete or review).
+
+The acceptance fix removes the brief. `preparation-brief.ts` and `prepare-work-artifact.server.ts` are
+byte-identical to AE-1 (`87bfd4f6`): a specialist's preparation and the coordinator's send the provider the
+same system instructions. The role stays Heby's and the person's — the recommendation, the role in the
+choices and in the result, attribution on the revision — and never becomes a claim to the model.
 
 ## 5 · Verification
 
 - `tests/agent-execution-2/specialist-delegation-postgres.ts` S1–S10, real PostgreSQL, fake transport
   captured at the provider boundary: roles and recommendation; the specialist's one model call carries the
-  brief and no tenant name; revision authored by the specialist; linked by the person; waiting for review;
+  same system instructions as the coordinator, no specialist claim and no tenant name; revision authored by the specialist; linked by the person; waiting for review;
   Governance accepts; coordinator and organization work unchanged; two specialists or a busy one → no
   recommendation; other-domain agent, member without authority, other tenant → refused before the model;
-  provider failure → nothing filed; Operations never framed as specialist.
-- `tests/agent-execution-2/specialist-contract.ts` R1–R4: the rule, the minted brief, server derivation, wording.
+  provider failure → nothing filed; Operations prepared as AE-1.
+- `tests/agent-execution-2/specialist-contract.ts` R1–R4: the rule, no specialist claim in the brief or seam,
+  no role from the client, wording.
 
 ## 6 · Limits, stated
 
-- **Specialty is framing, not domain knowledge.** The model is told a specialist writes, not which domain.
-  Naming the domain needs a Director data-use decision (`assistance` × `organization`) — the one change that
-  would make the specialty concrete.
+- **Specialty is selection and attribution, not model behaviour.** The model is told nothing about the role.
+  Making the specialty shape the draft needs a Director data-use decision (`assistance` × `organization`)
+  so the domain can be named — a domain-less claim was tried and failed in production.
+- **AE2-DECLINED-DRAFT-FILED-1 (DEFERRED).** A model reply that declines the task is filed as prepared work.
+  No reliable signal exists for the observed case (ordinary prose; only a phrase filter could catch it, and
+  none is added). The one reliable existing signal, the provider's `stop_reason: "refusal"`, is carried on
+  `ModelGenerationResult` but read nowhere on the answer path; wiring it changes the shared Heby answer seam
+  for every intent and would not have caught this case. Dependency: a Director decision.
 - **Real provider execution UNVERIFIED locally** (fake transport; no credentials read). Production
   acceptance needs one Director-approved live assignment to a specialist.
 - AE-1's deferred risks stand unchanged, notably AE1-DRAFT-ACTION-CLAIM-RULE-1 (plan text withheld by the
@@ -72,7 +85,7 @@ data classes are unchanged (`work-artifact`). A coordinator's preparation is byt
 - No schema, migration, Governance, provider or authentication change.
 
 **Weekly three.** *Learned:* an agent's specialty already lives in its mandate's responsibility; it needs no
-role field, only a rule that reads it, and it reaches the model as minted text because tenant names are a
-class `assistance` may not carry. *Turkish Rug House:* when it registers a domain-only agent (research,
-marketing), Heby names it as the work's specialist and that agent writes framed as one. *Hebun AI:* every new
+role field, only a rule that reads it; a role claim the model cannot ground (no domain name) makes it
+decline the task, so the role stays in selection and attribution. *Turkish Rug House:* when it registers a domain-only agent (research,
+marketing), Heby names it as the work's specialist and the draft is attributed to it. *Hebun AI:* every new
 specialist works through the one delegation path the moment its mandate is recorded.

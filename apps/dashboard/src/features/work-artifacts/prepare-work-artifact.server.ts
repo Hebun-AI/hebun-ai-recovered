@@ -78,7 +78,6 @@ import {
 } from "@/features/agent-mandate/read-agent-mandate.server";
 import {
   agentWorkCapability,
-  agentWorkRole,
   refuseOutsideAgentWorkCapability,
 } from "@/features/agent-work/capabilities";
 import type { WorkScope } from "@/features/work-domain/work-scope";
@@ -369,19 +368,14 @@ export async function prepareWorkArtifact(
    */
   const workScope = deps.workScope ?? ORGANIZATION_WORK;
   const mandateDeps: AgentMandateReadDeps = deps.mandate ?? { getDb: deps.agentIdentity?.getDb ?? deps.write?.getDb };
-  /* The mandate the ceiling last read; AGENT-EXECUTION-2 derives the author's role from this same read. */
-  let authorMandate: Awaited<ReturnType<typeof readEffectiveAgentMandate>> | undefined;
-  const askCeiling = async () => {
-    authorMandate = await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps);
-    return refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope);
-  };
+  const askCeiling = async () =>
+    refuseOutsideAgentWorkCapability(
+      PREPARATION_CAPABILITY,
+      await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps),
+      workScope,
+    );
   const ceilingRefusal = await askCeiling();
   if (ceilingRefusal) return { status: "refused", reason: ceilingRefusal };
-  /*
-   * AGENT-EXECUTION-2 — whether the author is this work's specialist, from the SAME mandate read the ceiling
-   * just admitted and the server-derived scope. Operations drafts are organization work: never a specialist.
-   */
-  const specialist = authorMandate !== undefined && agentWorkRole(authorMandate, workScope) === "specialist";
 
   /* 3. THE DIRECTOR'S CLAUDE PROVIDER CONTROL. The same fail-closed read the answer flow makes. */
   const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
@@ -442,7 +436,6 @@ export async function prepareWorkArtifact(
       intendedDestination: target.intendedDestination ?? undefined,
       observationSupplement: input.observationSupplement,
       currentRevision: { revisionNo: current.revisionNo, content: current.content },
-      specialist,
     };
   } else {
     const problems = validateWorkArtifactInput({
@@ -455,7 +448,7 @@ export async function prepareWorkArtifact(
     if (input.expectedRevisionNo !== undefined || input.reviewBasisDecisionId !== undefined) {
       return { status: "refused", reason: "invalid-input", problems: [] };
     }
-    briefInput = { ...input, specialist };
+    briefInput = input;
   }
 
   /*
