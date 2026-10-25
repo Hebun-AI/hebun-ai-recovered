@@ -5736,7 +5736,7 @@ re-graded here.
 | TENANT-ACTIVATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` |
 | PRODUCT-INTEGRATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` |
 | ENTERPRISE-OPERATIONS-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` |
-| OPERATIONAL-RELIABILITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` |
+| OPERATIONAL-RELIABILITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` |
 
 ---
 
@@ -5870,5 +5870,5 @@ before §16.1 are not yet indexed (Phase B).
 | PI1-PROD-REFUSAL-WORDING-1 | PRODUCT-INTEGRATION-1 | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` | Verification gap | DEFERRED | A refusal observed read-only during a Director-authorized real execution attempt |
 | EO1-PROD-SIGNED-IN-1 | ENTERPRISE-OPERATIONS-1 | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` | Verification gap | CLOSED | — |
 | EO1-PROD-UNOBSERVED-STATES-1 | ENTERPRISE-OPERATIONS-1 | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` | Verification gap | DEFERRED | A read-only observation of a thrown Heby action, a worded refusal, and an active, expired or revoked permit when one occurs naturally |
-| EO1-WORKSTATE-LIFECYCLE-WORDING-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | Legibility | DEFERRED | Fixed and deployed (`dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`); a signed-in read-only view of Heby's Your requests showing an executed state change worded from the Work Authority's record with the register link |
-| APPROVALS-EXPIRY-HYDRATION-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | UX failure legibility | DEFERRED | Fixed and deployed (`dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`); a signed-in read-only fresh load of `/approvals` showing the expiry in UTC and no React #418 |
+| EO1-WORKSTATE-LIFECYCLE-WORDING-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | Legibility | CLOSED | — |
+| APPROVALS-EXPIRY-HYDRATION-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | UX failure legibility | CLOSED | — |

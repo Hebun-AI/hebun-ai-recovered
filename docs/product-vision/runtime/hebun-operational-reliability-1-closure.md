@@ -1,13 +1,15 @@
-# OPERATIONAL-RELIABILITY-1 · closure record · DEPLOYED
+# OPERATIONAL-RELIABILITY-1 · closure record · PRODUCTION-ACCEPTED (scoped)
 
 **Scope, stated first.** Two reliability fixes to production-accepted Enterprise Operations surfaces are
 released in production deployment `dpl_8HjxizaAyYap5byZAaNKasW7KnGZ` (commit `11699b3e`). Both were
 reproduced and shown fixed locally under production conditions (server in UTC, browser in
-Europe/Istanbul, the same disposable data on unchanged `main` and on the fix). **Not observed in
-production:** no signed-in session was available to this session (the built-in browser reached
-`/login`), so the signed-in renders of `/approvals` and `/heby` are UNVERIFIED and the state is
-`DEPLOYED`, not production-accepted. The login return path (`WORK-UPDATE-LOGIN-QUERY-LOSS-1`) is not in
-this release and stays BLOCKED.
+Europe/Istanbul, the same disposable data on unchanged `main` and on the fix), and both were then
+observed signed in, read-only, as the tenant **Hebun AI** in a session the Director opened (no credential
+entered by this session; nothing created, approved, executed, revoked or modified) — section 6. Accepted
+on exactly what that walk observed. **Not observed:** the unconfirmed state-change wording ("could not
+confirm … no effect is claimed"), which needs a spent state change without its audit row and cannot be
+provoked read-only. The login return path (`WORK-UPDATE-LOGIN-QUERY-LOSS-1`) is not in this release and
+stays BLOCKED.
 
 ## 1 · Problem
 
@@ -74,41 +76,57 @@ boundaries were not required, but the full suite was run as the consolidated val
 | Aliases | `www.hebuntech.com`, `hebuntech.com` (and the project aliases) on this deployment |
 | HTTP, signed out | apex 308 → www; `/` and `/login` 200; `/approvals` and `/heby` 307 → `/login` |
 | Runtime errors | none in the first 15 minutes (`vercel logs --level error`) |
-| Signed-in renders | UNVERIFIED — no authenticated session available; no credential entered |
+| Signed-in renders | first pass: no authenticated session available, no credential entered; observed later in a Director-opened session (section 6) |
 
 ## 5 · Not verified in production
 
-- `/approvals` signed in: UTC expiry text and the absence of #418 on a fresh load.
-- `/heby` Your requests signed in: the state-change wording and its register link; the unconfirmed
-  wording can only be observed if a spent state change lacks its audit row, which no read-only walk can
-  provoke.
+- The unconfirmed state-change wording and "Check the work register": it appears only for a spent state
+  change without its `work.state-declared` row, which no read-only walk can provoke. Proven by
+  `work-state-lifecycle-postgres.ts` S5 and the wording test; UNVERIFIED in production.
+- A served deployment marker: the signed-in HTML carries no `dpl_` string; the served build is identified
+  by the alias record (section 4) and by text only `11699b3e` produces ("… UTC" on the permit row, the
+  state-change sentence).
+
+## 6 · Production acceptance (2026-10-25)
+
+Built-in browser, a session the Director signed in themselves, tenant Hebun AI; browser time zone
+Europe/Istanbul; fresh navigations, read-only.
+
+| Surface | Route · mounted component | Observed | Verdict |
+|---|---|---|---|
+| Approvals | `/approvals` · `ApprovalsDashboard` → `PermitRow`, `ExecutionLedger` | fresh load: permit row `expires 17 Oct 2026, 19:21 UTC` (the same permit ENTERPRISE-OPERATIONS-1 saw as `10/17/2026, 10:21:11 PM`); ledger `started 31 Aug 2026, 10:13 UTC` / `concluded 31 Aug 2026, 10:13 UTC`; no ambient-locale date on the page; no console error, no React #418 | VERIFIED |
+| Heby request history | `/heby` · Your requests (`HebyMyRequests`) | executed `set-work-declared-state` "Verify the Heby request lifecycle release in production": "Executed Wed, 14 Oct 2026 11:57:45 GMT. The work register recorded the change: Verify the Heby request lifecycle release in production moved from planned to active." · "Work item bb56f9dc-…" · link "Open the work register" → `/director/work`; no "no delivery attempt" wording; executed record-work, pending and rejected requests worded as before; no console error | VERIFIED |
+| Authoritative record | `/director/work` · the item's Recorded activity (a read) | `work.state-declared · committed · by system … 2026-10-14T11:57:45.546Z` and `work.recorded · committed · by system … 2026-10-12T17:51:42.428Z`; item "declared active" — the Heby sentence matches the Work Authority's own row | VERIFIED |
+
+Observed in passing, not a defect: two record-work requests from 2026-10-08 and 2026-10-12 read "Execution
+recorded. Work item reference unavailable." — the HEBY-VERIFIED-WORK-OUTCOMES legacy case (spends made
+before the `handoffId` link existed); unchanged by this phase.
 
 ## Closure Contract (v1)
 
 - Phase: OPERATIONAL-RELIABILITY-1
 - Owner: Action Authorization surfaces (`/approvals` permit row, execution ledger) and Heby request lifecycle (`heby-origination-affordance.tsx`, `read-action-authorizations.server.ts`), reading Organizational Work's declared audit link
-- Reached state: DEPLOYED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: 11699b3e0bd095b39637fa2c2ac160f3a7e37be6
 - Verification level: V2 — a shared seam (a declared reader of the shared audit sink, tenant-scoped) and two customer surfaces; no authority, schema, migration, provider or authentication change
 - Verification evidence: baseline 72/72; new tests 3/3; affected candidate tests 106/106; bite-proofs 9/9; tsc, eslint, diff --check, npm run build PASS; full suite 1084/1088 with 0 REGRESSION (3 collation-environmental, PASS on a C-collation instance; 1 BLOCKED, canonical hebun_r1 absent); local render under server UTC and browser Europe/Istanbul: #418 reproduced on unchanged main in PermitRow, absent on the fix; Heby state-change wording and register handoff rendered
 - Test environment: worktree `.claude/worktrees/operational-reliability-1` at 1e8f42a0; disposable detached worktrees `or1-baseline` (1e8f42a0) and `or1-candidate` (1e8f42a0 + change); macOS Darwin 25.2.0; Node 24.16.0 with tsx; Next 16.3.8; React 19.2.4; session-owned PostgreSQL 18 at 127.0.0.1:55491 (own initdb, system_identifier 7700550470240009325, en_US.UTF-8) and 127.0.0.1:55492 (own initdb, system_identifier 7700556678041189892, C); local dev servers with TZ=UTC and a generated local session secret; no production database, provider or model
 - Deployment evidence: dpl_8HjxizaAyYap5byZAaNKasW7KnGZ — READY, production, githubCommitSha 11699b3e0bd095b39637fa2c2ac160f3a7e37be6, aliased to www.hebuntech.com and hebuntech.com
-- Production acceptance evidence: N/A — no authenticated production session was available; signed-out HTTP and error logs measured only (section 4)
-- Deferred risks: APPROVALS-EXPIRY-HYDRATION-1 (DEFERRED); EO1-WORKSTATE-LIFECYCLE-WORDING-1 (DEFERRED); WORK-UPDATE-LOGIN-QUERY-LOSS-1 (BLOCKED)
-- Director approvals: OPERATIONAL-RELIABILITY-1 mandate and one local implementation commit 2026-10-25; release — fast-forward push of 11699b3e with its automatic production deployment, read-only verification, and one local documentation-only closure commit 2026-10-25; WORK-UPDATE-LOGIN-QUERY-LOSS-1 kept BLOCKED by Director instruction; push of this documentation NOT approved
+- Production acceptance evidence: SCOPED — signed-in read-only walk as tenant Hebun AI in a Director-opened session, browser Europe/Istanbul, on dpl_8HjxizaAyYap5byZAaNKasW7KnGZ (section 6): /approvals fresh load shows the permit expiry "17 Oct 2026, 19:21 UTC" and ledger times in UTC with no console error and no React #418; /heby Your requests shows the executed set-work-declared-state worded "The work register recorded the change: … moved from planned to active." with "Open the work register" → /director/work, matching the item's work.state-declared system row at 2026-10-14T11:57:45.546Z; nothing created, approved, executed, revoked or modified. Unconfirmed state-change wording UNVERIFIED (section 5)
+- Deferred risks: APPROVALS-EXPIRY-HYDRATION-1 (CLOSED); EO1-WORKSTATE-LIFECYCLE-WORDING-1 (CLOSED); WORK-UPDATE-LOGIN-QUERY-LOSS-1 (BLOCKED)
+- Director approvals: OPERATIONAL-RELIABILITY-1 mandate and one local implementation commit 2026-10-25; release — fast-forward push of 11699b3e with its automatic production deployment, read-only verification, and one local documentation-only closure commit 2026-10-25; WORK-UPDATE-LOGIN-QUERY-LOSS-1 kept BLOCKED by Director instruction; signed-in read-only production acceptance in a Director-opened session, final closure, and a fast-forward push of the closure documentation 2026-10-25
 
 ### Deferred risk detail
 
-- **APPROVALS-EXPIRY-HYDRATION-1 (DEFERRED).** Cause removed in `11699b3e`, deployed in
-  `dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`; reproduction on unchanged `main` and its absence on the fix were
-  measured locally under the production zone pair. Not closed, because production was not observed.
-  Acceptance dependency: a signed-in read-only fresh load of `/approvals` on this or a later deployment
-  showing the expiry in UTC and no React #418.
-- **EO1-WORKSTATE-LIFECYCLE-WORDING-1 (DEFERRED).** Fixed in `11699b3e`, deployed in
-  `dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`; wording, register handoff and the unconfirmed case are proven by
-  `work-state-lifecycle-postgres.ts` (S1–S8) and a local render. Acceptance dependency: a signed-in
-  read-only view of Heby's Your requests showing an executed state change worded from the Work
-  Authority's record with "Open the work register".
+- **APPROVALS-EXPIRY-HYDRATION-1 (CLOSED).** Cause removed in `11699b3e`, deployed in
+  `dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`; reproduced on unchanged `main` and absent on the fix locally under
+  the production zone pair; its acceptance dependency — a signed-in fresh load of `/approvals` showing the
+  expiry in UTC with no React #418 — was met on 2026-10-25 (section 6).
+- **EO1-WORKSTATE-LIFECYCLE-WORDING-1 (CLOSED).** Fixed in `11699b3e`, deployed in
+  `dpl_8HjxizaAyYap5byZAaNKasW7KnGZ`; its acceptance dependency — an executed state change in Heby's Your
+  requests worded from the Work Authority's record with "Open the work register" — was met on 2026-10-25
+  against the item's own `work.state-declared` row (section 6). The unconfirmed-case wording is proven by
+  test only (section 5); it is not a separate risk.
 - **WORK-UPDATE-LOGIN-QUERY-LOSS-1 (BLOCKED).** Unchanged; the detail and the §22 pointer stay with
   `hebun-enterprise-operations-1-closure.md`. Re-measured locally: a signed-out deep link still lands on
   `/command` after sign-in. The only legitimate carrier is a third login form field, which the D1 pin
