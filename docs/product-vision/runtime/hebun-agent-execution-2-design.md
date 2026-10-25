@@ -3,6 +3,9 @@
 Baseline `87bfd4f6` (origin/main, AGENT-EXECUTION-1 PRODUCTION-ACCEPTED). Not a closure record; release
 evidence is written in the closure after a Director-authorized release.
 
+**Closed:** PRODUCTION-ACCEPTED (scoped) at `74a13247`, `dpl_23ECL9a6FhhbMAhxx51REpwVmo44` — specialist selection,
+delegation and authorship; not model domain expertise. Evidence and open risks: `hebun-agent-execution-2-closure.md`.
+
 ## 1 · What AE-1 already delivered, and the gap
 
 AE-1 shipped the whole vertical path: `/heby?workItem=` → choose a responsible agent → `assignWorkDraft`

@@ -5738,6 +5738,7 @@ re-graded here.
 | ENTERPRISE-OPERATIONS-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` |
 | OPERATIONAL-RELIABILITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` |
 | AGENT-EXECUTION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` |
+| AGENT-EXECUTION-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` |
 
 ---
 
@@ -5881,3 +5882,8 @@ before §16.1 are not yet indexed (Phase B).
 | AE1-MEDIA-AUTHORSHIP-MANDATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Agent authority | DEFERRED | A Director decision on binding image and video generation authorship to the agent mandate |
 | AE1-UNLINKED-SECOND-DRAFT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Duplicate prevention | DEFERRED | A Director decision if a deliberate second assignment before linking is observed to leave unwanted drafts |
 | AE1-NONMEMBER-TENANT-COMPAT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Verification gap | DEFERRED | A read-only access path to tenants the Director is not a member of, if any exist |
+| AE2-RECOMMENDATION-WORDING-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Legibility | DEFERRED | A Director-selected wording change: the recommendation and result messages say the specialist "writes as" one, which the model is not told |
+| AE2-DECLINED-DRAFT-FILED-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reliability | DEFERRED | A Director decision; no phrase filter is added, and the provider `stop_reason: "refusal"` is not read on the answer path |
+| AE2-DECLINE-GROUNDING-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Grounding integrity | DEFERRED | A Director decision: retire the two production declines (a lifecycle act) or a grounding rule for earlier drafts |
+| AE2-VERCEL-GIT-TRIGGER-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Release reliability | DEFERRED | A read of the Vercel GitHub App deliveries for the `74a13247` push, and checking the deployment record on the next push |
+| AE2-DOMAIN-SPECIALTY-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reach | DEFERRED | A Director data-use decision (`assistance` × `organization`) before any agent or domain identity reaches the model |
