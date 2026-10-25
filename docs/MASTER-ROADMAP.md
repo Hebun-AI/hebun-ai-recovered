@@ -5734,6 +5734,7 @@ re-graded here.
 | ORGANIZATION-READINESS-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` |
 | HEBY-GENERAL-ADVISORY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-general-advisory-1-closure.md` |
 | TENANT-ACTIVATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` |
+| PRODUCT-INTEGRATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` |
 
 ---
 
@@ -5862,3 +5863,6 @@ before §16.1 are not yet indexed (Phase B).
 | TA1-PROD-PENDING-CLI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A Director-authorized production operator ceremony run of the read-only listing |
 | SIGNUP-EMAIL-UNVERIFIED-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Identity assurance | DEFERRED | A Director decision on email-ownership proof (mail runtime integration gate) and on existing self-service identities (schema gate) |
 | GENESIS-REVOKED-READ-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Governance integrity | DEFERRED | Resolved before any phase introduces a writer of `revoked` genesis nominations |
+| PI1-PROD-ARMED-WORDING-1 | PRODUCT-INTEGRATION-1 | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of `/governance/authority` by an already armed organization |
+| PI1-PROD-CROSS-TENANT-1 | PRODUCT-INTEGRATION-1 | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` | Verification gap | DEFERRED | A read-only render of the same pages by a second signed-in organization |
+| PI1-PROD-REFUSAL-WORDING-1 | PRODUCT-INTEGRATION-1 | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` | Verification gap | DEFERRED | A refusal observed read-only during a Director-authorized real execution attempt |
