@@ -6,8 +6,8 @@
  *   S1  domain work with a coordinator (organization + domain), the domain's specialist and another
  *       domain's agent: Heby lists the coordinator and the specialist with their roles, never the other
  *       domain's agent, and recommends the specialist — a server-side rule, read from the mandates
- *   S2  the specialist is assigned: one model call through AE-1's unchanged preparation, with no specialist
- *       claim and no agent or domain name in the instruction channel; one revision authored by the
+ *   S2  the specialist is assigned: one model call whose instruction channel carries the strict rules and the
+ *       internal-draft brief, with no specialist claim and no agent or domain name; one revision authored by the
  *       specialist; result role specialist; linked by the person; waiting for review; Governance accepts
  *   S3  the coordinator on the same domain work: the provider receives the SAME system instructions
  *   S4  organization work: no specialist, no recommendation
@@ -46,6 +46,7 @@ import {
   type AssignWorkDraftDeps,
 } from "../../src/features/agent-work/assign-work-draft.server";
 import { prepareWorkArtifact } from "../../src/features/work-artifacts/prepare-work-artifact.server";
+import { INTERNAL_DRAFT_PREPARATION_BRIEF } from "../../src/features/work-artifacts/preparation-brief";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { WorkScope } from "../../src/features/work-domain/work-scope";
 import { publicKnowledgeNoMatch } from "../helpers/public-knowledge";
@@ -262,6 +263,10 @@ async function main(): Promise<void> {
     assert.equal(calls - before2.calls, 1, "S2: exactly one model call");
     const s2Request = sent.at(-1)!;
     assert.doesNotMatch(instructions(s2Request.system), /specialist/i, "S2: no domain-less specialist claim reaches the model");
+    for (const sentence of INTERNAL_DRAFT_PREPARATION_BRIEF) {
+      assert.ok(instructions(s2Request.system).includes(sentence), "S2: the provider received the internal-draft brief");
+    }
+    assert.ok(instructions(s2Request.system).includes("Answer the USER REQUEST using only the GROUNDING CONTEXT"), "S2: the strict rules still frame it");
     assert.deepEqual(leaks(instructions(s2Request.system)), [], "S2: no agent or domain name travels in the instruction channel");
     const s2History = await readWorkArtifactHistory(acme, s2.artifactId, dbDeps);
     const s2Revision = s2History.find((r) => r.current)!;

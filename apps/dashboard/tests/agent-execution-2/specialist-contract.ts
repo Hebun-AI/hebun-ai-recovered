@@ -7,6 +7,7 @@
  *       brief made the model decline the task in production acceptance, 2026-10-25)
  *   R3  no client input carries a role
  *   R4  Heby's words: the recommendation names the specialist and leaves the choice to the person
+ *   R5  plans and messages carry the internal-draft brief; content drafts keep their strict brief
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -34,7 +35,25 @@ const BRIEF_SRC = code("src/features/work-artifacts/preparation-brief.ts");
 const PREPARE = code("src/features/work-artifacts/prepare-work-artifact.server.ts");
 assert.doesNotMatch(BRIEF_SRC, /specialist/i, "the preparation brief makes no specialist claim");
 assert.doesNotMatch(PREPARE, /specialist|agentWorkRole/, "the preparation seam does not derive or forward a role");
-assert.equal(preparationBriefFor({ artifactType: "operational-plan" }), undefined, "a plan is prepared exactly as in AE-1");
+/* R5 · the internal-draft brief: the reply is the draft; organizational claims need grounding; general practice
+ * is allowed as guidance; missing facts are placeholders, not a refusal; no act is claimed; it carries no
+ * tenant text and no material; the content draft keeps its own strict brief. */
+for (const type of ["operational-plan", "message-draft"] as const) {
+  const brief = preparationBriefFor({ artifactType: type });
+  const text = String(brief?.instruction ?? "");
+  assert.match(text, /Your entire reply becomes the draft/, `${type}: the reply is the draft`);
+  assert.match(text, /statements about this organization[^.]*\. Make such a statement only when the GROUNDING CONTEXT supports it\./, `${type}: organizational claims need grounding`);
+  assert.match(text, /You may use general professional practice/, `${type}: general practice is allowed`);
+  assert.match(text, /never present it as a record or as evidence/, `${type}: general practice is never evidence`);
+  assert.match(text, /bracketed placeholder/, `${type}: a missing fact is a placeholder, not an invention`);
+  assert.match(text, /Do not decline a draft that general practice can write/, `${type}: no refusal of a writable draft`);
+  assert.match(text, /Never state or imply that a step, review, approval, delivery or any other act has already happened/, `${type}: no act is claimed`);
+  assert.deepEqual(brief?.material, [], `${type}: instruction only, so the declared data classes are unchanged`);
+  assert.doesNotMatch(text, /specialist|\$\{/i, `${type}: no role claim, no interpolation`);
+}
+const contentText = String(preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram" })!.instruction);
+assert.doesNotMatch(contentText, /general professional practice|bracketed placeholder/, "the content draft stays strict");
+assert.ok(BRIEF_SRC.includes("INTERNAL_DRAFT_PREPARATION_BRIEF: readonly string[] = ["), "the brief is a constant list of minted sentences");
 assert.doesNotMatch(code("src/features/agent-work/assign-work-draft.server.ts"), /specialist:/, "the assignment seam passes no specialist flag");
 assert.doesNotMatch(code("src/app/(dashboard)/heby/work-state-origination-actions.ts"), /specialist|role/i, "the client action carries ids and words only");
 

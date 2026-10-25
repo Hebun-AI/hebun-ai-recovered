@@ -189,13 +189,15 @@ function theReleasedBriefIsUnchangedWithoutAnObservation(): void {
   assert.deepEqual(withObservation.material, [supplement], "the observation is the brief's only material");
   assert.equal(withObservation.instruction.includes(supplement), false, "and it never enters the instruction");
 
-  /* Only a content draft carries a brief, so only a content draft can carry an observation. */
+  /*
+   * Only a content draft can carry an observation. AGENT-EXECUTION-2 gave plans and messages an
+   * instruction-only internal-draft brief, so this pin now asserts the property itself: the observation is
+   * neither material nor instruction for them.
+   */
   for (const type of ["operational-plan", "message-draft"] as const) {
-    assert.equal(
-      preparationBriefFor({ artifactType: type, observationSupplement: supplement }),
-      undefined,
-      `${type} takes no brief, so an observation cannot attach to it`,
-    );
+    const brief = preparationBriefFor({ artifactType: type, observationSupplement: supplement });
+    assert.deepEqual(brief?.material, [], `${type}: an observation cannot attach as material`);
+    assert.equal(String(brief?.instruction).includes(supplement), false, `${type}: nor reach the instruction channel`);
   }
 }
 

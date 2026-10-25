@@ -29,6 +29,7 @@ import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mand
 import {
   answerHebyModelRequest,
   HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS, HEBY_MODEL_SYSTEM_INSTRUCTIONS,
+  systemInstructionsFor,
   type HebyModelAnswerDeps,
 } from "../../src/features/heby-answer/model-answer.server";
 import {
@@ -42,6 +43,7 @@ import { prepareWorkArtifact } from "../../src/features/work-artifacts/prepare-w
 import {
   CONTENT_DRAFT_PREPARATION_BRIEF,
   contentDraftDestinationSentence,
+  INTERNAL_DRAFT_PREPARATION_BRIEF,
   preparationBriefFor,
 } from "../../src/features/work-artifacts/preparation-brief";
 import { CONTENT_DESTINATIONS } from "../../src/features/work-artifacts/contracts";
@@ -128,10 +130,21 @@ function theBriefIsHonest(): void {
     }
   }
 
-  /* Only a content draft carries a brief; the other two types are prepared exactly as before. */
-  assert.equal(preparationBriefFor({ artifactType: "operational-plan" }), undefined);
-  assert.equal(preparationBriefFor({ artifactType: "message-draft" }), undefined);
-  assert.ok(preparationBriefFor({ artifactType: "content-draft", intendedDestination: "tiktok" }));
+  /*
+   * AGENT-EXECUTION-2 changed this pin deliberately: plans and messages now carry their own internal-draft
+   * brief (without one the model declined plain professional plans in production, 2026-10-25). The content
+   * draft's brief is unchanged and never carries the internal-draft sentences.
+   */
+  for (const type of ["operational-plan", "message-draft"] as const) {
+    const internal = preparationBriefFor({ artifactType: type });
+    assert.ok(internal && String(internal.instruction).includes(INTERNAL_DRAFT_PREPARATION_BRIEF[0]!), `${type}: the internal-draft brief`);
+    assert.deepEqual(internal?.material, [], `${type}: instruction only`);
+  }
+  const contentBrief = preparationBriefFor({ artifactType: "content-draft", intendedDestination: "tiktok" });
+  assert.ok(contentBrief);
+  for (const sentence of INTERNAL_DRAFT_PREPARATION_BRIEF) {
+    assert.ok(!String(contentBrief.instruction).includes(sentence), "a content draft never receives the internal-draft brief");
+  }
 }
 
 /**
@@ -283,7 +296,13 @@ async function main(): Promise<void> {
       );
       assert.equal(plan.status, "prepared", "operational plans still prepare");
       assert.equal(generated.length, 3);
-      assert.equal(generated[2]!.systemInstructions, HEBY_MODEL_SYSTEM_INSTRUCTIONS, "operational-plan: no brief, unchanged");
+      /* AGENT-EXECUTION-2: the strict rules plus the internal-draft brief (see the pin above). */
+      assert.equal(
+        generated[2]!.systemInstructions,
+        systemInstructionsFor("PREPARE_RECOMMENDATION", preparationBriefFor({ artifactType: "operational-plan" })),
+        "operational-plan: strict rules plus the internal-draft brief",
+      );
+      assert.ok(String(generated[2]!.systemInstructions).startsWith(String(HEBY_MODEL_SYSTEM_INSTRUCTIONS)), "the strict rules still come first");
     }
 
     /* ── 4. THE CAPABILITY: a content draft is briefed, and the model authors the bytes ── */

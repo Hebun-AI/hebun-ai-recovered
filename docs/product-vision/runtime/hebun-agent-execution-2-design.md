@@ -56,6 +56,26 @@ byte-identical to AE-1 (`87bfd4f6`): a specialist's preparation and the coordina
 same system instructions. The role stays Heby's and the person's — the recommendation, the role in the
 choices and in the result, attribution on the revision — and never becomes a claim to the model.
 
+### 4.1 · Internal draft preparation (root cause of both declines)
+
+Root cause (request construction VERIFIED in code and by a local reproduction; the model's reasoning is
+UNVERIFIED — production does not store prompts): `operational-plan` and `message-draft` had no preparation
+brief, so they were prepared under the strict rule alone — "Answer the USER REQUEST using only the GROUNDING
+CONTEXT", "If the context is insufficient, say so plainly", "you produce advisory text only" — and nothing
+said the reply is the draft. A plan of ordinary professional steps needs no organizational fact, so the model
+called its context insufficient. Both declines say exactly that ("general engineering guidance"). The second
+call's grounding also carried the first decline (every live draft's current revision, 400-character excerpt),
+the likely source of its "specialist" wording. History was empty; no agent, domain or UI wording reached the
+provider.
+
+Fix: `INTERNAL_DRAFT_PREPARATION_BRIEF` (minted, instruction only, no material) for plans and messages. The
+reply is the draft; statements about the organization still need the grounding; general professional
+practice may be used as guidance, never as a record or evidence; a missing fact becomes a bracketed
+placeholder instead of an invention or a refusal; no act is described as having happened; earlier drafts in
+the grounding are data, not precedent. Content drafts keep their own brief; data classes, mandate, Governance
+and tenant boundaries are unchanged. The two decline artifacts (`98904a8e@1` linked, `ea1433b4@1` unlinked)
+are not task outputs, await review, and are untouched.
+
 ## 5 · Verification
 
 - `tests/agent-execution-2/specialist-delegation-postgres.ts` S1–S10, real PostgreSQL, fake transport
