@@ -1,10 +1,11 @@
-# HEBY-WORKFLOW-1 · closure record · VERIFIED
+# HEBY-WORKFLOW-1 · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
 
 **Scope, stated first.** When Governance requests changes on an agent's draft linked to a work item, the person
 can stay on that work in Heby: read the change request, choose a responsible agent explicitly and give an
 instruction; the agent writes the next revision through the released preparation seam at the work item's own
-scope, and the new revision returns to Governance review. Implemented and verified locally in the commit that
-adds this record. **Not deployed; production behaviour UNVERIFIED.** No table, migration, provider, data-use
+scope, and the new revision returns to Governance review. Implemented and verified in `94627e04`, released and
+**deployed** (`dpl_C6i4qh1dewV9KDuHsmqEdU4j1H7E`, READY). **Production behaviour UNVERIFIED** — no revision has
+been made in production (section 5). No table, migration, provider, data-use
 class or authority was added; no Governance decision, work state or production record was changed.
 
 ## 1 · Problem (discovery 2026-10-26, at `59c00b99`)
@@ -60,15 +61,28 @@ authorship of revisions now reaches domain scope, and the instruction channel ga
 | `tsc --noEmit`, `eslint` on changed files, `git diff --check`, `npm run build` | PASS (build on the final source) |
 | Full suite (`node scripts/run-tests.mjs`, candidate copy) | 1098/1100, 0 confirmed REGRESSION. `r3w-flow/ambient-database-safety` **BLOCKED** (canonical `hebun_r1` at 127.0.0.1:55432 not running) — environmental, not a pass. `plan-step-idempotency-1/bite-proofs` red: **PRE-EXISTING FLAKE — ROOT CAUSE UNVERIFIED** (red 1 of 6 runs on unchanged `59c00b99`; 2/2 PASS alone on the candidate; reaches none of the changed modules; in the candidate run its B1 mutation failed on I3 rather than its intended assertion; the baseline red's message was not captured) |
 
-## 4 · Not verified
+## 4 · Production release (2026-10-26)
 
-- Production: not deployed; no UI render, no live revision, no runtime log line.
-- The Heby revision UI in a browser: no signed-in session was used; covered by source-level checks only.
+| Fact | Evidence |
+|---|---|
+| Pre-release | `git fetch` and `git ls-remote`: `origin/main` = `59c00b99`; `94627e04` its only child, a fast-forward; no migration, schema or package path; no other local branch ahead of `59c00b99`; production aliases on `dpl_66XDK7e6x2NTyzBYKAEZrAYidx3e` (the `59c00b99` deployment) |
+| Push | `59c00b99..94627e04` fast-forward, refspec written as the literal SHA, no force; `git ls-remote` then read `94627e042863da5562de9ef8b7eec14831ffc349` |
+| Deployment | `dpl_C6i4qh1dewV9KDuHsmqEdU4j1H7E`, target production, `READY`, created 2026-10-26 21:07 +03 by the Git integration on its own |
+| Deployment SHA | Vercel API (`/v13/deployments/…?withGitRepoInfo=true`): `source: git`, `githubCommitSha` `94627e042863da5562de9ef8b7eec14831ffc349`, ref `main`; `vercel ls --meta githubCommitSha=94627e04…` returns this one deployment, `59c00b99` returns `cd1jinjci`, an all-zeros control returns the unfiltered list (21) |
+| Aliases | `www.hebuntech.com` and `hebuntech.com` → `dpl_C6i4qh1dewV9KDuHsmqEdU4j1H7E` |
+| HTTP, signed out | `/`, `/login` 200; `/heby`, `/operations`, `/director/work` 307 → `/login` |
+| Runtime log, first 15 minutes | 21 records (`/`, `/login`, `/contact`), 0 at error level, 0 with a 5xx status |
+
+**What this is not.** READY, the SHA and the aliases prove what is served, not that the revision flow works in
+production. No signed-in surface was read and no credential was entered; no Governance decision, artifact,
+revision, work-state change, model call or production record was made for this record. Operations content-draft
+revise-from-review (the shared writer seam) is covered by CONTENT-AGENT-2's suites and 11/11 bite-proofs on the
+candidate, not by a production observation (HW1-WRITER-AUTHORITY-RECHECK-1).
 
 ### Deferred risk detail
 
-- **HW1-PROD-UNVERIFIED-1 (DEFERRED).** Production UI and revision flow unobserved. Dependency: release under
-  its own Director gate, then section 5.
+- **HW1-PROD-UNVERIFIED-1 (DEFERRED).** Deployed (`dpl_C6i4qh1dewV9KDuHsmqEdU4j1H7E`); production UI and
+  revision flow unobserved. Dependency: section 5.
 - **HW1-WRITER-AUTHORITY-RECHECK-1 (DEFERRED).** The writer-lock Governance re-check also governs Operations
   content-draft revise-from-review (CONTENT-AGENT-2); its suites and bite-proofs pass, but a production content
   revision from a review has not been observed since. Dependency: the next organic content-draft revision from a
@@ -86,7 +100,7 @@ authorship of revisions now reaches domain scope, and the instruction channel ga
 
 ## 5 · Production acceptance evidence required
 
-1. Push and deployment under their own Director gate; the deployment record read for the pushed SHA.
+1. Push and deployment under their own Director gate; the deployment record read for the pushed SHA — done (section 4).
 2. In tenant hebun, a Director-recorded change request on an agent's linked draft; on Heby the reason shown,
    no agent preselected, the author suggested.
 3. One Director-approved model call: revision N+1 authored by the chosen agent, "awaiting review", work state
@@ -101,12 +115,12 @@ reviewer asks for changes, its agent revises the same draft on the same work ins
 
 - Phase: HEBY-WORKFLOW-1
 - Owner: Agent work capability (`agent-work/assign-work-draft.server.ts` `reviseWorkDraft`) composing Work Artifacts preparation (`prepare-work-artifact.server.ts`, `preparation-brief.ts`), Governance artifact review (CONTENT-AGENT-2 change request), Agent Mandate's shared ceiling and Organizational Work (WEV-1); Heby work-draft affordance
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Reached state: DEPLOYED
+- Implementation commit: 94627e042863da5562de9ef8b7eec14831ffc349
 - Verification level: V3 — an authority re-check in a shared writer seam used by every revise-from-review path, agent revision authorship at domain scope, and instruction-channel material for internal drafts
 - Verification evidence: revision-postgres W1–W14 PASS; revision-contract C1–C4 PASS; baseline 47/47 at 59c00b99; candidate 50/50 (47/49 first run, two pins changed with stated reasons); bite-proofs HW1 7/7, AE-1 5/5, CONTENT-AGENT-2 11/11; tsc, eslint, git diff --check, npm run build PASS; full suite 1098/1100 with 0 confirmed REGRESSION, r3w-flow/ambient-database-safety BLOCKED (canonical hebun_r1 :55432 not running), plan-step-idempotency-1/bite-proofs PRE-EXISTING FLAKE — ROOT CAUSE UNVERIFIED (red 1/6 on unchanged 59c00b99)
 - Test environment: worktree `.claude/worktrees/heby-workflow-1` (branch feat/heby-workflow-1, base 59c00b99); disposable detached worktrees `hw1-baseline`, `hw1-candidate` (removed after use); macOS Darwin 25.2.0; Node 24.16.0 with tsx; PostgreSQL 18.6 at 127.0.0.1:55433 via HEBUN_TEST_ADMIN_DATABASE_URL with harness-created databases; fake model transport; no network, no production database or provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
+- Deployment evidence: dpl_C6i4qh1dewV9KDuHsmqEdU4j1H7E — READY, target production, source git sha 94627e042863da5562de9ef8b7eec14831ffc349 ref main, created by the Git integration for the push 59c00b99..94627e04; aliased to www.hebuntech.com and hebuntech.com; signed-out HTTP / and /login 200, /heby, /operations, /director/work 307 → /login; runtime log 21 records, 0 error, 0 5xx in the first 15 minutes
+- Production acceptance evidence: N/A — production acceptance pending: no signed-in surface read, no change request, revision or model call made in production; the deployment SHA is not proof of behaviour
 - Deferred risks: HW1-PROD-UNVERIFIED-1 (DEFERRED); HW1-WRITER-AUTHORITY-RECHECK-1 (DEFERRED); HW1-REVISION-STALE-1 (DEFERRED); HW1-OPERATIONS-INTERNAL-REVISION-1 (DEFERRED); HW1-PSI-BITE-FLAKE-1 (DEFERRED)
-- Director approvals: discovery report accepted and HEBY-WORKFLOW-1 implementation authorized with decisions D1 (revision text through SCI-1 material only) and D2 (author suggested, explicit choice, no model call without it) 2026-10-26; implementation report accepted, documentation and one local commit approved 2026-10-26; push, merge, deployment, Governance decisions and production model calls NOT approved
+- Director approvals: discovery report accepted and HEBY-WORKFLOW-1 implementation authorized with decisions D1 (revision text through SCI-1 material only) and D2 (author suggested, explicit choice, no model call without it) 2026-10-26; implementation report accepted, documentation and one local commit approved 2026-10-26; controlled push of 94627e04 with its automatic production deployment, deployment verification and this documentation update approved 2026-10-26; Governance change requests, artifact or revision changes, live model calls, work lifecycle changes and production test data NOT approved
