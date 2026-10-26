@@ -201,7 +201,12 @@ async function main(): Promise<void> {
     ({ deps } = depsFor("success-invalid-answer"));
     result = await revise(deps);
     client = toPreparationClientResult(result);
-    assert.deepEqual(client.status === "refused" && [client.reason, client.modelFallback], ["no-model-answer", { kind: "withheld" }], "F2 an invalid model answer is withheld");
+    /* AOR-1a: the withheld fallback now names the validator's closed codes and the provider's classified stop reason. */
+    assert.deepEqual(
+      client.status === "refused" && [client.reason, client.modelFallback],
+      ["no-model-answer", { kind: "withheld", issueCodes: ["action-claim:executed", "action-claim:deployed"], stopReason: "end_turn" }],
+      "F2 an invalid model answer is withheld",
+    );
     assertClientSafe("F2", client);
     assert.deepEqual(await world(), before, "F2 an invalid model answer creates no revision");
 

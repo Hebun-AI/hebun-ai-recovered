@@ -34,6 +34,7 @@ import type {
  * knowledge-retrieval imports heby-runtime, so the direction stays one-way.
  */
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
+import type { ResponseValidationCode } from "./response-validator";
 
 /* ===========================================================================
  * 1. MODEL / REASONING BOUNDARY
@@ -259,8 +260,32 @@ export type HebyModelFallback =
   | { readonly kind: "unavailable"; readonly state: Exclude<ModelAvailabilityState, "AVAILABLE"> }
   /** The transport raised. Whether the provider received the request is not known. */
   | { readonly kind: "provider-failed"; readonly code: string }
-  /** The provider answered, and the answer failed validation and was withheld. */
-  | { readonly kind: "withheld" };
+  /**
+   * The provider answered, and the answer failed validation and was withheld. AOR-1a: `issueCodes` names
+   * which checks failed (the validator's closed codes, never its prose and never the withheld text);
+   * `stopReason` is the provider's own stop reason, classified. Both are absent on records made before
+   * AOR-1a, and `stopReason` is absent when the provider reported none.
+   */
+  | {
+      readonly kind: "withheld";
+      readonly issueCodes?: readonly ResponseValidationCode[];
+      readonly stopReason?: ProviderStopReason;
+    };
+
+/**
+ * AOR-1a — the provider's stop reason, reduced to a closed set so an unexpected provider string is never
+ * carried onward. `refusal` is the provider saying it declined; it is not Hebun's judgement of the text,
+ * and a reply that declines the task in ordinary prose ends `end_turn`, so its absence proves nothing.
+ */
+export type ProviderStopReason = "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | "pause_turn" | "refusal" | "other";
+
+const KNOWN_STOP_REASONS: ReadonlySet<string> = new Set(["end_turn", "max_tokens", "stop_sequence", "tool_use", "pause_turn", "refusal"]);
+
+/** Pure. `undefined` when the provider reported no stop reason. */
+export function classifyProviderStopReason(raw: string | null | undefined): ProviderStopReason | undefined {
+  if (typeof raw !== "string" || raw.length === 0) return undefined;
+  return KNOWN_STOP_REASONS.has(raw) ? (raw as ProviderStopReason) : "other";
+}
 
 /**
  * Attribution for a model-origin response. Transport provenance is explicit and

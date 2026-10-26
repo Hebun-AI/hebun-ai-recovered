@@ -5740,6 +5740,7 @@ re-graded here.
 | AGENT-EXECUTION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` |
 | AGENT-EXECUTION-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` |
 | WORK-OUTCOME-CLOSURE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` |
+| AOR-1a | VERIFIED | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` |
 
 ---
 
@@ -5877,7 +5878,7 @@ before §16.1 are not yet indexed (Phase B).
 | APPROVALS-EXPIRY-HYDRATION-1 | OPERATIONAL-RELIABILITY-1 | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` | UX failure legibility | CLOSED | — |
 | AE1-OPERATIONS-AUTHOR-MANDATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Agent authority | CLOSED | — |
 | AE1-CONCURRENT-ASSIGNMENT-DUPLICATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Duplicate prevention | CLOSED | — |
-| AE1-WITHHELD-DIAGNOSABILITY-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Verification reliability | DEFERRED | A Director-selected change recording validator issue codes (never the withheld text) for withheld preparations |
+| AE1-WITHHELD-DIAGNOSABILITY-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Verification reliability | DEFERRED | Implemented in AOR-1a (closed validator codes and the provider stop reason on a runtime log line, never the withheld text); CLOSED only when an organic production withheld preparation is diagnosed from that line |
 | AE1-DRAFT-ACTION-CLAIM-RULE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Product reach | DEFERRED | A Director architecture decision on applying the action-claim rule to drafts; the validator is not relaxed meanwhile |
 | AE1-ASSIGN-UI-WORDING-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Legibility | CLOSED | — |
 | AE1-MEDIA-AUTHORSHIP-MANDATE-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Agent authority | DEFERRED | A Director decision on binding image and video generation authorship to the agent mandate |
@@ -5891,3 +5892,5 @@ before §16.1 are not yet indexed (Phase B).
 | WOC1-BROWSER-UNVERIFIED-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Verification gap | DEFERRED | Waiting-for-review path verified read only in production on all three surfaces; the positive path (a suggestion after an organic acceptance of every linked current revision) is open |
 | WOC1-EVIDENCE-BOUND-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Read completeness | DEFERRED | A Director decision on a work-item-scoped evidence read when a tenant approaches 200 current evidence declarations (every completion suggestion is withheld at the bound) |
 | MEDIA3-ADMITTED-AT-HYDRATION-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | UX failure legibility | DEFERRED | /operations React #418 from revision-media-assets.tsx:292 (a time formatted in the viewer's zone during render, from MEDIA-3); a Director-selected deterministic-time fix with a render-determinism test |
+| AOR1A-PROD-UNVERIFIED-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Verification gap | DEFERRED | Release, then an organic production preparation read back: the withheld wording on Heby and one diagnosis line whose messageId resolves to that tenant's message row; nothing provoked |
+| AOR1A-LOG-NOT-AUDIT-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Evidence durability | DEFERRED | A Director decision whether preparation diagnosis needs a durable home (a schema decision); until then it lives in the host runtime log with its retention |

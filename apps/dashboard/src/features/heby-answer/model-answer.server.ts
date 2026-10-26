@@ -51,7 +51,9 @@ import {
   buildResponse,
   validateResponse,
   validateHebyPrompt,
+  classifyProviderStopReason,
   type ExecutiveOverviewLike,
+  type ProviderStopReason,
   type HebyRuntimeContext,
   type HebyRuntimeOutcome,
   type HebyRuntimeResponse,
@@ -504,6 +506,11 @@ export type HebyModelAnswerResult =
       readonly transportProvenance?: "fake" | "live";
       /** Whether the exchange was durably persisted, and — when so — the conversation id. */
       readonly persistence: DurableDisposition;
+      /**
+       * AOR-1a — the provider's stop reason, classified, whenever a model really answered (served or
+       * withheld). Absent when no model answered or the provider reported none. Server-side only.
+       */
+      readonly modelStopReason?: ProviderStopReason;
     };
 
 function assertServerRuntime(): void {
@@ -1479,6 +1486,8 @@ export async function answerHebyModelRequest(
      */
     resolutions,
   });
+  /* AOR-1a — present whenever a model really answered, served or withheld; `produceAnswer` keeps the result in both. */
+  const modelStopReason = classifyProviderStopReason(answer.modelResult?.stopReason);
 
   /*
    * 8. Attach the evidence explanation to the LIVE response.
@@ -1526,6 +1535,7 @@ export async function answerHebyModelRequest(
     },
     transportProvenance: answer.transportProvenance,
     persistence,
+    ...(modelStopReason ? { modelStopReason } : {}),
   };
 }
 
@@ -1592,6 +1602,7 @@ async function produceAnswer(args: {
   });
   const validation = validateResponse(candidate, assembled, authority);
   if (!validation.valid) {
+    const withheldStop = classifyProviderStopReason(outcome.result.stopReason);
     /*
      * AGENT-PROPOSAL-4A — THE ATTEMPT SURVIVES THE WITHHOLDING.
      *
@@ -1612,7 +1623,8 @@ async function produceAnswer(args: {
           "A model answer was produced but failed validation and was withheld; this answer is deterministic.",
         ),
         modelInvocationAttempted: true,
-        modelFallback: { kind: "withheld" },
+        /* AOR-1a — which checks failed (closed codes) and how the provider stopped; never the text. */
+        modelFallback: { kind: "withheld", issueCodes: validation.codes, ...(withheldStop ? { stopReason: withheldStop } : {}) },
       },
       transportProvenance: selection.transportProvenance,
       modelResult: outcome.result,

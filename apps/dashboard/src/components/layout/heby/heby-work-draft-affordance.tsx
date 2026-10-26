@@ -14,6 +14,7 @@ import type {
   WorkDraftView,
 } from "@/features/agent-work/assign-work-draft.server";
 import { agentWorkCapability, type AgentWorkRole } from "@/features/agent-work/capabilities";
+import type { HebyModelFallback } from "@/features/heby-runtime/contracts";
 import {
   CONTENT_DESTINATION_LABELS,
   CONTENT_DESTINATIONS,
@@ -110,9 +111,25 @@ export function describeRecommendation(read: Extract<WorkDraftChoices, { status:
   return `Heby recommends ${agent.name}: it is the only agent responsible for this kind of work and not organization-wide. That decides who is offered and recorded as the draft's author; the model is not told the agent's specialty. You decide who is assigned.`;
 }
 
-/** The model answered and Hebun's response checks withheld it. The checks' reasons are not recorded (AE1-WITHHELD-DIAGNOSABILITY-1). */
+/** The model answered and Hebun's response checks withheld it, with no check named (a result from before AOR-1a). */
 export const WITHHELD_WORDING =
   "No draft was written. The model answered, but Hebun's response checks withheld the answer, so nothing was filed. Which check withheld it is not recorded; rewording the instruction may help.";
+
+/**
+ * AOR-1a — which check withheld the answer, by class. Built only from the validator's closed codes: an
+ * action verb is a literal from its fixed list, never a word from the reply, and the reply is never shown.
+ */
+export function describeWithheld(fallback: Extract<HebyModelFallback, { kind: "withheld" }>): string {
+  const codes = fallback.issueCodes ?? [];
+  if (codes.length === 0) return WITHHELD_WORDING;
+  const verbs = codes.flatMap((code) => (code.startsWith("action-claim:") ? [code.slice("action-claim:".length)] : []));
+  const reasons = [
+    ...(verbs.length > 0 ? [`it described an act as having happened (${verbs.map((v) => `“${v}”`).join(", ")})`] : []),
+    ...(codes.includes("unsupported-evidence") ? ["it cited a source Hebun did not give it"] : []),
+    ...(codes.some((code) => !code.startsWith("action-claim:") && code !== "unsupported-evidence") ? ["it failed Hebun's format checks"] : []),
+  ];
+  return `No draft was written. The model answered, but Hebun's response checks withheld the answer because ${reasons.join(" and ")}, so nothing was filed. Rewording the instruction may help.`;
+}
 
 /** WORK-OUTCOME-CLOSURE-1 — the Work Authority's refusals of a completion declaration, for a person. */
 export const DECLARE_REFUSAL_WORDING: Readonly<Record<string, string>> = {
@@ -133,7 +150,7 @@ export function describeAssignment(result: AssignWorkDraftResult, agentName: str
     case "not-prepared":
       /* AE1-ASSIGN-UI-WORDING-1 — a withheld answer is said as such, not as the generic "no model answer". */
       return result.modelFallback?.kind === "withheld"
-        ? WITHHELD_WORDING
+        ? describeWithheld(result.modelFallback)
         : `No draft was written. ${HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `(${result.reason})`}`;
     case "refused":
       return ASSIGN_REFUSAL_WORDING[result.reason] ?? `Nothing was asked (${result.reason}).`;

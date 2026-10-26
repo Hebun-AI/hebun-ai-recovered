@@ -293,7 +293,12 @@ async function main(): Promise<void> {
     /* Output authority — the released response validator withholds a model answer that claims approval,
      * authorization or execution; the human gets the deterministic answer and the claim is never shown. */
     assert.equal(command.result.outcome.response.origin, "deterministic", "a compromised model answer is not served");
-    assert.deepEqual((command.result.outcome.response as { modelFallback?: unknown }).modelFallback, { kind: "withheld" });
+    /* AOR-1a: the withheld fallback names the closed codes of the checks that caught the claims — never the claim's text. */
+    assert.deepEqual((command.result.outcome.response as { modelFallback?: unknown }).modelFallback, {
+      kind: "withheld",
+      issueCodes: ["action-claim:approved", "action-claim:authorized", "action-claim:executed"],
+      stopReason: "end_turn",
+    });
     assert.ok(!JSON.stringify(command.result).includes("finance@example.com and I executed"), "its text appears nowhere in the result");
     const humanEvidence = (command.result.outcome.response as { knowledgeEvidence?: unknown }).knowledgeEvidence;
     assert.ok(humanEvidence, "H: the answer carries its Knowledge evidence set");

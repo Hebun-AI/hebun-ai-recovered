@@ -72,6 +72,7 @@ import {
   type HebyModelAnswerResult,
 } from "@/features/heby-answer/model-answer.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { preparationDiagnosisLine } from "./preparation-diagnosis";
 import {
   readEffectiveAgentMandate,
   type AgentMandateReadDeps,
@@ -212,6 +213,8 @@ export interface PrepareWorkArtifactDeps {
    * item's own recorded scope.
    */
   readonly workScope?: WorkScope;
+  /** AOR-1a — where the one diagnosis line goes. The host's runtime log unless a test captures it. */
+  readonly log?: (line: string) => void;
 }
 
 const ORGANIZATION_WORK: WorkScope = Object.freeze({ kind: "organization" as const });
@@ -502,6 +505,10 @@ export async function prepareWorkArtifact(
 
   if (answer.status === "unauthorized") return { status: "refused", reason: "unauthenticated" };
   if (answer.status === "rejected") return { status: "refused", reason: "prompt-rejected" };
+
+  /* AOR-1a — one line when a model really answered, before anything decides what to do with it. */
+  const diagnosis = preparationDiagnosisLine(answer);
+  if (diagnosis) (deps.log ?? ((line: string) => console.info(line)))(diagnosis);
 
   /*
    * ONLY MODEL-ORIGIN TEXT BECOMES PREPARED WORK. `origin` is set by the answer flow from what

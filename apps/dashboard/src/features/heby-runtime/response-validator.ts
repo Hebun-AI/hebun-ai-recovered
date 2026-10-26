@@ -17,6 +17,12 @@ import { isSupportedEvidence } from "./evidence-assembler";
 export interface ResponseValidation {
   readonly valid: boolean;
   readonly issues: readonly string[];
+  /**
+   * AOR-1a — the same problems as `issues`, as a CLOSED vocabulary. `issues` is prose and one of its
+   * lines quotes an evidence reference the response itself carried, so it is never logged or sent to a
+   * browser; a code carries only a literal from this module.
+   */
+  readonly codes: readonly ResponseValidationCode[];
   /** The response to display: the original when valid, a safe fallback when not. */
   readonly response: HebyRuntimeResponse;
 }
@@ -34,7 +40,19 @@ const FORBIDDEN_ACTION_CLAIMS = [
   "deleted",
   "policy updated",
   "decision recorded",
-];
+] as const;
+
+/** AOR-1a — one code per check below; an action claim names its verb, which is a literal from the list above. */
+export type ResponseValidationCode =
+  | "missing-title-or-body"
+  | "authority-mismatch"
+  | `action-claim:${(typeof FORBIDDEN_ACTION_CLAIMS)[number]}`
+  | "unsupported-evidence"
+  | "model-flag-missing"
+  | "attribution-on-non-model"
+  | "attribution-unknown-transport"
+  | "attempt-flag-malformed"
+  | "attempt-flag-denied";
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * OBSERVATION != ACTION CLAIM
@@ -205,13 +223,18 @@ export function validateResponse(
   expectedAuthority: HebyRuntimeResponse["authority"],
 ): ResponseValidation {
   const issues: string[] = [];
+  const codes: ResponseValidationCode[] = [];
+  const fail = (code: ResponseValidationCode, issue: string) => {
+    codes.push(code);
+    issues.push(issue);
+  };
 
   // Shape.
-  if (!response.title || response.body.length === 0) issues.push("Response is missing a title or body.");
+  if (!response.title || response.body.length === 0) fail("missing-title-or-body", "Response is missing a title or body.");
 
   // Authority boundary must be unchanged.
   if (response.authority !== expectedAuthority) {
-    issues.push("Response authority boundary does not match the request.");
+    fail("authority-mismatch", "Response authority boundary does not match the request.");
   }
 
   // Heby may never claim to have acted (Phase 16 registers only read-only tools). Reporting that
@@ -219,33 +242,33 @@ export function validateResponse(
   const text = [response.title, ...response.body].join(". ");
   for (const claim of FORBIDDEN_ACTION_CLAIMS) {
     if (claimsAnAction(text, claim)) {
-      issues.push(`Response claims an action ("${claim}") that did not occur.`);
+      fail(`action-claim:${claim}`, `Response claims an action ("${claim}") that did not occur.`);
     }
   }
 
   // Every evidence reference must be backed by the assembled evidence.
   for (const reference of response.evidence) {
     if (!isSupportedEvidence(reference, assembledEvidence)) {
-      issues.push(`Unsupported evidence reference: ${reference.sourceClass}/${reference.recordRef}.`);
+      fail("unsupported-evidence", `Unsupported evidence reference: ${reference.sourceClass}/${reference.recordRef}.`);
     }
   }
 
   // A model-origin response must carry the modelUsed flag.
   if (response.origin === "model" && !response.modelUsed) {
-    issues.push("Model-origin response must set modelUsed.");
+    fail("model-flag-missing", "Model-origin response must set modelUsed.");
   }
 
   // Model attribution is only valid on a model-origin, model-used response, and its
   // transport provenance must be an explicit, known value — never conflated with origin.
   if (response.modelAttribution) {
     if (response.origin !== "model" || !response.modelUsed) {
-      issues.push("Model attribution present on a non-model response.");
+      fail("attribution-on-non-model", "Model attribution present on a non-model response.");
     }
     if (
       response.modelAttribution.transport !== "fake" &&
       response.modelAttribution.transport !== "live"
     ) {
-      issues.push("Model attribution has an unknown transport provenance.");
+      fail("attribution-unknown-transport", "Model attribution has an unknown transport provenance.");
     }
   }
 
@@ -259,14 +282,14 @@ export function validateResponse(
     response.modelInvocationAttempted !== undefined &&
     typeof response.modelInvocationAttempted !== "boolean"
   ) {
-    issues.push("Model invocation attempted must be a boolean when present.");
+    fail("attempt-flag-malformed", "Model invocation attempted must be a boolean when present.");
   }
   if (response.origin === "model" && response.modelInvocationAttempted === false) {
-    issues.push("A model-origin response cannot deny that a model invocation was attempted.");
+    fail("attempt-flag-denied", "A model-origin response cannot deny that a model invocation was attempted.");
   }
 
   if (issues.length > 0) {
-    return { valid: false, issues, response: safeFallback(response, issues) };
+    return { valid: false, issues, codes, response: safeFallback(response, issues) };
   }
-  return { valid: true, issues: [], response };
+  return { valid: true, issues: [], codes: [], response };
 }
