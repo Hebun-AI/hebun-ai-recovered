@@ -5742,7 +5742,7 @@ re-graded here.
 | WORK-OUTCOME-CLOSURE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` |
 | AOR-1a | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` |
 | HEBY-WORKFLOW-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` |
-| AOR-1b | VERIFIED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
+| AOR-1b | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
 
 ---
 
@@ -5901,7 +5901,7 @@ before §16.1 are not yet indexed (Phase B).
 | HW1-REVISION-STALE-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Lifecycle legibility | DEFERRED | A Director decision if revisions filed as prepared-stale (work retired or re-scoped, link withdrawn, agent no longer responsible mid-call) are observed |
 | HW1-OPERATIONS-INTERNAL-REVISION-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Product reach | DEFERRED | A Director decision on model revision of plans and messages in Operations (today only through Heby, at the work item's scope) |
 | HW1-PSI-BITE-FLAKE-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Verification reliability | DEFERRED | plan-step-idempotency-1/bite-proofs red 1 of 6 on unchanged 59c00b99, root cause UNVERIFIED; a captured failing run on an unchanged tree |
-| AOR1B-PROD-UNVERIFIED-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Verification gap | DEFERRED | Committed locally, not deployed; after release, a Director-approved HEBY-WORKFLOW-1 revision of d71f8383 read back (revision 2 filed, or a withheld line naming its code) |
+| AOR1B-PROD-UNVERIFIED-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Verification gap | DEFERRED | Deployed (dpl_61yagWMSydJEJYFHJyUQWL8YLwvC); a Director-approved HEBY-WORKFLOW-1 revision of d71f8383 read back (revision 2 filed, or a withheld line naming its code) |
 | AOR1B-HEURISTIC-RESIDUAL-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | Lexical per-clause heuristic: claims without a listed verb pass, distant markers and status labels are withheld; a Director decision if diagnosis lines show either |
 | AOR1B-ATTRIBUTED-HISTORY-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Product reach | DEFERRED | By D-AOR1b-1 a draft restating a real recorded approval is withheld; a Director decision if observed |
 | AOR1B-NON-ENGLISH-CLAIMS-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | The action-claim verbs are English only; Turkish draft claims are judged in neither mode; a Director decision before Turkish drafts are relied on |

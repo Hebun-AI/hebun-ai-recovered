@@ -1,11 +1,11 @@
-# AOR-1b · closure record · VERIFIED — NOT DEPLOYED — PRODUCTION UNVERIFIED
+# AOR-1b · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
 
 **Scope, stated first.** AGENT-OUTPUT-RELIABILITY-1, second slice: the response validator judges an internal
 plan or message — and only that — in an `internal-draft` mode set by the work-artifact preparation seam. Planning,
 checklist and conditional language passes ("Once approved, record the decision", "Verify whether the deployment
 was approved"); a completed consequential act is still a claim, now **even when attributed** to Governance or the
 Director (Director decision D-AOR1b-1). Heby's own answers and content drafts keep the existing rule unchanged.
-Implemented and verified locally and committed in the commit that adds this record; **NOT DEPLOYED — PRODUCTION UNVERIFIED.** No table,
+Implemented and verified in `3f611477`, released and **deployed** (`dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`, READY); **production behaviour UNVERIFIED** — no internal-draft preparation has run on it (section 4). No table,
 migration, provider, data-use class, authority or second validator.
 
 ## 1 · Problem
@@ -55,14 +55,28 @@ suite was run because the validator is reached by every Heby answer path and man
 | `tsc --noEmit`, `eslint` on changed files, `git diff --check`, `npm run build` | PASS |
 | Full suite (`node scripts/run-tests.mjs`, candidate copy) | 1102/1103, REGRESSION 0. `r3w-flow/ambient-database-safety` **BLOCKED** (canonical `hebun_r1` at 127.0.0.1:55432 not running) — environmental, not a pass. `plan-step-idempotency-1/bite-proofs` passed in this run (HW1-PSI-BITE-FLAKE-1 unchanged: still intermittent, root cause UNVERIFIED) |
 
-## 4 · Not verified
+## 4 · Production release (2026-10-26)
 
-- Production: not deployed. The known production withheld reply remains UNVERIFIED as true or false
-  positive; whether this change would have filed it cannot be known.
+| Fact | Evidence |
+|---|---|
+| Pre-release | `git fetch` and `git ls-remote`: `origin/main` = `50c69477`; `3f611477` its only child, a fast-forward, limited to the 9 AOR-1b files; feature worktree clean; no other local branch ahead of `50c69477`; rollback reference `dpl_A4aKYRBDfbzZTudvmoN2RkBorVba` (`50c69477`, READY, then on both production aliases); the draft-claims contract (default rule, content-draft isolation, server-only mode, AOR-1a codes) re-run PASS on the commit |
+| Push | `50c69477..3f611477` fast-forward after a compare-and-swap read, refspec written as the literal SHA, no force; `git ls-remote` then read `3f6114776ad9dff0715a010e873ba1e07edf208c` |
+| Deployment | `dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`, target production, `READY`, created 2026-10-26 22:44 +03 by the Git integration on its own |
+| Deployment SHA | Vercel API (`/v13/deployments/…?withGitRepoInfo=true`): `source: git`, `githubCommitSha` `3f6114776ad9dff0715a010e873ba1e07edf208c`, ref `main`; `vercel ls --meta githubCommitSha=3f611477…` returns this one deployment, `50c69477` returns `smdyc0gv1`, an all-zeros control returns the unfiltered list |
+| Aliases | `www.hebuntech.com` and `hebuntech.com` → `dpl_61yagWMSydJEJYFHJyUQWL8YLwvC` |
+| HTTP, signed out | `/`, `/login` 200; `/heby`, `/operations`, `/director/work` 307 → `/login` |
+| Runtime log, first ~30 minutes | 14 records, all info; 0 error, 0 5xx; 0 `work-preparation-model-outcome` lines |
+
+**What this is not.** READY, the SHA and the aliases prove what is served, not that the internal-draft mode behaves
+as verified locally in production. No preparation, model call, Governance decision, artifact, revision, work-state
+change or production record was made for this record. The acceptance target (work `5ba33201…`, artifact
+`d71f8383…`, last read at revision 1 with a standing change request) could not be re-read after release: the
+built-in browser's session had ended, and no credential was entered — UNAVAILABLE, not assumed. The earlier
+production withheld reply (`4fec95f4…`) remains UNVERIFIED as a true or false positive.
 
 ### Deferred risk detail
 
-- **AOR1B-PROD-UNVERIFIED-1 (DEFERRED).** Committed locally, not deployed. Dependency: release under its own gate, then a
+- **AOR1B-PROD-UNVERIFIED-1 (DEFERRED).** Deployed (`dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`); unobserved. Dependency: a
   Director-approved HEBY-WORKFLOW-1 revision of `d71f8383…` (its change request still stands) read back: a filed
   revision 2 or a withheld line naming its code.
 - **AOR1B-HEURISTIC-RESIDUAL-1 (DEFERRED).** A lexical, per-clause heuristic. Known false negatives: a claim with no
@@ -87,12 +101,12 @@ House:* its plans can say "once approved" without being withheld, and cannot say
 
 - Phase: AOR-1b
 - Owner: Heby response validation (`heby-runtime/response-validator.ts`) with its mode chosen by the answer flow (`heby-answer/model-answer.server.ts`) on the work-artifact preparation seam's declaration (`work-artifacts/prepare-work-artifact.server.ts`)
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Reached state: DEPLOYED
+- Implementation commit: 3f6114776ad9dff0715a010e873ba1e07edf208c
 - Verification level: V3 — the prompt-injection output boundary and the shared preparation seam changed; full suite run
 - Verification evidence: draft-claims-contract D1–D6 PASS; draft-mode-postgres P1–P6 PASS; baseline 116/116 at 50c69477; candidate 119/119 with no pin changed; bite-proofs AOR-1b 8/8 with AE-1 5/5, HW1 7/7, CONTENT-AGENT-2 11/11 and 11 further suites in the same run; tsc, eslint, git diff --check, npm run build PASS; full suite 1102/1103 with 0 REGRESSION, r3w-flow/ambient-database-safety BLOCKED (canonical hebun_r1 :55432 not running)
 - Test environment: worktree `.claude/worktrees/aor-1b` (branch feat/aor-1b, base 50c69477); disposable detached worktrees `aor1b-baseline`, `aor1b-candidate` (removed after use); macOS Darwin 25.2.0; Node 24.16.0 with tsx; PostgreSQL 18.6 at 127.0.0.1:55433 via HEBUN_TEST_ADMIN_DATABASE_URL with harness-created databases; fake model transport; no network, no production database or provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
+- Deployment evidence: dpl_61yagWMSydJEJYFHJyUQWL8YLwvC — READY, target production, source git sha 3f6114776ad9dff0715a010e873ba1e07edf208c ref main, created by the Git integration for the push 50c69477..3f611477; aliased to www.hebuntech.com and hebuntech.com; signed-out HTTP / and /login 200, /heby, /operations, /director/work 307 → /login; runtime log 14 records, 0 error, 0 5xx; rollback reference dpl_A4aKYRBDfbzZTudvmoN2RkBorVba (50c69477)
+- Production acceptance evidence: N/A — production acceptance pending: no internal-draft preparation has run on the deployment; the acceptance target could not be re-read (session ended, no credential entered); the deployment SHA is not proof of behaviour
 - Deferred risks: AOR1B-PROD-UNVERIFIED-1 (DEFERRED); AOR1B-HEURISTIC-RESIDUAL-1 (DEFERRED); AOR1B-ATTRIBUTED-HISTORY-1 (DEFERRED); AOR1B-NON-ENGLISH-CLAIMS-1 (DEFERRED); AE1-DRAFT-ACTION-CLAIM-RULE-1 (DEFERRED)
-- Director approvals: AOR-1b prioritised after the HEBY-WORKFLOW-1 production withheld event, analysis only 2026-10-26; Option C (server-controlled internal-draft mode) and D-AOR1b-1 (attribution does not make a completed claim safe in an internal draft) approved, implementation, verification and documentation authorised 2026-10-26; one local commit approved 2026-10-26; push, merge, deployment, production model calls and Governance decisions NOT approved
+- Director approvals: AOR-1b prioritised after the HEBY-WORKFLOW-1 production withheld event, analysis only 2026-10-26; Option C (server-controlled internal-draft mode) and D-AOR1b-1 (attribution does not make a completed claim safe in an internal draft) approved, implementation, verification and documentation authorised 2026-10-26; one local commit approved 2026-10-26; controlled push of 3f611477 with its automatic production deployment, deployment verification and this documentation update approved 2026-10-26; production model calls, revisions, Governance decisions, artifact or work-state changes and production test data NOT approved
