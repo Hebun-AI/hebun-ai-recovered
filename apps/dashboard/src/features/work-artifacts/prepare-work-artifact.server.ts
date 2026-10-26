@@ -534,10 +534,15 @@ export async function prepareWorkArtifact(
         { artifactId: input.artifactId, content, sourceMessageId, expectedRevisionNo: input.expectedRevisionNo },
         authorship.authorship,
         deps.write,
-        /* CONTENT-AGENT-2 — the review basis, asked again under the writer's artifact lock. */
+        /*
+         * CONTENT-AGENT-2 — the review basis, asked again under the writer's artifact lock. HEBY-WORKFLOW-1:
+         * so is the requester's right to revise from it, which the preflight asked before the model; a
+         * Governance authority revoked while the model was writing files nothing.
+         */
         basisDecisionId === undefined
           ? undefined
           : async (tx, artifact) =>
+              !(await mayReviseFromReview(tx, tenant)) ||
               !(await isReviewBasisCurrent(tx, tenant, {
                 artifactId: artifact.id,
                 revisionNo: artifact.currentRevision,

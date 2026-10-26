@@ -5,11 +5,15 @@ import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { AgentChoiceSelect, type AgentOption } from "@/components/agents/agent-choice-select";
 import { HEBUN_PREPARATION_REFUSAL_WORDING } from "@/components/operations-preparation/prepare-with-hebun";
-import { assignWorkDraftAction, readWorkDraftChoicesAction } from "@/app/(dashboard)/heby/work-state-origination-actions";
+import { assignWorkDraftAction, readWorkDraftChoicesAction, reviseWorkDraftAction } from "@/app/(dashboard)/heby/work-state-origination-actions";
 import { declareWorkReferenceAction, setWorkDeclaredStateAction } from "@/app/(dashboard)/director/work/actions";
+import { readRevisionChangeRequestAction } from "@/app/(dashboard)/operations/actions";
+import type { CurrentRevisionChangeRequest } from "@/features/work-artifact-review/contracts";
 import type {
   AssignWorkDraftRefusal,
   AssignWorkDraftResult,
+  ReviseWorkDraftRefusal,
+  ReviseWorkDraftResult,
   WorkDraftChoices,
   WorkDraftView,
 } from "@/features/agent-work/assign-work-draft.server";
@@ -157,6 +161,188 @@ export function describeAssignment(result: AssignWorkDraftResult, agentName: str
   }
 }
 
+/* ═══ HEBY-WORKFLOW-1 — revise after a change request ═══════════════════════════════════════════════ */
+
+export const REVISE_REFUSAL_WORDING: Readonly<Record<ReviseWorkDraftRefusal, string>> = {
+  unauthenticated: ASSIGN_REFUSAL_WORDING.unauthenticated,
+  "persistence-unavailable": ASSIGN_REFUSAL_WORDING["persistence-unavailable"],
+  "work-unresolved": ASSIGN_REFUSAL_WORDING["work-unresolved"],
+  "work-retired": "This work item is retired, so no agent can revise its drafts.",
+  "work-not-scoped": ASSIGN_REFUSAL_WORDING["work-not-scoped"],
+  "not-authorized": "Revising from a change request needs your organization's Governance authority, which you do not hold. Nothing was asked.",
+  "agent-required": "Choose an agent first. Nothing was asked.",
+  "agent-not-eligible": ASSIGN_REFUSAL_WORDING["agent-not-eligible"],
+  "eligibility-unavailable": ASSIGN_REFUSAL_WORDING["eligibility-unavailable"],
+  "draft-not-on-this-work": "That draft is not linked to this work, so it cannot be revised from here. Nothing was asked.",
+  "no-change-request": "This draft's current revision no longer has a standing change request. Nothing was asked.",
+  "review-basis-required": "Read the change request first; the revision is prepared from it. Nothing was asked.",
+  "revision-in-progress": "An agent is already revising this draft from another request. Wait for that result. Nothing was asked twice.",
+};
+
+/**
+ * Who Heby suggests for the revision: the current revision's author, while it is still responsible for this
+ * work. A suggestion only — the person chooses, and nothing is asked until they do.
+ */
+export function revisionSuggestion(
+  draft: WorkDraftView,
+  agents: readonly { readonly agentId: string; readonly name: string }[],
+): { readonly agentId: string | null; readonly text: string } {
+  if (draft.author.kind !== "agent") {
+    return { agentId: null, text: "A person wrote the current revision. Choose a responsible agent to revise it." };
+  }
+  const authorId = draft.author.agentId;
+  const author = agents.find((agent) => agent.agentId === authorId);
+  return author
+    ? { agentId: author.agentId, text: `Heby suggests ${author.name}, who wrote the current revision. You decide who revises it.` }
+    : {
+        agentId: null,
+        text: `${draft.author.name ?? "The agent that wrote it"} is no longer responsible for this work. Choose another responsible agent to revise it.`,
+      };
+}
+
+export function describeRevision(result: ReviseWorkDraftResult, agentName: string): string {
+  switch (result.status) {
+    case "prepared":
+      return `${result.agentName} wrote revision ${result.revisionNo} and is recorded as its author. Earlier revisions are unchanged. It is already linked to this work and now waits for Governance review in Operations; nothing was sent, published or changed.`;
+    case "prepared-stale":
+      return `${agentName} wrote revision ${result.revisionNo}, but ${
+        STALE_WORDING[result.reason] ?? result.reason
+      }. It waits for Governance review in Operations.`;
+    case "not-prepared":
+      return result.modelFallback?.kind === "withheld"
+        ? describeWithheld(result.modelFallback)
+        : `No revision was written; the current revision and its change request are unchanged. ${HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `(${result.reason})`}`;
+    case "refused":
+      return REVISE_REFUSAL_WORDING[result.reason] ?? `Nothing was asked (${result.reason}).`;
+  }
+}
+
+function ReviseWorkDraft({
+  workItemId,
+  draft,
+  agents,
+  onDone,
+}: {
+  readonly workItemId: string;
+  readonly draft: WorkDraftView;
+  readonly agents: readonly { readonly agentId: string; readonly name: string; readonly role: AgentWorkRole }[];
+  readonly onDone: () => Promise<void>;
+}) {
+  const [reason, setReason] = useState<CurrentRevisionChangeRequest | null>(null);
+  const [instruction, setInstruction] = useState("");
+  /* Never preselected: an empty choice asks nothing (D2). */
+  const [agentId, setAgentId] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const suggestion = revisionSuggestion(draft, agents);
+  const agentName = agents.find((agent) => agent.agentId === agentId)?.name ?? "the agent";
+  const basis = reason?.status === "requested" && reason.revisionNo === draft.revisionNo ? reason : null;
+  const ready = basis !== null && agentId !== "" && instruction.trim().length > 0;
+
+  return (
+    <div data-heby-workflow-1="revise" className="mt-1 space-y-1.5 rounded border border-border bg-surface p-2">
+      {basis ? (
+        <>
+          <p className="text-fg">Change request on revision {basis.revisionNo}:</p>
+          <p className="whitespace-pre-wrap text-fg-secondary">{basis.justification}</p>
+          <button type="button" className="underline underline-offset-2" disabled={pending} onClick={() => setInstruction(basis.justification)}>
+            Use this reason as my instruction
+          </button>
+          <p className="text-fg-muted">
+            {suggestion.text}{" "}
+            {suggestion.agentId && agentId !== suggestion.agentId ? (
+              <button type="button" className="underline underline-offset-2" disabled={pending} onClick={() => setAgentId(suggestion.agentId!)}>
+                Choose {agents.find((agent) => agent.agentId === suggestion.agentId)?.name}
+              </button>
+            ) : null}
+          </p>
+          <select
+            value={agentId}
+            onChange={(event) => setAgentId(event.target.value)}
+            aria-label="Agent to revise this draft"
+            disabled={pending}
+            className="rounded-md border border-border bg-surface p-1.5 text-xs text-fg-primary"
+          >
+            <option value="">Choose an agent</option>
+            {agents.map((agent) => (
+              <option key={agent.agentId} value={agent.agentId}>
+                {agent.name} ({ROLE_WORDING[agent.role]})
+              </option>
+            ))}
+          </select>
+          <textarea
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder="What should change in the next revision? Your words and the current revision reach the model."
+            aria-label="Revision instruction for the agent"
+            rows={3}
+            disabled={pending}
+            className="w-full rounded-md border border-border bg-surface p-1.5 text-xs text-fg-primary"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={pending || !ready}
+            onClick={() =>
+              start(async () => {
+                if (!ready) return;
+                setMessage(null);
+                try {
+                  const result = await reviseWorkDraftAction({
+                    workItemId,
+                    artifactId: draft.artifactId,
+                    agentId,
+                    prompt: instruction,
+                    expectedRevisionNo: basis.revisionNo,
+                    reviewBasisDecisionId: basis.decisionId,
+                  });
+                  setMessage(describeRevision(result, agentName));
+                  if (result.status === "prepared") setInstruction("");
+                } catch {
+                  setMessage("The request did not complete, so Hebun cannot say whether a revision was written. Check Operations before asking again.");
+                }
+                await onDone();
+              })
+            }
+          >
+            {pending ? `${agentName} is revising…` : agentId ? `Ask ${agentName} to revise` : "Choose an agent to revise"}
+          </Button>
+        </>
+      ) : reason && reason.status !== "requested" ? (
+        <p className="text-fg-muted">
+          {reason.status === "unavailable"
+            ? "The change request could not be read just now. This is unknown, not absent."
+            : reason.status === "not-authorized"
+              ? "Change requests are shown only to a Governance authority of this organization."
+              : "There is no standing change request on the current revision."}
+        </p>
+      ) : (
+        <button
+          type="button"
+          className="underline underline-offset-2"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              try {
+                setReason(await readRevisionChangeRequestAction({ artifactId: draft.artifactId, revisionNo: draft.revisionNo }));
+              } catch {
+                setReason({ status: "unavailable" });
+              }
+            })
+          }
+        >
+          Show the change request and ask an agent to revise
+        </button>
+      )}
+      {message ? (
+        <p className="text-fg" role="status">
+          {message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: string }) {
   const [choices, setChoices] = useState<WorkDraftChoices | null>(null);
   const [chosenAgentId, setChosenAgentId] = useState("");
@@ -276,7 +462,13 @@ export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: s
                 <p className="text-fg">Drafts linked to this work</p>
                 <ul className="mt-1 list-disc pl-4 text-fg-secondary">
                   {choices.drafts.map((draft) => (
-                    <li key={draft.artifactId}>{describeWorkDraft(draft)}</li>
+                    <li key={draft.artifactId}>
+                      {describeWorkDraft(draft)}
+                      {/* HEBY-WORKFLOW-1 — Governance asked for changes: the way forward stays on this work. */}
+                      {draft.review === "changes-requested" && !draft.retired && choices.mayAssign ? (
+                        <ReviseWorkDraft workItemId={workItemId} draft={draft} agents={choices.agents} onDone={load} />
+                      ) : null}
+                    </li>
                   ))}
                 </ul>
                 <Link href="/operations" className="underline underline-offset-2">

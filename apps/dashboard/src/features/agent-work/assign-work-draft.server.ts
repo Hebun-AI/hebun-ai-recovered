@@ -438,3 +438,136 @@ export async function assignWorkDraft(input: AssignWorkDraftInput, deps: AssignW
     return prepareUnderLock();
   });
 }
+
+/* ═══ REVISE — Governance asked for changes; the person asks a responsible agent for the next revision ═══ */
+
+/*
+ * HEBY-WORKFLOW-1. A draft linked to this work whose current revision carries a standing change request
+ * can be revised by an agent responsible for this work, on the person's request — through the same
+ * preparation seam, with the WORK ITEM'S recorded scope, so a domain specialist revises its domain work
+ * (Operations prepares organization work and refuses it). Nothing new is owned: the change request is the
+ * Governance decision already recorded, the revision is the seam's append, and the new revision waits for
+ * Governance review like any other. Linking is unchanged: the draft is already this work's evidence.
+ *
+ * Checked, in order, before the model: tenant → work item → the person's Governance authority → the agent's
+ * capability for this scope → (under a per-draft advisory lock) the draft is declared as THIS work's evidence
+ * and its current revision's latest decision is a change request. The seam then asks the review basis and
+ * the revision number before the model, and again under its writer's artifact lock together with the
+ * person's right to revise from the review; the agent's ceiling is asked again before filing. After the
+ * revision exists, the work, the agent and the link are asked again (`prepared-stale`).
+ */
+export interface ReviseWorkDraftInput {
+  readonly workItemId: unknown;
+  readonly artifactId: unknown;
+  readonly agentId: unknown;
+  readonly prompt: unknown;
+  /** The revision and the change request the person read. Staleness keys, re-checked by the seam; never authority. */
+  readonly expectedRevisionNo: unknown;
+  readonly reviewBasisDecisionId: unknown;
+}
+
+export type ReviseWorkDraftRefusal =
+  | Exclude<AssignWorkDraftRefusal, "draft-open" | "assignment-in-progress">
+  /** The draft is not declared as this work's evidence — or is not this organization's draft at all. */
+  | "draft-not-on-this-work"
+  /** The draft's current revision has no standing change request (awaiting review, accepted, retired or unknown). */
+  | "no-change-request"
+  /** The revision and the change request the person read were not both sent. */
+  | "review-basis-required"
+  /** Another request is already revising this draft. Nothing was asked twice. */
+  | "revision-in-progress";
+
+export type ReviseWorkDraftResult =
+  | Exclude<AssignWorkDraftResult, { readonly status: "refused" }>
+  | { readonly status: "refused"; readonly reason: ReviseWorkDraftRefusal };
+
+export async function reviseWorkDraft(input: ReviseWorkDraftInput, deps: AssignWorkDraftDeps): Promise<ReviseWorkDraftResult> {
+  if (typeof window !== "undefined") throw new Error("Agent work revision is server-only.");
+  const tenant = await deps.resolveTenant();
+  if (!tenant?.tenantId || !tenant.userId) return { status: "refused", reason: "unauthenticated" };
+
+  const target = await readTarget(tenant, input?.workItemId, deps);
+  if (target.status === "refused") return target;
+  const scope = target.target.workScope;
+
+  const authority = await (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant);
+  if (!authority.authorized) return { status: "refused", reason: "not-authorized" };
+
+  const expectedRevisionNo = input?.expectedRevisionNo;
+  const reviewBasisDecisionId = input?.reviewBasisDecisionId;
+  if (typeof expectedRevisionNo !== "number" || !Number.isSafeInteger(expectedRevisionNo) || typeof reviewBasisDecisionId !== "string" || !reviewBasisDecisionId) {
+    return { status: "refused", reason: "review-basis-required" };
+  }
+
+  /* No default author: the person names the agent (Heby suggests the current revision's author). */
+  const agentId = typeof input?.agentId === "string" ? input.agentId.trim() : "";
+  if (!agentId) return { status: "refused", reason: "agent-required" };
+  const eligible = await eligibleAgents(tenant, scope, deps);
+  if (eligible.status !== "read") return { status: "refused", reason: "eligibility-unavailable" };
+  const agent = eligible.agents.find((candidate) => candidate.agentId === agentId);
+  if (!agent) return { status: "refused", reason: "agent-not-eligible" };
+
+  const artifactId = typeof input?.artifactId === "string" ? input.artifactId : "";
+  const db = deps.getDb ? deps.getDb() : resolveDbOrNull();
+  if (!db) return { status: "refused", reason: "persistence-unavailable" };
+
+  /*
+   * ONE REVISION OF ONE DRAFT AT A TIME, whichever agent and whichever work asks: two requests would both
+   * pass the seam's preflight and both spend a model call before its writer refused the second. Held from
+   * the link-and-review read until the revision is filed; released by COMMIT/ROLLBACK. A lock, not a record.
+   */
+  const revisionLockKey = `${tenant.tenantId}:${artifactId}`;
+  return db.transaction(async (tx): Promise<ReviseWorkDraftResult> => {
+    const lock = await tx.execute(
+      sql`select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.revise'), hashtext(${revisionLockKey})) as locked`,
+    );
+    const held = (lock.rows[0] as { locked?: unknown } | undefined)?.locked === true;
+    if (!held) return { status: "refused", reason: "revision-in-progress" };
+
+    const linked = await readWorkDrafts(tenant, target.target.workItemId, deps);
+    if (linked.status !== "read") return { status: "refused", reason: "persistence-unavailable" };
+    const draft = linked.drafts.find((candidate) => candidate.artifactId === artifactId);
+    if (!draft) return { status: "refused", reason: "draft-not-on-this-work" };
+    if (draft.retired || draft.review !== "changes-requested") return { status: "refused", reason: "no-change-request" };
+
+    const prepared = await (deps.prepare ?? prepareWorkArtifact)(
+      {
+        prompt: input?.prompt,
+        route: PREPARATION_ROUTE,
+        /* A revision is briefed from the STORED type and title; these are the draft's own, never the client's. */
+        artifactType: draft.artifactType,
+        title: draft.title,
+        artifactId: draft.artifactId,
+        agentId: agent.agentId,
+        expectedRevisionNo,
+        reviewBasisDecisionId,
+      },
+      { ...deps.preparation, resolveTenant: deps.resolveTenant, workScope: scope },
+    );
+    if (prepared.status !== "prepared") {
+      const client = toPreparationClientResult(prepared);
+      return {
+        status: "not-prepared",
+        reason: prepared.reason,
+        ...("modelFallback" in client && client.modelFallback ? { modelFallback: client.modelFallback } : {}),
+      };
+    }
+    const made = { artifactId: prepared.artifactId, revisionNo: prepared.revisionNo };
+
+    /* STALE CONTEXT. The work, its scope, the agent's responsibility and the link, as they stand now. */
+    const after = await readTarget(tenant, target.target.workItemId, deps);
+    if (after.status === "refused" || JSON.stringify(after.target.workScope) !== JSON.stringify(scope)) {
+      return { status: "prepared-stale", ...made, reason: "work-changed" };
+    }
+    const stillLinked = await readWorkDrafts(tenant, target.target.workItemId, deps);
+    if (stillLinked.status !== "read" || !stillLinked.drafts.some((candidate) => candidate.artifactId === made.artifactId)) {
+      return { status: "prepared-stale", ...made, reason: "work-changed" };
+    }
+    const stillEligible = await eligibleAgents(tenant, scope, deps);
+    if (stillEligible.status !== "read") return { status: "prepared-stale", ...made, reason: "eligibility-unavailable" };
+    if (!stillEligible.agents.some((candidate) => candidate.agentId === agent.agentId)) {
+      return { status: "prepared-stale", ...made, reason: "agent-no-longer-eligible" };
+    }
+    return { status: "prepared", workItemId: target.target.workItemId, ...made, agentName: agent.name, agentRole: agent.role };
+  });
+}

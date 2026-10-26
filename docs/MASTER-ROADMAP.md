@@ -5741,6 +5741,7 @@ re-graded here.
 | AGENT-EXECUTION-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` |
 | WORK-OUTCOME-CLOSURE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` |
 | AOR-1a | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` |
+| HEBY-WORKFLOW-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` |
 
 ---
 
@@ -5894,3 +5895,8 @@ before §16.1 are not yet indexed (Phase B).
 | MEDIA3-ADMITTED-AT-HYDRATION-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | UX failure legibility | DEFERRED | /operations React #418 from revision-media-assets.tsx:292 (a time formatted in the viewer's zone during render, from MEDIA-3); a Director-selected deterministic-time fix with a render-determinism test |
 | AOR1A-PROD-UNVERIFIED-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Verification gap | DEFERRED | Deployed (dpl_6KnPWAyi2RsnNvWWqdh2xNxuYRBN); an organic production preparation read back: the withheld wording on Heby and one diagnosis line whose messageId resolves to that tenant's message row; nothing provoked |
 | AOR1A-LOG-NOT-AUDIT-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Evidence durability | DEFERRED | A Director decision whether preparation diagnosis needs a durable home (a schema decision); until then it lives in the host runtime log with its retention |
+| HW1-PROD-UNVERIFIED-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Verification gap | DEFERRED | Not deployed; after release, a Director-recorded change request and one approved model call: revision N+1 by the chosen agent, awaiting review, work state unchanged, its diagnosis line read back |
+| HW1-WRITER-AUTHORITY-RECHECK-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Regression watch | DEFERRED | The writer-lock Governance re-check also governs Operations content-draft revise-from-review; the next organic production content revision from a review, read back |
+| HW1-REVISION-STALE-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Lifecycle legibility | DEFERRED | A Director decision if revisions filed as prepared-stale (work retired or re-scoped, link withdrawn, agent no longer responsible mid-call) are observed |
+| HW1-OPERATIONS-INTERNAL-REVISION-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Product reach | DEFERRED | A Director decision on model revision of plans and messages in Operations (today only through Heby, at the work item's scope) |
+| HW1-PSI-BITE-FLAKE-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Verification reliability | DEFERRED | plan-step-idempotency-1/bite-proofs red 1 of 6 on unchanged 59c00b99, root cause UNVERIFIED; a captured failing run on an unchanged tree |

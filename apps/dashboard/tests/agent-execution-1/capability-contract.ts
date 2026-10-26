@@ -61,11 +61,15 @@ const seam = code(SEAM);
 for (const banned of [".insert(", ".update(", ".delete(", "from \"@/db/schema"]) {
   assert.ok(!seam.includes(banned), `the seam writes nothing itself (${banned})`);
 }
-/* Its one statement of its own is the assignment lock: a transaction-scoped advisory lock, no row. */
+/*
+ * Its statements of its own are locks: transaction-scoped advisory locks, no row. HEBY-WORKFLOW-1 added the
+ * second — one revision of one draft at a time — beside the assignment lock; still no row and no write.
+ */
 assert.deepEqual([...seam.matchAll(/sql`([^`]*)`/g)].map((m) => m[1]!.replace(/\$\{[^}]*\}/g, "?")), [
   "select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.assign'), hashtext(?)) as locked",
+  "select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.revise'), hashtext(?)) as locked",
 ]);
-assert.equal(seam.split("db.transaction(").length - 1, 1, "one transaction: the lock's");
+assert.equal(seam.split("db.transaction(").length - 1, 2, "two transactions: the assignment lock's and the revision lock's");
 {
   const body = seam.slice(seam.indexOf("const prepareUnderLock"), seam.indexOf("db.transaction("));
   assert.ok(body.includes("openDraftBy(drafts.drafts, agentId)") && body.includes("deps.prepare ?? prepareWorkArtifact"), "the open-draft read and the model call run only under the lock");

@@ -23,7 +23,9 @@ import { revalidatePath } from "next/cache";
 import {
   assignWorkDraft,
   readWorkDraftChoices,
+  reviseWorkDraft,
   type AssignWorkDraftResult,
+  type ReviseWorkDraftResult,
   type WorkDraftChoices,
 } from "@/features/agent-work/assign-work-draft.server";
 
@@ -77,6 +79,34 @@ export async function assignWorkDraftAction(input: {
       title: input?.title,
       artifactType: input?.artifactType,
       ...(input?.intendedDestination === undefined ? {} : { intendedDestination: input.intendedDestination }),
+    },
+    { resolveTenant: resolveTenantContext },
+  );
+  if (result.status === "prepared" || result.status === "prepared-stale") revalidatePath("/operations");
+  return result;
+}
+
+/*
+ * HEBY-WORKFLOW-1 — after Governance asked for changes on a draft linked to this work, the person asks a
+ * responsible agent for the next revision. The revision and the change request the person read travel as
+ * staleness keys only; the seam re-reads both, and the new revision waits for Governance review.
+ */
+export async function reviseWorkDraftAction(input: {
+  readonly workItemId: string;
+  readonly artifactId: string;
+  readonly agentId: string;
+  readonly prompt: string;
+  readonly expectedRevisionNo: number;
+  readonly reviewBasisDecisionId: string;
+}): Promise<ReviseWorkDraftResult> {
+  const result = await reviseWorkDraft(
+    {
+      workItemId: input?.workItemId,
+      artifactId: input?.artifactId,
+      agentId: input?.agentId,
+      prompt: input?.prompt,
+      expectedRevisionNo: input?.expectedRevisionNo,
+      reviewBasisDecisionId: input?.reviewBasisDecisionId,
     },
     { resolveTenant: resolveTenantContext },
   );
