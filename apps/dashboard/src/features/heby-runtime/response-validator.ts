@@ -177,7 +177,8 @@ function namesAnotherActor(tokens: readonly string[], index: number, length: num
  *
  * Judged per sentence, so a refusal in one sentence cannot license a claim in the next.
  */
-export function claimsAnAction(text: string, claim: string): boolean {
+export function claimsAnAction(text: string, claim: string, mode: ActionClaimMode = "answer"): boolean {
+  if (mode === "internal-draft") return draftClaimsAnAction(text, claim);
   const wanted = claim.split(" ");
   for (const sentence of text.split(/[.!?\n]+/)) {
     const tokens = tokenize(sentence);
@@ -192,6 +193,99 @@ export function claimsAnAction(text: string, claim: string): boolean {
       if (negated) continue;
       if (namesAnotherActor(tokens, site.index, site.length)) continue;
       return true;
+    }
+  }
+  return false;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * AOR-1b — AN INTERNAL DRAFT IS NOT HEBY SPEAKING, AND IT IS NOT SAFER FOR IT
+ *
+ * `answer` (the default) is everything above: Heby's own words, where reporting that an authority
+ * acted ("approved by governance") is an observation of a record it was grounded on.
+ *
+ * `internal-draft` is set by the work-artifact preparation seam alone, for a plan or a message — text a
+ * person will review and act on. There the problem runs both ways. A checklist must be able to say
+ * "Once approved, record the decision" or "Verify whether the deployment was approved"; the answer rule
+ * withholds both. And a draft must not state that a consequential act HAPPENED, attributed or not:
+ * "The deployment was approved by Governance" in a plan is an unverified claim, so the attribution
+ * exemption does not apply here. Self-attribution and negation are judged exactly as above.
+ *
+ * Judged per CLAUSE (sentence, then `, ; : ( ) /` and a spaced dash), so a condition in one clause never
+ * licenses a claim in the next. Within a clause a verb passes only in a frame that is plainly not a report
+ * of a completed act; everything else, including what this heuristic cannot read, is a claim (fail closed):
+ *
+ *   completed  `was/were/has/have/had/got` before the verb — passes only as the object of `whether`/`if`
+ *              (an open question), with that marker close enough to govern it
+ *   pending    `is/are/am/be/been/being/get` without a completed auxiliary — passes when governed by a
+ *              modal, a condition, a time limit or a verification verb; `be/being/get` (future,
+ *              infinitive, progressive) pass on their own
+ *   bare       no auxiliary — passes only straight after a condition or time limit ("once approved"), or as
+ *              `who <verb>` in a clause that opens with an instruction ("Record who approved …")
+ *
+ * "Governs" is narrow on purpose: the marker sits at most three tokens before the auxiliary, with no
+ * coordinator between them, so "If anyone asks the deployment was approved" and "Confirm X and Y was
+ * executed" stay claims.
+ * ═════════════════════════════════════════════════════════════════════════ */
+export type ActionClaimMode = "answer" | "internal-draft";
+
+const COMPLETED_AUX = new Set(["was", "were", "has", "have", "had", "got"]);
+const PENDING_AUX = new Set(["is", "are", "am", "be", "been", "being", "get", "gets", "getting"]);
+const AUX_ADVERBS = new Set(["already", "just", "successfully", "now", "yet", "still", "ever", "also", "then", "fully", "finally"]);
+/** On their own these put the act in the future or the infinitive: "will be approved", "to get approved". */
+const PROSPECTIVE_AUX = new Set(["be", "being", "get", "gets", "getting"]);
+const OPEN_QUESTION = new Set(["whether", "if"]);
+const CONDITION = new Set(["once", "until", "unless", "if", "when", "whenever", "after", "before", "pending"]);
+const MODAL = new Set(["must", "should", "shall", "will", "would", "can", "could", "may", "might", "need", "needs", "to"]);
+const VERIFY = new Set(["confirm", "verify", "check", "ensure", "validate", "determine", "whether"]);
+const INSTRUCTION_OPENERS = new Set(["record", "note", "list", "confirm", "verify", "check", "ask", "identify", "document", "capture", "log", "name"]);
+const COORDINATORS = new Set(["and", "but", "or", "so", "then", "while", "because", "although", "though", "yet"]);
+const GOVERNING_DISTANCE = 3;
+
+/** A marker from `markers` at most GOVERNING_DISTANCE tokens before `start`, with no coordinator between. */
+function governedBy(tokens: readonly string[], start: number, markers: ReadonlySet<string>): boolean {
+  for (let i = start - 1, gap = 0; i >= 0 && gap <= GOVERNING_DISTANCE; i -= 1, gap += 1) {
+    const token = tokens[i]!;
+    if (markers.has(token)) return true;
+    if (COORDINATORS.has(token)) return false;
+  }
+  return false;
+}
+
+function draftClaimsAnAction(text: string, claim: string): boolean {
+  for (const sentence of text.split(/[.!?\n]+/)) {
+    for (const clause of sentence.split(/[,;:()/]+|\s[-–—]\s/)) {
+      const tokens = tokenize(clause);
+      for (const site of verbSites(tokens)) {
+        if (tokens.slice(site.index, site.index + site.length).join(" ") !== claim) continue;
+        const negated = isNegated(tokens, site.index, site.length);
+        if (isSelfAttributed(tokens, site.index, site.length)) {
+          if (!negated) return true;
+          continue;
+        }
+        if (negated) continue;
+        /* The auxiliary chain directly before the verb, adverbs allowed inside it. */
+        let start = site.index;
+        const chain: string[] = [];
+        while (start > 0 && (COMPLETED_AUX.has(tokens[start - 1]!) || PENDING_AUX.has(tokens[start - 1]!) || AUX_ADVERBS.has(tokens[start - 1]!))) {
+          start -= 1;
+          chain.push(tokens[start]!);
+        }
+        const completed = chain.some((token) => COMPLETED_AUX.has(token));
+        if (completed) {
+          if (governedBy(tokens, start, OPEN_QUESTION)) continue;
+          return true;
+        }
+        if (chain.length > 0) {
+          if (chain.some((token) => PROSPECTIVE_AUX.has(token))) continue;
+          if (governedBy(tokens, start, MODAL) || governedBy(tokens, start, CONDITION) || governedBy(tokens, start, VERIFY)) continue;
+          return true;
+        }
+        const before = tokens[site.index - 1];
+        if (before !== undefined && CONDITION.has(before)) continue;
+        if (before === "who" && INSTRUCTION_OPENERS.has(tokens[0]!)) continue;
+        return true;
+      }
     }
   }
   return false;
@@ -221,6 +315,8 @@ export function validateResponse(
   response: HebyRuntimeResponse,
   assembledEvidence: readonly HebyEvidenceReference[],
   expectedAuthority: HebyRuntimeResponse["authority"],
+  /** AOR-1b — server-set only; omitted, every response is judged as Heby's own answer. */
+  options: { readonly actionClaims?: ActionClaimMode } = {},
 ): ResponseValidation {
   const issues: string[] = [];
   const codes: ResponseValidationCode[] = [];
@@ -241,7 +337,7 @@ export function validateResponse(
   // an authority acted, or that nothing did, is an OBSERVATION and is not a claim — see above.
   const text = [response.title, ...response.body].join(". ");
   for (const claim of FORBIDDEN_ACTION_CLAIMS) {
-    if (claimsAnAction(text, claim)) {
+    if (claimsAnAction(text, claim, options.actionClaims ?? "answer")) {
       fail(`action-claim:${claim}`, `Response claims an action ("${claim}") that did not occur.`);
     }
   }

@@ -62,6 +62,7 @@ import {
   type ResolvedSourceItem,
   type SourceResolution,
   type PromptRejectionReason,
+  type ActionClaimMode,
 } from "@/features/heby-runtime";
 import { readServerHebyOverview } from "@/features/heby-runtime/overview-source.server";
 import { toStoredEvidence } from "@/features/heby-conversation/answer-evidence";
@@ -311,6 +312,12 @@ export interface HebyModelAnswerOptions {
    * model is not asked at all.
    */
   readonly knowledgePurpose?: "public-content";
+  /*
+   * AOR-1b — how the response validator judges action claims. Set by the work-artifact preparation seam
+   * alone, for an internal plan or message; honoured only for an intent that `prepares`, exactly as the
+   * brief is, so every other answer is judged as Heby's own words.
+   */
+  readonly actionClaimMode?: ActionClaimMode;
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -1466,6 +1473,7 @@ export async function answerHebyModelRequest(
       resolutions,
       assembled,
       deterministic,
+      actionClaims: HEBY_INTENT_DESCRIPTORS[intent].prepares ? options.actionClaimMode : undefined,
     });
   }
 
@@ -1563,8 +1571,9 @@ async function produceAnswer(args: {
   readonly resolutions: readonly SourceResolution[];
   readonly assembled: ReturnType<typeof assembleEvidence>;
   readonly deterministic: HebyRuntimeResponse;
+  readonly actionClaims: ActionClaimMode | undefined;
 }): Promise<ProducedAnswer> {
-  const { generate, env, modelRequest, disclosure, projectAuthorizedEvidence, selection, context, authority, resolutions, assembled, deterministic } = args;
+  const { generate, env, modelRequest, disclosure, projectAuthorizedEvidence, selection, context, authority, resolutions, assembled, deterministic, actionClaims } = args;
 
   let outcome;
   try {
@@ -1600,7 +1609,7 @@ async function produceAnswer(args: {
     resolutions,
     transportProvenance: selection.transportProvenance ?? "fake",
   });
-  const validation = validateResponse(candidate, assembled, authority);
+  const validation = validateResponse(candidate, assembled, authority, { actionClaims });
   if (!validation.valid) {
     const withheldStop = classifyProviderStopReason(outcome.result.stopReason);
     /*

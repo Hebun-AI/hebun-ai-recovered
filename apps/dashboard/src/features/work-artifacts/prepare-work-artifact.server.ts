@@ -500,6 +500,13 @@ export async function prepareWorkArtifact(
        * carries one is refused before the model is asked.
        */
       preparationBriefDataClasses: input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"],
+      /*
+       * AOR-1b — an internal plan or message is judged as a draft a person will act on: planning and
+       * checklist language passes, and a completed act is a claim even when attributed to someone else.
+       * Derived from the artifact's own type (the stored one for a revision); a content draft keeps the
+       * answer rule. Never from a client field or the model.
+       */
+      ...(publicContent ? {} : { actionClaimMode: "internal-draft" as const }),
     },
   );
 
