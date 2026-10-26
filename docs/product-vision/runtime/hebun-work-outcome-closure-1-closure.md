@@ -1,12 +1,15 @@
-# WORK-OUTCOME-CLOSURE-1 · closure record · VERIFIED
+# WORK-OUTCOME-CLOSURE-1 · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
 
 **Scope, stated first.** A person can read a work item's outcome from the records that hold it — the
 drafts the work declares as evidence, the Governance review of each draft's current revision and the
 work's declared state — on Heby, the Work register and the Operations review card, and is offered a
 suggestion to declare the work complete only when every linked draft's current revision is accepted.
-The declaration stays the Work Authority's existing human act. Implemented and verified locally in
-commit `14159026`; **not pushed, not deployed, not production-accepted.** No schema, migration,
-authority, provider, data-use class or model call changed.
+The declaration stays the Work Authority's existing human act. Implemented in `14159026`, released with
+its closure documentation `e7770d59` and **deployed** (`dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo`, READY). The
+read-only production walk passed for the waiting-for-review path; **the completion suggestion's positive path
+has not been observed in production**, so this record is not production-accepted. No Governance decision was
+made and no work state was changed for this record. No schema, migration, authority, provider, data-use class
+or model call changed.
 
 ## 1 · Problem
 
@@ -78,12 +81,59 @@ lifecycle or execution boundary moved. Test-stability rules applied: baseline fi
 | `tsc --noEmit`, `eslint` on changed files, `git diff --check`, `npm run build` | PASS. Build lists `/director/work` as static, identical on unchanged `b47d85b2` (a local build without `DATABASE_URL`; PRE-EXISTING, not from this change) |
 | Full suite (`node scripts/run-tests.mjs`, candidate copy; run because a new `features/` directory and server module could meet repo-wide census and firewall tests that name no touched file) | 1094/1095, REGRESSION 0; the one red `r3w-flow/ambient-database-safety.ts` BLOCKED (canonical `hebun_r1` at 127.0.0.1:55432 not running, ECONNREFUSED), identical on unchanged `b47d85b2`; not a pass, and the canonical instance was not started |
 
-## 4 · Production
+## 4 · Production release (2026-10-26)
 
-Not pushed, not deployed. `origin/main` = `b47d85b2` when this branch was cut; `14159026` is one commit
-ahead of it on `feat/work-outcome-closure-1`.
+| Fact | Evidence |
+|---|---|
+| Pre-release | `origin/main` = `b47d85b2` (`git ls-remote`); `e7770d59` a fast-forward of it carrying exactly `14159026` and `e7770d59` |
+| Push | `b47d85b2..e7770d59` fast-forward, refspec written as the literal SHA; `git ls-remote` then read `e7770d5924e2946190cf8e2c0d4af6ff945888a2` |
+| Deployment | `dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo`, target production, `READY` (Vercel CLI), created 2026-10-26 13:53 +03 by the Git integration on its own — no manual trigger, no second push |
+| Deployment SHA | GitHub deployment `7329964102`: sha `e7770d5924e2946190cf8e2c0d4af6ff945888a2`, environment Production, state `success`, URL `hebun-ai-recovered-g1ue52krs-…`, the same deployment (the CLI's JSON carries no commit field) |
+| Aliases | `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app`, `hebun-ai-recovered-hebuntechs-projects.vercel.app`, `hebun-ai-recovered-git-main-hebuntechs-projects.vercel.app` |
+| HTTP, signed out | `/` and `/login` 200; `/heby` and `/director/work` 307 → `/login` |
 
-## 5 · Production acceptance plan (Director-gated, not run)
+## 5 · Production observations (2026-10-26, read only)
+
+Built-in browser, a session the Director signed in themselves, tenant hebun, on `dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo`.
+No credential was entered by this session. **No Governance decision was made** (nothing accepted, no change
+requested), **no work state was declared or changed**, no model was called and nothing was created.
+
+| Surface | Observed | Verdict |
+|---|---|---|
+| Heby, `/heby?workItem=5ba33201-fffa-4a41-864c-79cd567de635` | "This work is declared planned." · "At least one linked draft's current revision is waiting for review." · no declare control (`data-work-outcome="awaiting-review"`) · the draft line "Plan “Engineering implementation notes review checklist (final acceptance)” · revision 1 · written by Engineering Agent · waiting for review" · the assign button "Choose an agent to assign" (disabled) | PASS |
+| Heby recommendation wording | Not rendered: the work's only specialist has a draft waiting, so no recommendation is made | NOT OBSERVED |
+| Work register, `/director/work` | Three in-service items with linked drafts, each `awaiting-review` with "current revision waiting for review" per draft and the withheld reason; no suggestion and no "Declare complete" control; "AP-4B Production Acceptance Test" lists its two drafts separately (multiple evidence); no `evidence-unknown` | PASS |
+| Operations, `d71f8383-da78-4637-8e09-e4b820f5ded2@1` | Row: "Governance review of revision 1: Awaiting review" · "Declared evidence for: AP-5 two-agent origination acceptance check · declared planned". History opened; "Accept for next internal step" opened the intent panel only, showing "For: AP-5 two-agent origination acceptance check · declared planned", the acceptance-is-not-completion sentence and the publication notice; "Record acceptance" stayed disabled with no justification entered; closed with Cancel; re-read "Awaiting review" | PASS |
+| Completion suggestion, positive path | Needs an accepted current revision on every linked draft; none exists, and no decision is taken for the purpose of this test | NOT OBSERVED |
+
+### React #418 on `/operations` (found during this walk; not caused by this phase)
+
+`/operations` raises React #418 (server-rendered text did not match the client). Measured read only: a fresh tab
+shows no error on `/command`, `/director/work`, `/heby?workItem=…` or `/agents`, and the error on `/operations`;
+an iframe load of `/operations` reproduced it; an ordered text diff of the server HTML against the hydrated DOM
+(801 to 801 text nodes) differs only in two "Generated" times of AI-generated images — server (UTC)
+`9/17/2026, 10:07:07 PM` and `9/18/2026, 12:30:56 PM`, client (Europe/Istanbul) `9/18/2026, 1:07:07 AM` and
+`9/18/2026, 3:30:56 PM`. Source: `src/components/operations-preparation/revision-media-assets.tsx:292`,
+`new Date(asset.admittedAt).toLocaleString()` in a client component, from `2a065f82` (MEDIA-3, 2026-09-18), which
+this phase did not touch. Effect: React discards the server HTML and renders `/operations` on the client; the time
+shown is the browser's local time without a zone. No data, authority or Governance effect. Not fixed here
+(MEDIA3-ADMITTED-AT-HYDRATION-1).
+
+Correction: an earlier report of this session attributed #418 to `/command` and `/director/work` as well. The
+browser pane's console accumulates across navigations in one tab; the same single entry had been re-read on each
+page. The fresh-tab measurement above supersedes it.
+
+## 6 · Remaining production acceptance conditions
+
+1. An organic Governance decision accepting the current revision of the draft linked to `5ba33201`
+   (`d71f8383@1`), taken for the work's own sake — never for this test.
+2. After it, read only: the suggestion appears on Heby and the register; the work item's `declared_state` is
+   unchanged; the acceptance created no permit and no action request.
+3. Whether to declare the work complete is the Director's decision; if declared, read back the register and the
+   `work.state-declared` audit row (`actor_type human`).
+4. A later documentation change raises this record to PRODUCTION-ACCEPTED (scoped) on that evidence.
+
+## 7 · Acceptance plan as written before release (kept)
 
 1. Push gate, then read the Vercel deployment record for the pushed SHA (AE2-VERCEL-GIT-TRIGGER-1: confirm
    the Git integration created it).
@@ -99,23 +149,34 @@ ahead of it on `feat/work-outcome-closure-1`.
 5. `92e70b3e` (the linked decline `98904a8e@1`, AE2-DECLINE-GROUNDING-1) shows its own review state and no
    suggestion while it waits. No model call, no data created for the purpose.
 
-## 6 · Not verified
+## 8 · Not verified
 
-- No signed-in render, local or production (WOC1-BROWSER-UNVERIFIED-1).
+- The completion suggestion's positive path in production, and the AE-2 recommendation wording (not rendered).
 - Concurrency between a review decision and a declaration (both are separate human acts; the declaration
   writer locks the work row and re-asks its authority).
 
 ### Deferred risk detail
 
-- **WOC1-BROWSER-UNVERIFIED-1 (DEFERRED).** The three surfaces were verified by contract and real-PostgreSQL
-  tests only. Dependency: the signed-in production read of section 5.
+- **WOC1-BROWSER-UNVERIFIED-1 (DEFERRED).** The signed-in production read passed for the waiting-for-review path
+  on all three surfaces (section 5). The positive path — a suggestion after every linked current revision is
+  accepted — is unobserved. Dependency: section 6, after an organic Governance decision.
+- **MEDIA3-ADMITTED-AT-HYDRATION-1 (DEFERRED).** `/operations` React #418 from
+  `revision-media-assets.tsx:292` (section 5). Dependency: a Director-selected fix rendering the time
+  deterministically (the released `utcInstant`, as APPROVALS-EXPIRY-HYDRATION-1 did) with a render-determinism test.
+- **AE1-ASSIGN-UI-WORDING-1 (CLOSED).** Fixed in `14159026`; observed in production: the button reads "Choose an
+  agent to assign" before a choice (section 5). The withheld-result wording is deployed and test-verified; no
+  withheld result was provoked.
+- **AE2-RECOMMENDATION-WORDING-1 (DEFERRED).** Fixed in `14159026` and deployed; the recommendation was not
+  rendered in production (section 5). Dependency: a read-only render when Heby recommends a specialist organically.
+- **AE2-VERCEL-GIT-TRIGGER-1 (DEFERRED).** The `e7770d59` push was deployed by the Git integration on its own
+  (`dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo`, GitHub deployment `7329964102` success). Why the `74a13247` push created
+  none stays UNVERIFIED. Dependency: a read of the Vercel GitHub App deliveries for `74a13247`, or a Director
+  decision to accept the unexplained miss.
 - **WOC1-EVIDENCE-BOUND-1 (DEFERRED).** At 200 current evidence declarations in a tenant, every suggestion is
   withheld (`evidence-unknown`) on both surfaces. Dependency: a Director decision on a work-item-scoped evidence
   read when a tenant approaches the bound.
 
-**Fixed here, still open in §22 until release:** AE1-ASSIGN-UI-WORDING-1 and AE2-RECOMMENDATION-WORDING-1 are
-fixed in `14159026`. Their rows stay DEFERRED until the change is released; the release record moves them here
-as CLOSED. AE1-WITHHELD-DIAGNOSABILITY-1 is unchanged: the withheld message names the outcome, not the check.
+AE1-WITHHELD-DIAGNOSABILITY-1 is unchanged: the withheld message names the outcome, not the check.
 
 **Weekly three.** *Learned:* a suggestion built from a bounded read must refuse at the bound, and the outcome of
 work is a composition of three owners' answers, not a new state. *Turkish Rug House:* its owner sees on one line
@@ -127,12 +188,12 @@ without a new authority.
 
 - Phase: WORK-OUTCOME-CLOSURE-1
 - Owner: Work outcome composition (`work-outcome/contracts.ts`, `work-outcome/read-work-outcome-evidence.server.ts`) over Organizational Work (WORK-1, WEV-1), Work Artifacts and Governance artifact review (TRH-10, CGO-8); Heby work-draft affordance, Work register, Operations review card
-- Reached state: VERIFIED
+- Reached state: DEPLOYED
 - Implementation commit: 14159026
 - Verification level: V2 — a shared read (Heby's agent-choice read) and three customer surfaces; no authority, tenant, lifecycle or execution boundary changed
 - Verification evidence: outcome-postgres O1–O8 PASS; outcome-contract C1–C6 PASS; bite-proofs 9/9 caught; 52/52 affected files on the candidate (51/52 first run, the AE-1 import census updated in the same change); baseline 49/50 with work2-provider-disclosure/bite-proofs PRE-EXISTING flake (PASS 2/2 alone); tsc, eslint, git diff --check, npm run build PASS; full suite 1094/1095 with 0 REGRESSION, the one red r3w-flow/ambient-database-safety BLOCKED (canonical hebun_r1 :55432 not running), identical at baseline b47d85b2
 - Test environment: worktree `.claude/worktrees/work-outcome-closure-1` (branch feat/work-outcome-closure-1, base b47d85b2); disposable detached worktrees `woc1-baseline`, `woc1-candidate`, `woc1-bite`; macOS Darwin 25.2.0; Node 24.16.0 with tsx; PostgreSQL 18.6 at 127.0.0.1:55433 (superuser admin) via HEBUN_TEST_ADMIN_DATABASE_URL with harness-created databases; no model, no network, no production database or provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
-- Deferred risks: WOC1-BROWSER-UNVERIFIED-1 (DEFERRED); WOC1-EVIDENCE-BOUND-1 (DEFERRED)
-- Director approvals: discovery and milestone selection 2026-10-26; architecture decisions (no new authority, table or migration; setWorkDeclaredState authority kept; no automatic transition; ACCEPTED != COMPLETE; DECLARED COMPLETE != VERIFIED; acceptance authorizes no publication, sending or execution; tenant from trusted authentication) and the multiple-evidence rule 2026-10-26; local implementation, verification and commit 2026-10-26; push, deployment, production data change and live model calls NOT approved
+- Deployment evidence: dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo — READY, target production, created by the Git integration for the push b47d85b2..e7770d59; GitHub deployment 7329964102 sha e7770d5924e2946190cf8e2c0d4af6ff945888a2 environment Production state success; aliased to www.hebuntech.com and hebuntech.com
+- Production acceptance evidence: N/A — production acceptance pending: the read-only walk of 2026-10-26 passed the waiting-for-review path on Heby, the Work register and the Operations review card (section 5); the completion suggestion's positive path needs an organic Governance decision and is unobserved
+- Deferred risks: WOC1-BROWSER-UNVERIFIED-1 (DEFERRED); WOC1-EVIDENCE-BOUND-1 (DEFERRED); MEDIA3-ADMITTED-AT-HYDRATION-1 (DEFERRED); AE1-ASSIGN-UI-WORDING-1 (CLOSED); AE2-RECOMMENDATION-WORDING-1 (DEFERRED); AE2-VERCEL-GIT-TRIGGER-1 (DEFERRED)
+- Director approvals: discovery and milestone selection 2026-10-26; architecture decisions (no new authority, table or migration; setWorkDeclaredState authority kept; no automatic transition; ACCEPTED != COMPLETE; DECLARED COMPLETE != VERIFIED; acceptance authorizes no publication, sending or execution; tenant from trusted authentication) and the multiple-evidence rule 2026-10-26; local implementation, verification and commit 2026-10-26; production release of 14159026 and e7770d59, removal of woc1-baseline and woc1-candidate, and the read-only production acceptance walk 2026-10-26; the React #418 read-only investigation result accepted and its fix deferred 2026-10-26; this documentation update 2026-10-26; no Governance decision for the purpose of acceptance; push of this update, production data change and live model calls NOT approved
