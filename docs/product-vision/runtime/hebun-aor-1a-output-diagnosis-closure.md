@@ -1,9 +1,10 @@
-# AOR-1a · closure record · VERIFIED
+# AOR-1a · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
 
 **Scope, stated first.** AGENT-OUTPUT-RELIABILITY-1, first slice: when a model answers a work preparation, it
 is now diagnosable which response-validator check withheld the answer and how the provider stopped — as closed
-codes, never as text. Heby names a withheld draft's reason by class. Implemented and verified locally; **not
-pushed, not deployed; production behaviour UNVERIFIED.** No table, migration, authority, data-use class, filter,
+codes, never as text. Heby names a withheld draft's reason by class. Implemented in `2328dabf`, released and
+**deployed** (`dpl_6KnPWAyi2RsnNvWWqdh2xNxuYRBN`, READY); **production behaviour UNVERIFIED** — no organic
+preparation has been observed since the release (section 4). No table, migration, authority, data-use class, filter,
 filing rule or Governance behaviour changed. AOR-1b and AOR-1c are not implemented (section 6).
 
 ## 1 · Problem
@@ -59,9 +60,33 @@ schema boundary moved.
 | Full suite (`node scripts/run-tests.mjs`, candidate copy) | 1096/1097, REGRESSION 0; the one red `r3w-flow/ambient-database-safety.ts` BLOCKED (canonical `hebun_r1` at 127.0.0.1:55432 not running), environmental, not a pass |
 | `tsc --noEmit`, `eslint` on changed files, `git diff --check`, `npm run build` | PASS |
 
-## 4 · Production
+## 4 · Production release and observations (2026-10-26)
 
-Not pushed, not deployed. Production behaviour is UNVERIFIED.
+| Fact | Evidence |
+|---|---|
+| Pre-release | `origin/main` = `2961b562`; `2328dabf` one commit on it, limited to the 13 AOR-1a files; worktree clean |
+| Push | `2961b562..2328dabf` fast-forward, refspec written as the literal SHA; `git ls-remote` then read `2328dabf4e1ffabac8dfc9d0fb6a620ae0c30eca` |
+| Deployment | `dpl_6KnPWAyi2RsnNvWWqdh2xNxuYRBN`, target production, `READY`, created 2026-10-26 19:38 +03 by the Git integration on its own; no manual trigger |
+| Deployment source | Vercel API (`vercel api /v13/deployments/…?withGitRepoInfo=true`): `source: git`, sha `2328dabf4e1ffabac8dfc9d0fb6a620ae0c30eca`, ref `main` |
+| GitHub deployment | `7337730678`, sha `2328dabf…`, environment Production, state `success` |
+| Aliases | `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app`, `hebun-ai-recovered-hebuntechs-projects.vercel.app`, `hebun-ai-recovered-git-main-hebuntechs-projects.vercel.app` |
+| HTTP, signed out | `/` and `/login` 200; `/heby` 307 → `/login` |
+
+Read-only observations after the release, through the authorized Vercel CLI (the Vercel MCP connection answered
+403 for this team scope and was not used):
+
+- **`work-preparation-model-outcome`: NOT OBSERVED.** The deployment's runtime log since 16:38Z held 19 records
+  (`/` 7, `/login` 6, `/contact` 4, `/heby` 2); the event query matched 0, and an unfiltered scan matched 0.
+- **No organic withheld or served preparation** occurred, so neither path, nor the absence of sensitive data in a
+  real line, has been observed.
+- **The new Heby withheld wording was not verified:** the built-in browser had no signed-in session, and this
+  session enters no credentials.
+- **The deployment SHA is verified; that is not proof the new behaviour runs** in production.
+- The one error-level record (`/heby` 307, edge middleware) is the known `pg` SSL-mode warning
+  (SH1-PG-SSLMODE-1), unrelated to this phase.
+
+No Governance decision, artifact or work-state change, database write, model call or production event was made
+for this record.
 
 **A runtime log line is not durable audit evidence.** It lives in the host's runtime log for that log's
 retention, is not tenant-scoped, and is not a record anyone reads back. Durable facts stay where they were: the
@@ -77,8 +102,8 @@ message row's provenance and the work artifact tables.
 
 ### Deferred risk detail
 
-- **AOR1A-PROD-UNVERIFIED-1 (DEFERRED).** No production preparation has produced a diagnosis line or the new
-  withheld wording. Dependency: release, then section 5 on an organic preparation.
+- **AOR1A-PROD-UNVERIFIED-1 (DEFERRED).** Released and deployed; no production preparation has produced a diagnosis
+  line, and the new withheld wording was not rendered (section 4). Dependency: section 5 on an organic preparation.
 - **AOR1A-LOG-NOT-AUDIT-1 (DEFERRED).** The diagnosis lives in a runtime log with host retention, not in a
   durable record. Dependency: a Director decision whether diagnosis needs a durable home (a schema decision).
 - **AE1-WITHHELD-DIAGNOSABILITY-1 (DEFERRED).** Implemented here; not CLOSED until a production withheld
@@ -103,12 +128,12 @@ reliability decision (AOR-1b) can be taken from measurement.
 
 - Phase: AOR-1a
 - Owner: Heby response validator (`heby-runtime/response-validator.ts` codes), Heby answer flow (`heby-answer/model-answer.server.ts` withheld fallback and stop reason), Work Artifacts preparation seam (`work-artifacts/prepare-work-artifact.server.ts`, `work-artifacts/preparation-diagnosis.ts`), Heby work-draft affordance
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Reached state: DEPLOYED
+- Implementation commit: 2328dabf4e1ffabac8dfc9d0fb6a620ae0c30eca
 - Verification level: V2 — a shared seam (answer flow and preparation seam); the full suite was run because the response validator is part of the prompt-injection output boundary
 - Verification evidence: diagnosis-postgres D1–D6 PASS; diagnosis-contract C1–C5 PASS; bite-proofs 7/7 caught; baseline 111/111 at 2961b562; candidate 113/113 (109/113 first run, two pins updated and the fallback written on one line); full suite 1096/1097 with 0 REGRESSION, the one red r3w-flow/ambient-database-safety BLOCKED (canonical hebun_r1 :55432 not running); tsc, eslint, git diff --check, npm run build PASS
 - Test environment: worktree `.claude/worktrees/aor-1a` (branch feat/aor-1a-output-diagnosis, base 2961b562); disposable detached worktrees `aor1a-baseline`, `aor1a-candidate`, `aor1a-bite`; macOS Darwin 25.2.0; Node 24.16.0 with tsx; PostgreSQL 18.6 at 127.0.0.1:55433 (superuser admin) via HEBUN_TEST_ADMIN_DATABASE_URL with harness-created databases; fake model transport; no network, no production database or provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed; production behaviour UNVERIFIED
+- Deployment evidence: dpl_6KnPWAyi2RsnNvWWqdh2xNxuYRBN — READY, target production, source git sha 2328dabf4e1ffabac8dfc9d0fb6a620ae0c30eca ref main, created by the Git integration for the push 2961b562..2328dabf; GitHub deployment 7337730678 environment Production state success; aliased to www.hebuntech.com and hebuntech.com
+- Production acceptance evidence: N/A — production acceptance pending: work-preparation-model-outcome NOT OBSERVED (0 of 19 runtime records since the release), no organic withheld or served preparation, the Heby withheld wording not rendered; the deployment SHA is not proof of behaviour
 - Deferred risks: AOR1A-PROD-UNVERIFIED-1 (DEFERRED); AOR1A-LOG-NOT-AUDIT-1 (DEFERRED); AE1-WITHHELD-DIAGNOSABILITY-1 (DEFERRED)
-- Director approvals: AOR-1a implementation 2026-10-26; implementation report accepted, architecture kept, documentation, local commit and removal of the disposable worktrees 2026-10-26; AOR-1b and AOR-1c deferred (validator not relaxed, refusal signal not automated, declined drafts unchanged) 2026-10-26; push, merge and deployment NOT approved
+- Director approvals: AOR-1a implementation 2026-10-26; implementation report accepted, architecture kept, documentation, local commit and removal of the disposable worktrees 2026-10-26; AOR-1b and AOR-1c deferred (validator not relaxed, refusal signal not automated, declined drafts unchanged) 2026-10-26; push of 2328dabf and production deployment 2026-10-26; this deployment record 2026-10-26; push of this record NOT approved
