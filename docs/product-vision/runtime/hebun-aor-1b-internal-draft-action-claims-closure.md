@@ -1,11 +1,11 @@
-# AOR-1b · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
+# AOR-1b · closure record · PRODUCTION-ACCEPTED (scoped) — CLOSED
 
 **Scope, stated first.** AGENT-OUTPUT-RELIABILITY-1, second slice: the response validator judges an internal
 plan or message — and only that — in an `internal-draft` mode set by the work-artifact preparation seam. Planning,
 checklist and conditional language passes ("Once approved, record the decision", "Verify whether the deployment
 was approved"); a completed consequential act is still a claim, now **even when attributed** to Governance or the
 Director (Director decision D-AOR1b-1). Heby's own answers and content drafts keep the existing rule unchanged.
-Implemented and verified in `3f611477`, released and **deployed** (`dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`, READY); **production behaviour UNVERIFIED** — no internal-draft preparation has run on it (section 4). No table,
+Implemented and verified in `3f611477`, released and **deployed** (`dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`, READY), and **production-accepted, scoped** on 2026-10-26 for the internal operational-plan revision success path (section 5). No table,
 migration, provider, data-use class, authority or second validator.
 
 ## 1 · Problem
@@ -76,7 +76,9 @@ production withheld reply (`4fec95f4…`) remains UNVERIFIED as a true or false 
 
 ### Deferred risk detail
 
-- **AOR1B-PROD-UNVERIFIED-1 (DEFERRED).** Deployed (`dpl_61yagWMSydJEJYFHJyUQWL8YLwvC`); unobserved. Dependency: a
+- **AOR1B-PROD-UNVERIFIED-1 (CLOSED, scoped).** Observed for the internal operational-plan revision success path
+  (section 5). Not observed in production: a real unsupported claim withheld in internal-draft mode, message drafts,
+  content drafts and Heby answers after this release. Original dependency, kept for the record: a
   Director-approved HEBY-WORKFLOW-1 revision of `d71f8383…` (its change request still stands) read back: a filed
   revision 2 or a withheld line naming its code.
 - **AOR1B-HEURISTIC-RESIDUAL-1 (DEFERRED).** A lexical, per-clause heuristic. Known false negatives: a claim with no
@@ -88,9 +90,37 @@ production withheld reply (`4fec95f4…`) remains UNVERIFIED as a true or false 
 - **AOR1B-NON-ENGLISH-CLAIMS-1 (DEFERRED).** The verb list is English; a Turkish draft's "onaylandı" or "dağıtıldı" is
   not judged in either mode. Pre-existing, made visible here. Dependency: a Director decision before drafts in
   Turkish are relied on (TRH).
-- **AE1-DRAFT-ACTION-CLAIM-RULE-1 (DEFERRED).** Implemented here (the Director's architecture decision, Option C with
-  D-AOR1b-1); CLOSED only after AOR1B-PROD-UNVERIFIED-1.
+- **AE1-DRAFT-ACTION-CLAIM-RULE-1 (CLOSED).** The Director's architecture decision (Option C with D-AOR1b-1) is
+  implemented and production-observed on the path that failed (section 5). What it leaves is tracked, not closed:
+  AOR1B-HEURISTIC-RESIDUAL-1, AOR1B-ATTRIBUTED-HISTORY-1, AOR1B-NON-ENGLISH-CLAIMS-1.
 - **Unchanged, in their own records:** AOR1A-PROD-UNVERIFIED-1, HW1-PROD-UNVERIFIED-1, AE2-DECLINED-DRAFT-FILED-1.
+
+## 5 · Production acceptance (2026-10-26)
+
+The HEBY-WORKFLOW-1 revision that had been withheld on `dpl_A4aKYRBD…` (`action-claim:approved`, `4fec95f4…`) was
+retried once, with the Director's approval, on this release.
+
+| Fact | Evidence |
+|---|---|
+| Session | Built-in browser, a session the Director signed in themselves; no credential entered by this session. Tenant Hebun AI `f625b683-3be5-40eb-93a4-53fc56ab38c9`, read from the tenant-scoped `/operations` payload (all 11 artifacts carry it) |
+| Deployment | `dpl_CVcuTYjxx39PYQXCownfBR6DW5R4`, READY, `githubCommitSha` `a0a45648`, on `www.hebuntech.com` and `hebuntech.com`; it serves `94627e04` (HEBY-WORKFLOW-1) and `3f611477` (AOR-1b) unchanged, `a0a45648` being documentation |
+| Before the call | Work `5ba33201-fffa-4a41-864c-79cd567de635` declared `planned`; draft `d71f8383-da78-4637-8e09-e4b820f5ded2` (operational-plan, Engineering Agent) at revision 1, linked, Governance "Changes requested" (recorded by the Director); Engineering Agent in the server's eligible list as specialist; the revise block rendered |
+| Heby | "Show the change request…" showed the Director's reason verbatim; the agent select started empty; "Heby suggests Engineering Agent, who wrote the current revision. You decide who revises it."; the submit control stayed disabled until Engineering Agent (`670a6889…`) was chosen and the Director's instruction entered |
+| The call | One Director-approved click of "Ask Engineering Agent to revise"; no retry |
+| After | Same artifact id, revision 2 current; history `@1` kept and `@2 · current`, both agent-written; Heby "revision 2 · written by Engineering Agent · waiting for review"; Operations "Governance review of revision 2: Awaiting review"; work still `planned`, completion suggestion withheld (`awaiting-review`); 11 artifacts, none newer than 2026-10-25 |
+| Runtime log | One `work-preparation-model-outcome` line on `POST /heby`: `served: model`, `issueCodes: []`, `stopReason: end_turn`, `messageId 95f07532-2164-43e2-b523-b437564c02c7`; no reply text, tenant, user or agent in it; the only error-level records are the known `pg` SSL-mode warning (SH1-PG-SSLMODE-1), no 5xx |
+| Not read | The `messageId` → message row binding (needs a production database read; UNAVAILABLE). The revision text is not reproduced here |
+
+**Accepted, scoped:** the internal operational-plan revision success path — one authorised internal-draft
+preparation served by the model with no issue code, filed as revision 2 on the same artifact, no new artifact.
+**Not accepted by this record:** every possible action-claim phrasing; Turkish action-claim safety; a real
+unsupported claim withheld in production in internal-draft mode; that the earlier withheld reply (`4fec95f4…`) was a
+false positive (UNVERIFIED — its text was never stored); content drafts and any unobserved provider path.
+
+**AOR-1a, related evidence only.** The withheld line (`4fec95f4…`, `action-claim:approved`, `end_turn`) and this
+served line (`95f07532…`, no codes, `end_turn`) are production diagnosis lines of the kind AOR-1a §5 items 2–3
+describe; their `messageId` → message row binding is UNAVAILABLE. AOR-1a's state and AOR1A-* risks are unchanged
+by this record; accepting them is a separate Director decision.
 
 **Weekly three.** *Learned:* the same words are a claim in one voice and an instruction in another; the validator
 needs the voice from the server, and a draft deserves a stricter rule on attribution, not a looser one. *Turkish Rug
@@ -101,12 +131,12 @@ House:* its plans can say "once approved" without being withheld, and cannot say
 
 - Phase: AOR-1b
 - Owner: Heby response validation (`heby-runtime/response-validator.ts`) with its mode chosen by the answer flow (`heby-answer/model-answer.server.ts`) on the work-artifact preparation seam's declaration (`work-artifacts/prepare-work-artifact.server.ts`)
-- Reached state: DEPLOYED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: 3f6114776ad9dff0715a010e873ba1e07edf208c
 - Verification level: V3 — the prompt-injection output boundary and the shared preparation seam changed; full suite run
 - Verification evidence: draft-claims-contract D1–D6 PASS; draft-mode-postgres P1–P6 PASS; baseline 116/116 at 50c69477; candidate 119/119 with no pin changed; bite-proofs AOR-1b 8/8 with AE-1 5/5, HW1 7/7, CONTENT-AGENT-2 11/11 and 11 further suites in the same run; tsc, eslint, git diff --check, npm run build PASS; full suite 1102/1103 with 0 REGRESSION, r3w-flow/ambient-database-safety BLOCKED (canonical hebun_r1 :55432 not running)
 - Test environment: worktree `.claude/worktrees/aor-1b` (branch feat/aor-1b, base 50c69477); disposable detached worktrees `aor1b-baseline`, `aor1b-candidate` (removed after use); macOS Darwin 25.2.0; Node 24.16.0 with tsx; PostgreSQL 18.6 at 127.0.0.1:55433 via HEBUN_TEST_ADMIN_DATABASE_URL with harness-created databases; fake model transport; no network, no production database or provider
 - Deployment evidence: dpl_61yagWMSydJEJYFHJyUQWL8YLwvC — READY, target production, source git sha 3f6114776ad9dff0715a010e873ba1e07edf208c ref main, created by the Git integration for the push 50c69477..3f611477; aliased to www.hebuntech.com and hebuntech.com; signed-out HTTP / and /login 200, /heby, /operations, /director/work 307 → /login; runtime log 14 records, 0 error, 0 5xx; rollback reference dpl_A4aKYRBDfbzZTudvmoN2RkBorVba (50c69477)
-- Production acceptance evidence: N/A — production acceptance pending: no internal-draft preparation has run on the deployment; the acceptance target could not be re-read (session ended, no credential entered); the deployment SHA is not proof of behaviour
-- Deferred risks: AOR1B-PROD-UNVERIFIED-1 (DEFERRED); AOR1B-HEURISTIC-RESIDUAL-1 (DEFERRED); AOR1B-ATTRIBUTED-HISTORY-1 (DEFERRED); AOR1B-NON-ENGLISH-CLAIMS-1 (DEFERRED); AE1-DRAFT-ACTION-CLAIM-RULE-1 (DEFERRED)
-- Director approvals: AOR-1b prioritised after the HEBY-WORKFLOW-1 production withheld event, analysis only 2026-10-26; Option C (server-controlled internal-draft mode) and D-AOR1b-1 (attribution does not make a completed claim safe in an internal draft) approved, implementation, verification and documentation authorised 2026-10-26; one local commit approved 2026-10-26; controlled push of 3f611477 with its automatic production deployment, deployment verification and this documentation update approved 2026-10-26; production model calls, revisions, Governance decisions, artifact or work-state changes and production test data NOT approved
+- Production acceptance evidence: SCOPED — Director-opened session, tenant Hebun AI f625b683, on dpl_CVcuTYjxx39PYQXCownfBR6DW5R4 (serving 3f611477 unchanged; section 5): one Director-approved internal operational-plan revision of d71f8383 by Engineering Agent served by the model — runtime line served model, issueCodes [], end_turn, messageId 95f07532-2164-43e2-b523-b437564c02c7 (message-row binding UNAVAILABLE) — filed as revision 2 on the same artifact, awaiting review, no new artifact, work still planned; the same revision was withheld action-claim:approved before this release (4fec95f4, true or false positive UNVERIFIED)
+- Deferred risks: AOR1B-PROD-UNVERIFIED-1 (CLOSED); AOR1B-HEURISTIC-RESIDUAL-1 (DEFERRED); AOR1B-ATTRIBUTED-HISTORY-1 (DEFERRED); AOR1B-NON-ENGLISH-CLAIMS-1 (DEFERRED); AE1-DRAFT-ACTION-CLAIM-RULE-1 (CLOSED)
+- Director approvals: AOR-1b prioritised after the HEBY-WORKFLOW-1 production withheld event, analysis only 2026-10-26; Option C (server-controlled internal-draft mode) and D-AOR1b-1 (attribution does not make a completed claim safe in an internal draft) approved, implementation, verification and documentation authorised 2026-10-26; one local commit approved 2026-10-26; controlled push of 3f611477 with its automatic production deployment, deployment verification and this documentation update approved 2026-10-26; production model calls, revisions, Governance decisions, artifact or work-state changes and production test data NOT approved; production acceptance pre-checks, one Director-approved Engineering Agent revision call, and PRODUCTION-ACCEPTED (scoped) with this documentation, commit and fast-forward push 2026-10-26
