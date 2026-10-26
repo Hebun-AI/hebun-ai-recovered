@@ -360,8 +360,12 @@ export function PrepareRevisionWithHebun({
       {/*
         * CONTENT-AGENT-2 — REVISE FROM THE REVIEW. Shown only while the current revision's latest
         * decision is a change request. The reason is read from the Governance ledger on the human's
-        * click, shown as recorded, and copied into the instruction only by a second click — the
-        * human edits it and the human submits. It authorizes nothing.
+        * click and shown as recorded. It authorizes nothing.
+        *
+        * EAI-SYSTEM-COPY-INTO-CONVERSATION-1 — the reason is NEVER copied into the instruction. It is
+        * Governance's record, not the human's words; once in the textarea it would leave as
+        * `conversation` and bypass its own classification. The second click only binds this
+        * revision to the review (the staleness keys); the human writes the instruction.
         */}
       {changeRequest ? (
         <div data-content-agent-2="change-request" className="space-y-1.5 rounded border border-border-subtle bg-surface px-2 py-2">
@@ -375,16 +379,13 @@ export function PrepareRevisionWithHebun({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => {
-                  setInstruction(reason.justification);
-                  setFromReview({ revisionNo: reason.revisionNo, decisionId: reason.decisionId });
-                }}
+                onClick={() => setFromReview({ revisionNo: reason.revisionNo, decisionId: reason.decisionId })}
                 className="rounded border border-border-subtle px-2 py-1 text-xs text-fg-secondary hover:border-border hover:text-fg-primary disabled:opacity-50"
               >
                 Revise with Hebun from this review
               </button>
               <p className="text-[11px] text-fg-muted">
-                The reason becomes your instruction, which you can edit. It is not an approval and starts nothing on its own.
+                Write your own instruction below. The reason is not copied into it and is not sent to Hebun. It is not an approval and starts nothing on its own.
               </p>
             </>
           ) : reason && reason.status !== "requested" ? (

@@ -87,10 +87,13 @@ for (const f of [READER, SEAM, ACTIONS]) {
   }
 }
 {
-  /* The reason is rendered as recorded and prefilled verbatim — no transform between the read and the textarea. */
+  /*
+   * The reason is rendered as recorded. EAI-SYSTEM-COPY-INTO-CONVERSATION-1 reverses the released
+   * prefill: the reason is Governance's record and must never become the human's `conversation`.
+   */
   const ui = codeOf(read(UI));
   assert.ok(/\{reason\.justification\}/.test(ui), "the reason is rendered as recorded");
-  assert.ok(/setInstruction\(reason\.justification\)/.test(ui), "and copied into the instruction verbatim");
+  assert.ok(!/setInstruction\(reason\.justification\)/.test(ui), "and is never copied into the instruction");
 }
 
 console.log("PASS content-agent-2 surface and firewall");

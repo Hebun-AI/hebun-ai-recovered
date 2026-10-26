@@ -245,9 +245,11 @@ function ReviseWorkDraft({
         <>
           <p className="text-fg">Change request on revision {basis.revisionNo}:</p>
           <p className="whitespace-pre-wrap text-fg-secondary">{basis.justification}</p>
-          <button type="button" className="underline underline-offset-2" disabled={pending} onClick={() => setInstruction(basis.justification)}>
-            Use this reason as my instruction
-          </button>
+          {/*
+            * EAI-SYSTEM-COPY-INTO-CONVERSATION-1 — the reason is shown, never copied into the instruction:
+            * it is Governance's record, and in the textarea it would leave as `conversation`.
+            */}
+          <p className="text-fg-muted">Write your own instruction below; the reason is not sent to the agent.</p>
           <p className="text-fg-muted">
             {suggestion.text}{" "}
             {suggestion.agentId && agentId !== suggestion.agentId ? (
