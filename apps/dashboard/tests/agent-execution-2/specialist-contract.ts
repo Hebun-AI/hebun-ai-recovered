@@ -60,16 +60,22 @@ assert.doesNotMatch(code("src/app/(dashboard)/heby/work-state-origination-action
 /* ── R4 ── */
 const read = {
   status: "read", workItemId: "w", mayAssign: true, notResponsible: 0, drafts: [], recommendedAgentId: "s",
+  /* WORK-OUTCOME-CLOSURE-1 added the work's declared state and completion suggestion to the read. */
+  declaredState: "planned", completion: { offered: false, reason: "no-evidence" },
   agents: [
     { agentId: "c", name: "Heby", role: "coordinator", openDraftId: null },
     { agentId: "s", name: "Research Agent", role: "specialist", openDraftId: null },
   ],
 } as const;
 assert.match(describeRecommendation(read)!, /^Heby recommends Research Agent: .*You decide who is assigned\.$/);
+/* WORK-OUTCOME-CLOSURE-1 (AE2-RECOMMENDATION-WORDING-1): the role is selection and attribution only, said so. */
+assert.doesNotMatch(describeRecommendation(read)!, /writes as/, "the recommendation does not claim the agent writes as a specialist");
+assert.match(describeRecommendation(read)!, /the model is not told the agent's specialty/);
 assert.equal(describeRecommendation({ ...read, recommendedAgentId: null }), null);
 assert.match(
   describeAssignment({ status: "prepared", workItemId: "w", artifactId: "a", revisionNo: 1, agentName: "Research Agent", agentRole: "specialist" }, "Research Agent"),
-  /^Research Agent, as this work's specialist, wrote the draft .*nothing was sent, published or changed\.$/,
+  /* WORK-OUTCOME-CLOSURE-1 (AE2-RECOMMENDATION-WORDING-1): "as this work's specialist" became attribution wording. */
+  /^Research Agent wrote the draft \(revision 1\) and is recorded as its author, chosen as this work's specialist\. .*nothing was sent, published or changed\.$/,
 );
 
 console.log("agent-execution-2 specialist contract: ok");

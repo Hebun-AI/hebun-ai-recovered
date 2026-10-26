@@ -86,12 +86,17 @@ assert.deepEqual(
     "@/features/heby-runtime/contracts",
     "@/features/organizational-work/read-work-evidence.server",
     "@/features/organizational-work/read-work.server",
+    /* WORK-OUTCOME-CLOSURE-1: the work's declared-state type, read from the target the seam already resolves. */
+    "@/features/organizational-work/work-contracts",
     "@/features/work-artifact-review/contracts",
     "@/features/work-artifact-review/review-revision.server",
     "@/features/work-artifacts/contracts",
     "@/features/work-artifacts/prepare-work-artifact.server",
     "@/features/work-artifacts/read-work-artifacts.server",
     "@/features/work-domain/work-scope",
+    /* WORK-OUTCOME-CLOSURE-1: the completion rule (pure) and the read-only outcome composition (no writer, no model). */
+    "@/features/work-outcome/contracts",
+    "@/features/work-outcome/read-work-outcome-evidence.server",
     "drizzle-orm",
   ],
   "the seam reaches only these authorities (a new reach is a deliberate edit here)",
@@ -126,7 +131,9 @@ const draft = (over: Partial<WorkDraftView>): WorkDraftView => ({
   author: { kind: "agent", agentId: "g", name: "Writer" }, review: "awaiting-review", declaredAt: "2026-10-25T10:00:00.000Z", ...over,
 });
 assert.equal(describeWorkDraft(draft({})), "Plan “Plan” · revision 1 · written by Writer · waiting for review");
-assert.match(describeWorkDraft(draft({ review: "accepted" })), /accepted — this task is complete/);
+/* WORK-OUTCOME-CLOSURE-1: acceptance ends the agent's task, not the work — the old "this task is complete" read as the work. */
+assert.match(describeWorkDraft(draft({ review: "accepted" })), /accepted for the next internal step — the agent's task is done; the work is complete only when a person declares it/);
+assert.doesNotMatch(describeWorkDraft(draft({ review: "accepted" })), /task is complete/);
 for (const review of ["awaiting-review", "changes-requested", "unknown"] as const) {
   assert.doesNotMatch(describeWorkDraft(draft({ review })), /complete/, `${review} is never worded as complete`);
 }

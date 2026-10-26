@@ -78,6 +78,15 @@ import type { WorkWriteResult } from "@/features/organizational-work/write-work.
 import type { WorkItemView, WorkRegister } from "@/features/organizational-work/read-work.server";
 import type { WorkEvidenceReferenceView } from "@/features/organizational-work/read-work-evidence.server";
 import {
+  ACCEPTANCE_IS_NOT_COMPLETION,
+  COMPLETION_SUGGESTION_TEXT,
+  COMPLETION_WITHHELD_TEXT,
+  OUTCOME_REVIEW_WORDING,
+  SUGGESTED_DECLARED_STATE,
+  suggestCompletion,
+  type WorkOutcomeEvidence,
+} from "@/features/work-outcome/contracts";
+import {
   WORK_DECLARED_STATES,
   WORK_DECLARED_STATE_MEANING,
   WORK_REFERENCE_NON_CLAIMS,
@@ -1024,6 +1033,66 @@ function WorkItemControls({
   );
 }
 
+/*
+ * WORK-OUTCOME-CLOSURE-1 — the review of each draft this work declares as evidence, read from the
+ * Governance ledger for the CURRENT revision, and the completion suggestion by the one shared rule.
+ * `evidence` is `null` when the read did not answer completely: then nothing is suggested. The button
+ * is the same human declaration as "Change → Declare state"; the server asks its authority again.
+ */
+function OutcomeLines({ item, evidence }: { item: WorkItemView; evidence: readonly WorkOutcomeEvidence[] | null }) {
+  const [result, setResult] = useState<WorkWriteResult | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  if (evidence !== null && evidence.length === 0) return null;
+  const suggestion = suggestCompletion({ declaredState: item.declaredState, inService: item.inService, evidence });
+  return (
+    <div
+      className="mt-1 text-xs leading-5 text-fg-secondary"
+      data-work-outcome={suggestion.offered ? "suggested" : suggestion.reason}
+    >
+      {evidence === null ? null : (
+        <ul>
+          {evidence.map((draft) => (
+            <li key={draft.artifactId}>
+              Draft {draft.title === null ? "Hebun could not name" : `“${draft.title}”`}
+              {draft.revisionNo === null ? "" : ` · revision ${draft.revisionNo}`} ·{" "}
+              {draft.retired ? "retired" : OUTCOME_REVIEW_WORDING[draft.review]}
+            </li>
+          ))}
+        </ul>
+      )}
+      {suggestion.offered ? (
+        <>
+          <p className="text-fg">{COMPLETION_SUGGESTION_TEXT}</p>
+          <Button
+            type="button"
+            disabled={pending}
+            className="mt-1"
+            onClick={() =>
+              start(async () => {
+                const outcome = await setWorkDeclaredStateAction({
+                  workItemId: item.workItemId,
+                  declaredState: SUGGESTED_DECLARED_STATE,
+                });
+                setResult(outcome);
+                if (outcome.status === "recorded") router.refresh();
+              })
+            }
+          >
+            Declare complete
+          </Button>
+        </>
+      ) : (
+        <p className="text-fg-muted">{COMPLETION_WITHHELD_TEXT[suggestion.reason]}</p>
+      )}
+      {evidence?.some((draft) => !draft.retired && draft.review === "accepted") ? (
+        <p className="text-fg-muted">{ACCEPTANCE_IS_NOT_COMPLETION}</p>
+      ) : null}
+      <Feedback result={result} />
+    </div>
+  );
+}
+
 /** PLAN-FOLLOW-UP-REFERENCE-V1 — both directions of the recorded relationship, said once each. */
 function FollowUpLines({ followsUp, followUps }: { followsUp: readonly string[]; followUps: readonly string[] }) {
   if (followsUp.length === 0 && followUps.length === 0) return null;
@@ -1047,6 +1116,7 @@ export function WorkRegisterPanel({
   workScopeChoices,
   followUpLinks = null,
   followUpLinksTruncated = false,
+  outcomeEvidence = null,
 }: {
   register: WorkRegister;
   structure: OrganizationStructure;
@@ -1067,6 +1137,11 @@ export function WorkRegisterPanel({
   followUpLinks?: readonly { readonly workItemId: string; readonly sourceWorkItemId: string }[] | null;
   /** PLAN-FOLLOW-UP-LINEAGE-1 — the relationship read reached its bound; lines drawn are true, absence is unknown. */
   followUpLinksTruncated?: boolean;
+  /**
+   * WORK-OUTCOME-CLOSURE-1 — work item id → its declared drafts with the review of each current
+   * revision. `null` when the read did not answer completely; no suggestion is drawn then.
+   */
+  outcomeEvidence?: Readonly<Record<string, readonly WorkOutcomeEvidence[]>> | null;
 }) {
   const itemOf = new Map(register.status === "available" ? register.items.map((i) => [i.workItemId, i]) : []);
   const titlesFor = (ids: readonly string[]) => ids.map((id) => itemOf.get(id)?.title ?? "a work item not in this register");
@@ -1132,6 +1207,10 @@ export function WorkRegisterPanel({
                     />
                     {item.inService ? (
                       <>
+                        <OutcomeLines
+                          item={item}
+                          evidence={outcomeEvidence === null ? null : (outcomeEvidence[item.workItemId] ?? [])}
+                        />
                         <ConcernsSection
                           item={item}
                           references={evidence}

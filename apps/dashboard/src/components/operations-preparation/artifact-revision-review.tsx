@@ -34,6 +34,12 @@ import {
   type ArtifactReviewRefusal,
   type ArtifactRevisionReviewState,
 } from "@/features/work-artifact-review/contracts";
+import {
+  NO_DECLARED_WORK_PURPOSE,
+  WORK_PURPOSE_UNAVAILABLE,
+  type ArtifactWorkPurposeItem,
+} from "@/features/organizational-work/artifact-work-purpose";
+import { ACCEPTANCE_IS_NOT_COMPLETION } from "@/features/work-outcome/contracts";
 import { RevisionGenerationEvidence } from "./revision-generation-evidence";
 
 const JUSTIFICATION_MINIMUM = 24;
@@ -69,6 +75,7 @@ export function ArtifactRevisionReview({
   revisionNo,
   state,
   reviewable,
+  workPurpose,
   onDecided,
 }: {
   artifactId: string;
@@ -77,6 +84,12 @@ export function ArtifactRevisionReview({
   state?: ArtifactRevisionReviewState;
   /** False when the reader may see the bytes but may not decide about them. */
   reviewable: boolean;
+  /**
+   * WORK-OUTCOME-CLOSURE-1 — the work items that declare this draft as evidence (REV-3's index, read
+   * by the owner). `undefined` when that read did not answer. Shown at the moment of accepting, with
+   * the sentence that acceptance does not change the work.
+   */
+  workPurpose: readonly ArtifactWorkPurposeItem[] | undefined;
   /**
    * CGO-8. Called after a decision is RECORDED, so the owner re-reads the derived state from the
    * Governance ledger. `router.refresh()` re-renders server data, but state a client component
@@ -169,6 +182,24 @@ export function ArtifactRevisionReview({
                 ))}
               </ul>
               <p className="text-xs text-fg-muted">{ARTIFACT_REVIEW_REVISION_SCOPE_NOTICE}</p>
+              {intent === "accept" ? (
+                <div className="text-xs text-fg-muted" data-review-work-purpose="">
+                  {workPurpose === undefined ? (
+                    <p>{WORK_PURPOSE_UNAVAILABLE}</p>
+                  ) : workPurpose.length === 0 ? (
+                    <p>{NO_DECLARED_WORK_PURPOSE}</p>
+                  ) : (
+                    workPurpose.map((item) => (
+                      <p key={item.workItemId}>
+                        {item.title === null
+                          ? "For: recorded work Hebun could not name here."
+                          : `For: ${item.title} · declared ${item.declaredState}`}
+                      </p>
+                    ))
+                  )}
+                  <p>{ACCEPTANCE_IS_NOT_COMPLETION}</p>
+                </div>
+              ) : null}
               <label className="text-xs font-medium text-fg-primary" htmlFor={`just-${revisionId}`}>
                 Why
               </label>

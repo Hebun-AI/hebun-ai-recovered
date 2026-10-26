@@ -6,6 +6,7 @@ import { readWorkEvidenceReferences } from "@/features/organizational-work/read-
 import { readWorkFollowUpLinks } from "@/features/organizational-work/follow-up-source-work.server";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
+import { readWorkOutcomeEvidence } from "@/features/work-outcome/read-work-outcome-evidence.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { ORGANIZATION_STRUCTURE_UNAVAILABLE } from "@/features/organization-authority/contracts";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -105,6 +106,9 @@ export default async function OrganizationalWorkPage() {
     register.status === "available"
       ? await listWorkArtifacts(tenant)
       : ({ status: "unavailable", reason: "" } as const);
+  /* WORK-OUTCOME-CLOSURE-1 — each declared draft with the Governance review of its current revision. */
+  const outcome =
+    register.status === "available" ? await readWorkOutcomeEvidence(tenant) : ({ status: "unavailable" } as const);
 
   /*
    * The CHOOSABLE referents, projected to an id and a label only. The surface offers what each
@@ -151,6 +155,7 @@ export default async function OrganizationalWorkPage() {
         workScopeChoices={workScopeChoices}
         followUpLinks={followUps.status === "read" ? followUps.links : null}
         followUpLinksTruncated={followUps.status === "read" && followUps.truncated}
+        outcomeEvidence={outcome.status === "read" ? outcome.byWorkItem : null}
       />
     </div>
   );

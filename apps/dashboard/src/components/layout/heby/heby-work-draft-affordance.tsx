@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AgentChoiceSelect, type AgentOption } from "@/components/agents/agent-choice-select";
 import { HEBUN_PREPARATION_REFUSAL_WORDING } from "@/components/operations-preparation/prepare-with-hebun";
 import { assignWorkDraftAction, readWorkDraftChoicesAction } from "@/app/(dashboard)/heby/work-state-origination-actions";
-import { declareWorkReferenceAction } from "@/app/(dashboard)/director/work/actions";
+import { declareWorkReferenceAction, setWorkDeclaredStateAction } from "@/app/(dashboard)/director/work/actions";
 import type {
   AssignWorkDraftRefusal,
   AssignWorkDraftResult,
@@ -21,6 +21,12 @@ import {
   type ContentDestination,
   type WorkArtifactType,
 } from "@/features/work-artifacts/contracts";
+import {
+  ACCEPTANCE_IS_NOT_COMPLETION,
+  COMPLETION_SUGGESTION_TEXT,
+  COMPLETION_WITHHELD_TEXT,
+  SUGGESTED_DECLARED_STATE,
+} from "@/features/work-outcome/contracts";
 
 /*
  * AGENT-EXECUTION-1 — ASSIGN AN AGENT ONE DRAFT FOR THIS WORK ITEM, AND FOLLOW IT.
@@ -74,7 +80,8 @@ export const LINK_REFUSAL_WORDING: Readonly<Record<string, string>> = {
 export const REVIEW_WORDING: Readonly<Record<WorkDraftView["review"], string>> = {
   "awaiting-review": "waiting for review",
   "changes-requested": "changes requested",
-  accepted: "accepted — this task is complete",
+  /* WORK-OUTCOME-CLOSURE-1 — the agent's task ends at acceptance; the WORK does not (AE-1 wording corrected). */
+  accepted: "accepted for the next internal step — the agent's task is done; the work is complete only when a person declares it",
   unknown: "review state could not be read",
 };
 
@@ -99,19 +106,35 @@ export const ROLE_WORDING: Readonly<Record<AgentWorkRole, string>> = {
 export function describeRecommendation(read: Extract<WorkDraftChoices, { status: "read" }>): string | null {
   const agent = read.agents.find((candidate) => candidate.agentId === read.recommendedAgentId);
   if (!agent) return null;
-  return `Heby recommends ${agent.name}: it is the only agent responsible for this kind of work and not organization-wide, so it writes as this work's specialist. You decide who is assigned.`;
+  /* AE2-RECOMMENDATION-WORDING-1 — the role decides who is offered and named as author; the model is not told it. */
+  return `Heby recommends ${agent.name}: it is the only agent responsible for this kind of work and not organization-wide. That decides who is offered and recorded as the draft's author; the model is not told the agent's specialty. You decide who is assigned.`;
 }
+
+/** The model answered and Hebun's response checks withheld it. The checks' reasons are not recorded (AE1-WITHHELD-DIAGNOSABILITY-1). */
+export const WITHHELD_WORDING =
+  "No draft was written. The model answered, but Hebun's response checks withheld the answer, so nothing was filed. Which check withheld it is not recorded; rewording the instruction may help.";
+
+/** WORK-OUTCOME-CLOSURE-1 — the Work Authority's refusals of a completion declaration, for a person. */
+export const DECLARE_REFUSAL_WORDING: Readonly<Record<string, string>> = {
+  "not-authorized": "Declaring a work's state needs your organization's Governance authority, which you do not hold.",
+  "work-retired": "This work is retired, so its state cannot change.",
+  "authority-unavailable": "Hebun could not reach the work authority. Nothing was declared.",
+  "no-authorized-tenant-context": "No organization is resolved for this session, so nothing was declared.",
+};
 
 export function describeAssignment(result: AssignWorkDraftResult, agentName: string): string {
   switch (result.status) {
     case "prepared":
-      return `${result.agentName}${result.agentRole === "specialist" ? ", as this work's specialist," : ""} wrote the draft (revision ${result.revisionNo}). It is not yet this work's evidence: link it below if it belongs to this work. It waits for review in Operations; nothing was sent, published or changed.`;
+      return `${result.agentName} wrote the draft (revision ${result.revisionNo}) and is recorded as its author${result.agentRole === "specialist" ? ", chosen as this work's specialist" : ""}. It is not yet this work's evidence: link it below if it belongs to this work. It waits for review in Operations; nothing was sent, published or changed.`;
     case "prepared-stale":
       return `${agentName} wrote the draft (revision ${result.revisionNo}), but ${
         STALE_WORDING[result.reason] ?? result.reason
       }, so Heby does not offer it as this work's evidence. The draft is in Operations.`;
     case "not-prepared":
-      return `No draft was written. ${HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `(${result.reason})`}`;
+      /* AE1-ASSIGN-UI-WORDING-1 — a withheld answer is said as such, not as the generic "no model answer". */
+      return result.modelFallback?.kind === "withheld"
+        ? WITHHELD_WORDING
+        : `No draft was written. ${HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `(${result.reason})`}`;
     case "refused":
       return ASSIGN_REFUSAL_WORDING[result.reason] ?? `Nothing was asked (${result.reason}).`;
   }
@@ -185,6 +208,52 @@ export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: s
           <p className="text-fg-secondary">{ASSIGN_REFUSAL_WORDING[choices.reason]}</p>
         ) : (
           <>
+            {/*
+              * WORK-OUTCOME-CLOSURE-1 — the work's outcome as the records hold it, and a suggestion only when
+              * every linked draft's current revision is accepted. The declaration is the Work register's own
+              * human action, on the person's click; Heby never declares, and acceptance never declares.
+              */}
+            <div data-work-outcome={choices.completion.offered ? "suggested" : choices.completion.reason}>
+              <p className="text-fg">This work is declared {choices.declaredState}.</p>
+              {choices.completion.offered ? (
+                <>
+                  <p className="text-fg-secondary">{COMPLETION_SUGGESTION_TEXT}</p>
+                  {choices.mayAssign ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-1"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          try {
+                            const declared = await setWorkDeclaredStateAction({ workItemId, declaredState: SUGGESTED_DECLARED_STATE });
+                            setMessage(
+                              declared.status === "recorded"
+                                ? { text: "You declared this work complete. Hebun recorded what you said; it verified nothing.", ok: true }
+                                : { text: `Not declared. ${DECLARE_REFUSAL_WORDING[declared.reason] ?? `(${declared.reason})`}`, ok: false },
+                            );
+                          } catch {
+                            setMessage({ text: "The request did not complete, so Hebun cannot say whether the work was declared complete. Check the work register.", ok: false });
+                          }
+                          await load();
+                        })
+                      }
+                    >
+                      Declare this work complete
+                    </Button>
+                  ) : (
+                    <p className="text-fg-secondary">{DECLARE_REFUSAL_WORDING["not-authorized"]}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-fg-muted">{COMPLETION_WITHHELD_TEXT[choices.completion.reason]}</p>
+              )}
+              {choices.drafts.some((draft) => draft.review === "accepted") ? (
+                <p className="text-fg-muted">{ACCEPTANCE_IS_NOT_COMPLETION}</p>
+              ) : null}
+            </div>
+
             {choices.drafts.length > 0 ? (
               <div>
                 <p className="text-fg">Drafts linked to this work</p>
@@ -328,7 +397,8 @@ export function HebyWorkDraftAffordance({ workItemId }: { readonly workItemId: s
                     })
                   }
                 >
-                  {pending ? `${agentName} is writing…` : `Assign to ${agentName}`}
+                  {/* AE1-ASSIGN-UI-WORDING-1 — before a choice the button names no agent. */}
+                  {pending ? `${agentName} is writing…` : agentId ? `Assign to ${agentName}` : "Choose an agent to assign"}
                 </Button>
               </>
             )}

@@ -68,6 +68,9 @@ import { listWorkArtifacts, readWorkArtifactHistory } from "@/features/work-arti
 import { readCurrentRevisionReviewStates } from "@/features/work-artifact-review/review-revision.server";
 import { artifactRowReviewStatus, type ArtifactRowReviewStatus } from "@/features/work-artifact-review/contracts";
 import type { HebyModelFallback } from "@/features/heby-runtime/contracts";
+import type { WorkDeclaredState } from "@/features/organizational-work/work-contracts";
+import { suggestCompletion, type CompletionSuggestion } from "@/features/work-outcome/contracts";
+import { readWorkOutcomeEvidence } from "@/features/work-outcome/read-work-outcome-evidence.server";
 
 const CAPABILITY = agentWorkCapability("prepare-work-draft");
 
@@ -97,7 +100,12 @@ function resolveDbOrNull(): ControlPlaneDatabase | null {
 
 /* ═══ ELIGIBILITY — the capability contract, answered by the authorities that own it ═══════════ */
 
-type WorkTarget = { readonly workItemId: string; readonly title: string; readonly workScope: WorkScope };
+type WorkTarget = {
+  readonly workItemId: string;
+  readonly title: string;
+  readonly workScope: WorkScope;
+  readonly declaredState: WorkDeclaredState;
+};
 
 type TargetRead =
   | { readonly status: "resolved"; readonly target: WorkTarget }
@@ -111,7 +119,12 @@ async function readTarget(tenant: TenantContext, workItemId: unknown, deps: Agen
   if (read.target.workScope === null) return { status: "refused", reason: "work-not-scoped" };
   return {
     status: "resolved",
-    target: { workItemId: read.target.workItemId, title: read.target.title, workScope: read.target.workScope },
+    target: {
+      workItemId: read.target.workItemId,
+      title: read.target.title,
+      workScope: read.target.workScope,
+      declaredState: read.target.declaredState,
+    },
   };
 }
 
@@ -237,6 +250,14 @@ export type WorkDraftChoices =
       /** In-service agents not responsible for this work's scope, by count — never named as options. */
       readonly notResponsible: number;
       readonly drafts: readonly WorkDraftView[];
+      /** WORK-OUTCOME-CLOSURE-1 — the work item's declared state, as the Work Authority holds it. */
+      readonly declaredState: WorkDeclaredState;
+      /**
+       * WORK-OUTCOME-CLOSURE-1 — whether Heby suggests that a person declare this work complete, by the
+       * one rule the Work register also uses. Advice only: the declaration is the Work Authority's own
+       * human act, which asks its own authority again.
+       */
+      readonly completion: CompletionSuggestion;
     }
   | { readonly status: "refused"; readonly reason: "unauthenticated" | TargetRefusal }
   | { readonly status: "unavailable" };
@@ -252,11 +273,12 @@ export async function readWorkDraftChoices(
   if (!tenant?.tenantId || !tenant.userId) return { status: "refused", reason: "unauthenticated" };
   const target = await readTarget(tenant, workItemId, deps);
   if (target.status === "refused") return target;
-  const [eligible, drafts, identities, authority] = await Promise.all([
+  const [eligible, drafts, identities, authority, outcome] = await Promise.all([
     eligibleAgents(tenant, target.target.workScope, deps),
     readWorkDrafts(tenant, target.target.workItemId, deps),
     readDurableAgentIdentityState(tenant, { getDb: deps.getDb }),
     (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant),
+    readWorkOutcomeEvidence(tenant, { getDb: deps.getDb }),
   ]);
   if (eligible.status !== "read" || drafts.status !== "read" || identities.status !== "known") return { status: "unavailable" };
   const inService = identities.identities.filter((identity) => identity.inService).length;
@@ -270,6 +292,12 @@ export async function readWorkDraftChoices(
     recommendedAgentId: specialists.length === 1 && specialists[0]!.openDraftId === null ? specialists[0]!.agentId : null,
     notResponsible: inService - eligible.agents.length,
     drafts: drafts.drafts,
+    declaredState: target.target.declaredState,
+    completion: suggestCompletion({
+      declaredState: target.target.declaredState,
+      inService: true,
+      evidence: outcome.status === "read" ? (outcome.byWorkItem[target.target.workItemId] ?? []) : null,
+    }),
   };
 }
 

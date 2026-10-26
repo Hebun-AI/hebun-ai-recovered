@@ -419,6 +419,7 @@ function ArtifactRow({
                 revisionNo={revision.revisionNo}
                 state={reviewStates?.find((s) => s.revisionId === revision.id)}
                 reviewable={!retired}
+                workPurpose={workPurpose}
                 onDecided={() => rereadReview(artifact.currentRevision)}
               />
             </li>
