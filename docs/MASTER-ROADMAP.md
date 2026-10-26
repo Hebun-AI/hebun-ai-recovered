@@ -5739,6 +5739,7 @@ re-graded here.
 | OPERATIONAL-RELIABILITY-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-operational-reliability-1-closure.md` |
 | AGENT-EXECUTION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` |
 | AGENT-EXECUTION-2 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` |
+| WORK-OUTCOME-CLOSURE-1 | VERIFIED | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` |
 
 ---
 
@@ -5887,3 +5888,5 @@ before §16.1 are not yet indexed (Phase B).
 | AE2-DECLINE-GROUNDING-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Grounding integrity | DEFERRED | A Director decision: retire the two production declines (a lifecycle act) or a grounding rule for earlier drafts |
 | AE2-VERCEL-GIT-TRIGGER-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Release reliability | DEFERRED | A read of the Vercel GitHub App deliveries for the `74a13247` push, and checking the deployment record on the next push |
 | AE2-DOMAIN-SPECIALTY-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reach | DEFERRED | A Director data-use decision (`assistance` × `organization`) before any agent or domain identity reaches the model |
+| WOC1-BROWSER-UNVERIFIED-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Verification gap | DEFERRED | The signed-in production read of the record's acceptance plan (Heby, Work register, Operations review card), read only |
+| WOC1-EVIDENCE-BOUND-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Read completeness | DEFERRED | A Director decision on a work-item-scoped evidence read when a tenant approaches 200 current evidence declarations (every completion suggestion is withheld at the bound) |
