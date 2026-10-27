@@ -180,16 +180,25 @@ export type GovernanceAuditHistory =
 /**
  * Read this tenant's Governance history. Tenant-scoped by predicate; there is no unscoped or
  * cross-tenant query in this module, so a caller can only ever ask about its own tenant.
+ *
+ * `entityId` (GOVERNANCE-DECISION-EVIDENCE-READ-1) narrows the read to the events filed under ONE
+ * decision id. It is an additional equality inside the same tenant predicate — it can only ever
+ * shrink the result. A malformed id reads as no events rather than as an unfiltered history.
  */
 export async function readGovernanceHistory(
   tenant: { readonly tenantId: string } | null,
-  deps: { readonly getDb?: () => ControlPlaneDatabase | null; readonly limit?: number } = {},
+  deps: {
+    readonly getDb?: () => ControlPlaneDatabase | null;
+    readonly limit?: number;
+    readonly entityId?: string;
+  } = {},
 ): Promise<GovernanceAuditHistory> {
   if (typeof window !== "undefined") throw new Error("Governance audit reads are server-only.");
   if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
   const db = (deps.getDb ?? resolveGovernanceAuditDbOrNull)();
   if (!db) return { status: "unavailable", reason: "persistence-not-configured" };
   if (!UUID_RE.test(tenant.tenantId)) return { status: "read", records: [] };
+  if (deps.entityId !== undefined && !UUID_RE.test(deps.entityId)) return { status: "read", records: [] };
 
   try {
     const rows = await db
@@ -199,6 +208,7 @@ export async function readGovernanceHistory(
         and(
           eq(auditLog.tenantId, tenant.tenantId),
           eq(auditLog.entityType, GOVERNANCE_DECISION_ENTITY_TYPE),
+          deps.entityId === undefined ? undefined : eq(auditLog.entityId, deps.entityId),
         ),
       )
       .orderBy(desc(auditLog.occurredAt), desc(auditLog.recordedAt))

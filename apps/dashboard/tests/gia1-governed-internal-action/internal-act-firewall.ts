@@ -814,6 +814,12 @@ function theSurfaceOffersTwoDeliberateActions(): void {
        * approves, spends, executes and stores nothing — still no generic execute-anything.
        */
       "openInstagramApprovalImageAction",
+      /*
+       * GOVERNANCE-DECISION-EVIDENCE-READ-1 added a FIFTEENTH, and it is a READ: the recorded review
+       * decisions on one revision, for a Governance authority. It takes which revision and nothing
+       * else, and it approves, spends, executes and stores nothing — still no generic execute-anything.
+       */
+      "readReviewEvidenceAction",
       "readWorkStateConflictAction",
       /*
        * YOUTUBE-WRITE-2 added a TENTH, and it is a READ: what YouTube now says about one accepted
@@ -831,7 +837,7 @@ function theSurfaceOffersTwoDeliberateActions(): void {
       "revokeActionPermitAction",
       "withdrawStandingMutationAction",
     ],
-    "fourteen deliberate server actions, and still no generic execute-anything",
+    "fifteen deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

@@ -5,6 +5,7 @@ import type { SelectedMediaView } from "@/features/content-composition/contracts
 import type { DashboardContent } from "@/features/approvals-dashboard/read-dashboard.server";
 import { PUBLICATION_STAGE_WORDING } from "@/features/action-authorization/content-publication-state";
 import { describeYouTubePublicationMeasurement, PUBLICATION_MEASUREMENT_WORDING } from "@/features/content-publication-measurement/contracts";
+import { DecisionEvidence } from "./decision-evidence";
 
 /* Selected media as the Content Package reader projected it. Preview and media review stay in Operations. */
 function SelectedMedia({ asset }: { asset: SelectedMediaView }) {
@@ -27,7 +28,9 @@ export function StoredMeasurements({ content }: { content: DashboardContent }) {
     <p className="text-xs text-fg-muted">No stored editorial analysis is connected to this item.</p>
   </div>;
 }
-export function ContentDetails({ content, tab }: { content: DashboardContent; tab: string }) {
+/* `evidenceAuthorized` is passed only by the detail panel, from the server's Governance answer. It
+ * gates the CONTROL; the server action re-checks authority on every read and is the real boundary. */
+export function ContentDetails({ content, tab, evidenceAuthorized = false }: { content: DashboardContent; tab: string; evidenceAuthorized?: boolean }) {
   const pkg = content.package.status === "read" ? content.package.package : null;
   const publication = content.publication;
   if (tab === "Analysis") return <StoredMeasurements content={content} />;
@@ -41,6 +44,7 @@ export function ContentDetails({ content, tab }: { content: DashboardContent; ta
     <p>Current revision {content.artifact.currentRevision} · {content.revision?.createdAt ?? "date unavailable"}</p>
     {content.review ? <p>{content.review.decisionCount} recorded review decisions · latest: {content.review.decision ?? "unreviewed"}{content.review.decidedAt ? ` · ${content.review.decidedAt}` : ""}</p> : <p>Review history unavailable.</p>}
     <p className="text-xs text-fg-muted">Only the latest review is projected here; this is not a complete decision timeline.</p>
+    {evidenceAuthorized && <DecisionEvidence artifactId={content.artifact.id} revisionNo={content.artifact.currentRevision} />}
     {publication?.status === "recorded" ? <><ol className="space-y-3">{publication.entries.map((entry) => <li key={entry.requestId} className="rounded-lg border border-border p-3">
       <p>{PUBLICATION_STAGE_WORDING[entry.stage]}</p><p className="text-xs text-fg-muted">{entry.proposedAt} · {entry.destination}</p>
       <p className="mt-1 break-all text-xs">Request {entry.requestId}</p>

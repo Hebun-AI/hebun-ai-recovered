@@ -49,6 +49,8 @@ import {
   openInstagramApprovalImage,
   type InstagramApprovalImageResult,
 } from "@/features/instagram-publishing/approval-preview.server";
+import { readRevisionReviewEvidence } from "@/features/work-artifact-review/read-review-evidence.server";
+import type { RevisionReviewEvidence } from "@/features/work-artifact-review/contracts";
 
 /*
  * The R3A authorization boundary — the only client-crossable way to authorize a consequential act.
@@ -277,6 +279,24 @@ export async function readWorkStateConflictAction(
   input: { readonly requestId: string },
 ): Promise<WorkStateConflictRead> {
   return readWorkStateConflict(await resolveTenantContext(), String(input?.requestId ?? ""));
+}
+
+/*
+ * GOVERNANCE-DECISION-EVIDENCE-READ-1 — READ the recorded review decisions on one revision, with
+ * their justification, bound evidence and audit events. Read-only: it decides nothing.
+ *
+ * The browser supplies WHICH revision (artifact id, revision number) and nothing else. The tenant
+ * and the reader come from the durable session; Governance authority is resolved inside the reader
+ * on every call, before any record is read. A caller without it receives `not-authorized` and no
+ * decision data.
+ */
+export async function readReviewEvidenceAction(
+  input: { readonly artifactId: string; readonly revisionNo: number },
+): Promise<RevisionReviewEvidence> {
+  return readRevisionReviewEvidence(await resolveTenantContext(), {
+    artifactId: input?.artifactId,
+    revisionNo: input?.revisionNo,
+  });
 }
 
 /*

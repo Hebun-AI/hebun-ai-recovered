@@ -258,3 +258,93 @@ export function artifactRowReviewStatus(
   if (state.decision === "changes-requested") return "changes-requested";
   return state.decisionCount === 0 ? "awaiting-review" : "unknown";
 }
+
+/**
+ * GOVERNANCE-DECISION-EVIDENCE-READ-1 — what a Governance authority may read back about the review
+ * decisions recorded on ONE revision: the stored decision row, the evidence it bound, and the audit
+ * events filed under that decision's id.
+ *
+ * Every field is a stored value or an explicitly named comparison of stored values. Nothing absent
+ * is filled in: an evidence field that was never recorded is `absent`, one that was recorded in a
+ * shape the writer never produces is `malformed`, and neither is ever replaced with the revision's
+ * own value.
+ *
+ *   not-authorized  the reader holds no Governance authority in this tenant. Asked FIRST, so the
+ *                   answer reveals nothing about any draft or decision.
+ *   not-found       no such artifact or revision in this tenant (foreign and unknown look alike).
+ *   unavailable     the store could not be read — unknown, never "no decisions".
+ *
+ * READING IS NOT DECIDING. Nothing here authorizes, revises, publishes or executes anything.
+ */
+export type ReviewEvidenceField<T> =
+  | { readonly status: "recorded"; readonly value: T }
+  | { readonly status: "absent" }
+  | { readonly status: "malformed" };
+
+/** Recorded digest vs the revision's stored `content_digest`. Never computed from a guess. */
+export type ReviewDigestComparison = "match" | "mismatch" | "not-recorded";
+
+export interface ReviewAuditEventRecord {
+  readonly auditId: string;
+  readonly action: string;
+  readonly outcome: string;
+  readonly entityId: string;
+  readonly actorType: string;
+  readonly actorId: string;
+  readonly occurredAt: string;
+}
+
+/**
+ * How the audit events filed under one decision id relate to it. Linkage is by tenant, entity type
+ * and entity id — never by timestamp.
+ *
+ *   linked              exactly one event, with the expected action
+ *   missing             no event is filed under this decision id
+ *   multiple            more than one event; all are returned, none is preferred
+ *   unexpected-action   events exist but none carries the expected action
+ */
+export type ReviewAuditLinkage = "linked" | "missing" | "multiple" | "unexpected-action";
+
+export type ReviewDecisionAudit =
+  | {
+      readonly status: "read";
+      readonly linkage: ReviewAuditLinkage;
+      readonly expectedAction: string;
+      readonly records: readonly ReviewAuditEventRecord[];
+    }
+  | { readonly status: "unavailable" };
+
+export interface ReviewDecisionEvidence {
+  readonly decisionId: string;
+  readonly decisionType: string;
+  readonly outcome: string;
+  /** The same mapping the review-state derivation uses; `null` for an outcome it does not name. */
+  readonly decision: ArtifactReviewDecision | null;
+  readonly decidedAt: string;
+  readonly actorType: string;
+  /* The stored actor id. No display label is resolved here: the human-label read has a closed
+   * consumer census (HLR-1), and this reader does not join it. */
+  readonly actorId: string;
+  readonly authoritySourceActorType: string | null;
+  readonly authoritySourceActorId: string | null;
+  /** Verbatim from `decision_records.justification`. */
+  readonly justification: string;
+  readonly recordedArtifactId: ReviewEvidenceField<string>;
+  readonly recordedRevisionNo: ReviewEvidenceField<number>;
+  readonly recordedContentDigest: ReviewEvidenceField<string>;
+  readonly digestComparison: ReviewDigestComparison;
+  readonly audit: ReviewDecisionAudit;
+}
+
+export type RevisionReviewEvidence =
+  | {
+      readonly status: "read";
+      readonly artifactId: string;
+      readonly revisionId: string;
+      readonly revisionNo: number;
+      /** The revision row's stored `content_digest`. */
+      readonly storedContentDigest: string;
+      /** Every decision on this exact revision, newest first. Empty when none was recorded. */
+      readonly decisions: readonly ReviewDecisionEvidence[];
+    }
+  | { readonly status: "not-authorized" | "not-found" | "unavailable" };
