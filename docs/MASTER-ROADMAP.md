@@ -5746,7 +5746,7 @@ re-graded here.
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
 | CONTENT-WORK-OUTCOME-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
 | HEBY-EXECUTE-AUTHORIZED-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` |
-| CONTENT-AGENT-SPECIALIST-1 | VERIFIED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
+| CONTENT-AGENT-SPECIALIST-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
 
 ---
 

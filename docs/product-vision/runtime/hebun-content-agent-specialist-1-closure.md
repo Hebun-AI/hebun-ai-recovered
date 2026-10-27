@@ -1,4 +1,4 @@
-# CONTENT-AGENT-SPECIALIST-1 · closure record · VERIFIED (local) — ACTIVATION APPROVAL REQUIRED
+# CONTENT-AGENT-SPECIALIST-1 · closure record · DEPLOYED — ACTIVATION BLOCKED (tenant identity unverified)
 
 **Scope, stated first.** Authorized by the Director on 2026-10-27 ("NEXT SPECIALIST AGENT", then "SAFE DISK
 RECOVERY & CONTENT AGENT CONTINUATION"). The next specialist agent is a **Content Agent**. It needs **no new
@@ -71,19 +71,49 @@ worktrees were removed with plain `git worktree remove` after checks (registered
 6. Acceptance: one Director-approved preparation from Heby on that work (a real model call), read back as a
    content draft authored by the Content Agent; publication remains its own request, decision and permit.
 
+## 6 · Release and activation readiness (2026-10-27)
+
+Authorized by the Director ("CONTENT AGENT — CONTROLLED RELEASE & PRODUCTION ACTIVATION READINESS"): release
+the test and record, then check the Hebun tenant read-only. Activation itself was not authorized.
+
+**Release.** Remote `main` read as `105755dd` before push; `3f387547` and `d87fb505` its descendants, 4 files,
+no `src/`. Re-verified before push: A1–A11 PASS, continuity PASS, `git diff --check`, `tsc --noEmit`, `eslint`
+on the test exit 0, worktree clean. Fast-forward push `105755dd..d87fb505` (no force). Vercel Git deployment
+`dpl_DXfMjijQfYAdj8yAHAE5ZecTpoVu` (commit `d87fb505`, target production, Ready, created 14:42:53 +03);
+`alias ls` binds `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app` to it. Smoke: `/` 200,
+`/login` 200, apex 308 → www, `/agents` 307 → `/login`; no 5xx in the runtime log sample. Test environment:
+PostgreSQL 18.6 initialised UTF8 (`initdb --no-locale -E UTF8`) on 127.0.0.1:55499, `system_identifier`
+7701311585024195437; a `--no-locale` cluster without `-E UTF8` is SQL_ASCII and the migrations fail on
+`pg_c_utf8`.
+
+**Readiness — classification.**
+
+| Prerequisite | State | Evidence |
+|---|---|---|
+| Tenant identity (Hebun) | BLOCKED | The only session available to this run (the built-in browser) is signed out; `/agents` redirects to `/login`. Signing in or reading production credentials was not authorized |
+| External-AI Data Use `assistance` × conversation, knowledge, work-artifact | UNVERIFIED | Not readable without a tenant session; earlier records are history, not current state |
+| Provider capability (Anthropic) available | UNVERIFIED | Same |
+| Ratified Knowledge cleared for public use (KT-5) | UNVERIFIED | Same |
+| `content` work domain | UNVERIFIED | The operator ceremony dry run needs production database access; not run |
+| Content Agent identity / mandate | UNVERIFIED | `/agents` not readable |
+| Heby selection, content-draft preparation, revision, Governance review, publication state | VERIFIED (code) | Released seams, exercised by A1–A11 on `d87fb505`; production behaviour of a real model is not claimed |
+
+**Decision: ACTIVATION BLOCKED** — tenant identity, Governance, Knowledge, domain, identity and mandate are
+unmeasured in production. Nothing was created, decided, called or published.
+
 ## Closure Contract (v1)
 
 - Phase: CONTENT-AGENT-SPECIALIST-1
 - Owner: apps/dashboard/tests/content-agent-specialist-1 (proof only); Agent Identity, Agent Mandate, Work Domain, Organizational Work, Work Artifacts, Governance review, External-AI Data Use and publication state unchanged
-- Reached state: VERIFIED
-- Implementation commit: 3f38754769599f6fbb1ca94635f33e480e85e97a — local branch feat/next-specialist-1 on 105755dd, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: 3f38754769599f6fbb1ca94635f33e480e85e97a — on main via fast-forward 105755dd..d87fb505
 - Verification level: V1 — no behaviour changed; one new integration test is the direct evidence
 - Verification evidence: 2026-10-27, tests/content-agent-specialist-1/workflow-postgres.ts A1–A11 PASS; tsc and eslint exit 0
 - Test environment: worktree .claude/worktrees/next-specialist-1 (npm ci, published lockfile); macOS Darwin 25.2.0; PostgreSQL 18.6 on 127.0.0.1:55499, system_identifier 7701071965303287020, via HEBUN_TEST_ADMIN_DATABASE_URL; model faked at the transport; no production database, no provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not activated
+- Deployment evidence: 2026-10-27, dpl_DXfMjijQfYAdj8yAHAE5ZecTpoVu, commit d87fb505, production Ready, www/apex/vercel.app aliased, smoke / 200, /login 200, apex 308, no 5xx
+- Production acceptance evidence: N/A — not activated; readiness in §6 is ACTIVATION BLOCKED (tenant identity unverified)
 - Deferred risks: CAS1-ACTIVATION-PENDING-1 (DEFERRED); CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED)
-- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; push, deployment, production agent, mandate or domain creation, model and provider calls NOT approved
+- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; release (push of 3f387547 and d87fb505, this record) and read-only activation readiness, 2026-10-27; production agent, mandate, domain, Governance decision, work, model, provider and publication NOT approved
 
 ### Deferred risk detail
 
