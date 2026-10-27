@@ -5744,6 +5744,7 @@ re-graded here.
 | HEBY-WORKFLOW-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` |
 | AOR-1b | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
+| CONTENT-WORK-OUTCOME-1 | VERIFIED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
 
 ---
 
@@ -5910,3 +5911,6 @@ before §16.1 are not yet indexed (Phase B).
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | Remediated in f7488863, deployed dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf (3c6c1204); production UI acceptance UNVERIFIED on both surfaces, pending a read-only render of a naturally changes-requested record; observed scope CONTENT-AGENT-2 and HEBY-WORKFLOW-1 justification copying |
 | ESC1-HISTORICAL-DISCLOSURE-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | A Director-authorized read-only production measurement of preparations submitted with a copied justification, and a decision on it |
 | ESC1-ROLLBACK-RESTORES-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | Release safety | DEFERRED | After release, any rollback below the release commit restores both copy controls; a Director decision |
+| CWO1-TRH-READINESS-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Verification gap | DEFERRED | A read-only signed-in pass in the TRH tenant: agent mandate and work scope, AI assistance Governance, publication capability and arming, existing work/artifact/publication links |
+| CWO1-REAL-PUBLICATION-PATH-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Verification gap | DEFERRED | A read-only production render of a work whose content draft has a provider-accepted publication attempt for its current revision |
+| CWO1-UNPUBLISHED-CONTENT-WITHHOLDS-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Product policy | DEFERRED | A Director decision only if content drafts not published through Hebun (elsewhere, or TikTok) prove to be a real workflow; the human declaration stays available |
