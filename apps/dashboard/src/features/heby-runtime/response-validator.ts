@@ -42,11 +42,20 @@ const FORBIDDEN_ACTION_CLAIMS = [
   "decision recorded",
 ] as const;
 
-/** AOR-1a — one code per check below; an action claim names its verb, which is a literal from the list above. */
+/**
+ * AOR-1b-ATTRIBUTIVE-1 — reports an internal draft must not make, judged in that mode only. Unlike the
+ * list above they are claims only as REPORTS: a completed auxiliary ("the review was completed") or
+ * self-attribution ("I changed the policy"). A pending or bare use ("must be completed") passes.
+ */
+const DRAFT_ONLY_ACTION_CLAIMS = ["completed", "changed"] as const;
+const DRAFT_ONLY_VERB_TOKENS: ReadonlySet<string> = new Set(DRAFT_ONLY_ACTION_CLAIMS);
+
+/** AOR-1a — one code per check below; an action claim names its verb, which is a literal from the lists above. */
 export type ResponseValidationCode =
   | "missing-title-or-body"
   | "authority-mismatch"
   | `action-claim:${(typeof FORBIDDEN_ACTION_CLAIMS)[number]}`
+  | `action-claim:${(typeof DRAFT_ONLY_ACTION_CLAIMS)[number]}`
   | "unsupported-evidence"
   | "model-flag-missing"
   | "attribution-on-non-model"
@@ -118,10 +127,10 @@ const VERB_PHRASES: readonly (readonly [string, string])[] = [
 ];
 
 /** Positions in `tokens` where a consequential verb starts, with its length in tokens. */
-function verbSites(tokens: readonly string[]): { index: number; length: number }[] {
+function verbSites(tokens: readonly string[], extra: ReadonlySet<string> = new Set()): { index: number; length: number }[] {
   const sites: { index: number; length: number }[] = [];
   tokens.forEach((token, index) => {
-    if (VERB_TOKENS.has(token)) sites.push({ index, length: 1 });
+    if (VERB_TOKENS.has(token) || extra.has(token)) sites.push({ index, length: 1 });
     for (const [first, second] of VERB_PHRASES) {
       if (token === first && tokens[index + 1] === second) sites.push({ index, length: 2 });
     }
@@ -252,11 +261,63 @@ function governedBy(tokens: readonly string[], start: number, markers: ReadonlyS
   return false;
 }
 
+/*
+ * AOR-1b-ATTRIBUTIVE-1 — a participle used as an ADJECTIVE names a kind of thing, not an act that
+ * happened: "an approved owner", "list of authorized integrations", "Evidence: approved access list".
+ * It passes only when a noun-like token follows and a determiner or preposition precedes it, or it opens
+ * a labelled clause (straight after a colon). "Status: approved", "Approved by Governance",
+ * "Governance approved this revision" and "The agent authorized access" stay claims. "That" is not a
+ * determiner here: "the request that authorized access" is a relative clause reporting an act.
+ */
+const ATTRIBUTIVE_DETERMINERS = new Set(["a", "an", "the", "every", "each", "all", "any", "this", "these", "those", "its", "their", "your", "our", "some", "only"]);
+const ATTRIBUTIVE_PREPOSITIONS = new Set(["of", "for", "with", "from", "without", "per", "to", "on", "in", "against", "under"]);
+/** After these the participle is a verb taking an object, an agent or a time — never an adjective. */
+const ATTRIBUTIVE_STOP = new Set([
+  ...ATTRIBUTIVE_DETERMINERS, ...ATTRIBUTIVE_PREPOSITIONS, ...COORDINATORS,
+  "by", "that", "it", "them", "him", "her", "me", "us", "you", "as", "at", "into", "via", "through", "after", "before",
+  "during", "since", "until", "yesterday", "today", "earlier", "already", "successfully", "now", "just", "last", "recently", "previously",
+]);
+
+function isAttributive(tokens: readonly string[], index: number, labelled: boolean): boolean {
+  const next = tokens[index + 1];
+  if (next === undefined || ATTRIBUTIVE_STOP.has(next)) return false;
+  const before = tokens[index - 1];
+  if (before === undefined) return labelled;
+  return ATTRIBUTIVE_DETERMINERS.has(before) || ATTRIBUTIVE_PREPOSITIONS.has(before);
+}
+
+/*
+ * AOR-1b-ATTRIBUTIVE-1 — a modal or condition reaches across `and`/`or` to the participles it
+ * coordinates: "must be documented and approved". The bare participle inherits the frame of the
+ * participle before the coordinator, judged by the same rules, and a completed chain there is still a
+ * claim ("was reviewed and approved").
+ */
+function coordinatedWithPermittedFrame(tokens: readonly string[], index: number): boolean {
+  if (tokens[index - 1] !== "and" && tokens[index - 1] !== "or") return false;
+  const previous = index - 2;
+  if (previous < 0 || !(VERB_TOKENS.has(tokens[previous]!) || /ed$/.test(tokens[previous]!))) return false;
+  let start = previous;
+  const chain: string[] = [];
+  while (start > 0 && (COMPLETED_AUX.has(tokens[start - 1]!) || PENDING_AUX.has(tokens[start - 1]!) || AUX_ADVERBS.has(tokens[start - 1]!))) {
+    start -= 1;
+    chain.push(tokens[start]!);
+  }
+  if (chain.some((token) => COMPLETED_AUX.has(token))) return false;
+  if (chain.length === 0) return coordinatedWithPermittedFrame(tokens, previous);
+  if (chain.some((token) => PROSPECTIVE_AUX.has(token))) return true;
+  return governedBy(tokens, start, MODAL) || governedBy(tokens, start, CONDITION) || governedBy(tokens, start, VERIFY);
+}
+
 function draftClaimsAnAction(text: string, claim: string): boolean {
+  const reportOnly = DRAFT_ONLY_VERB_TOKENS.has(claim);
   for (const sentence of text.split(/[.!?\n]+/)) {
+    let cursor = 0;
     for (const clause of sentence.split(/[,;:()/]+|\s[-–—]\s/)) {
+      const at = sentence.indexOf(clause, cursor);
+      cursor = at + clause.length;
+      const labelled = /:[,;()/\s]*$/.test(sentence.slice(0, at));
       const tokens = tokenize(clause);
-      for (const site of verbSites(tokens)) {
+      for (const site of verbSites(tokens, DRAFT_ONLY_VERB_TOKENS)) {
         if (tokens.slice(site.index, site.index + site.length).join(" ") !== claim) continue;
         const negated = isNegated(tokens, site.index, site.length);
         if (isSelfAttributed(tokens, site.index, site.length)) {
@@ -276,6 +337,7 @@ function draftClaimsAnAction(text: string, claim: string): boolean {
           if (governedBy(tokens, start, OPEN_QUESTION)) continue;
           return true;
         }
+        if (reportOnly) continue;
         if (chain.length > 0) {
           if (chain.some((token) => PROSPECTIVE_AUX.has(token))) continue;
           if (governedBy(tokens, start, MODAL) || governedBy(tokens, start, CONDITION) || governedBy(tokens, start, VERIFY)) continue;
@@ -284,6 +346,8 @@ function draftClaimsAnAction(text: string, claim: string): boolean {
         const before = tokens[site.index - 1];
         if (before !== undefined && CONDITION.has(before)) continue;
         if (before === "who" && INSTRUCTION_OPENERS.has(tokens[0]!)) continue;
+        if (site.length === 1 && isAttributive(tokens, site.index, labelled)) continue;
+        if (coordinatedWithPermittedFrame(tokens, site.index)) continue;
         return true;
       }
     }
@@ -336,7 +400,8 @@ export function validateResponse(
   // Heby may never claim to have acted (Phase 16 registers only read-only tools). Reporting that
   // an authority acted, or that nothing did, is an OBSERVATION and is not a claim — see above.
   const text = [response.title, ...response.body].join(". ");
-  for (const claim of FORBIDDEN_ACTION_CLAIMS) {
+  const claims = options.actionClaims === "internal-draft" ? [...FORBIDDEN_ACTION_CLAIMS, ...DRAFT_ONLY_ACTION_CLAIMS] : FORBIDDEN_ACTION_CLAIMS;
+  for (const claim of claims) {
     if (claimsAnAction(text, claim, options.actionClaims ?? "answer")) {
       fail(`action-claim:${claim}`, `Response claims an action ("${claim}") that did not occur.`);
     }

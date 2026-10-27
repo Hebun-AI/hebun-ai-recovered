@@ -120,6 +120,78 @@ const judged = validateResponse(claim, [], "advisory" as never, { actionClaims: 
 assert.deepEqual([judged.valid, judged.codes], [false, ["action-claim:executed"]], "D5 a claim is withheld with its AOR-1a code");
 assert.equal(judged.response.origin, "deterministic", "D5 and falls back closed");
 
+/* ── D7 · AOR-1b-ATTRIBUTIVE-1: security planning language passes in an internal draft ──
+ * The two production withholds (2026-10-27, Security Planning Agent: `action-claim:authorized`,
+ * `action-claim:approved`) were planning drafts; their text is never stored, so these are the forms
+ * the rule demonstrably refused. */
+const DRAFT_VERBS = [...VERBS, "completed", "changed"];
+const draftClaimsAll = (text: string) => DRAFT_VERBS.filter((verb) => claimsAnAction(text, verb, "internal-draft"));
+const ATTRIBUTIVE_ALLOW = [
+  "Evidence to request: approved access list",
+  "List of authorized integrations",
+  "Every privileged role must be documented and approved",
+  "Each grant must be approved by the Director",
+  "Once approved, record the decision",
+  "Evidence: list of authorized integrations (UNKNOWN).",
+  "Acceptance criterion: all integrations have an approved owner.",
+  "Evidence to request: the approved vendor list and every authorized service account.",
+  "Each credential should be rotated or approved for exception.",
+  "Confirm each grant is reviewed and approved before release.",
+  "The review must be completed by the Security owner.",
+  "Mark the checklist item once completed.",
+  "Acceptance criterion: changed permissions are listed with their reviewer.",
+];
+for (const sentence of ATTRIBUTIVE_ALLOW) assert.deepEqual(draftClaimsAll(sentence), [], `D7 passes in a draft: ${sentence}`);
+
+/* ── D8 · reports stay claims, including the two draft-only verbs ── */
+const ATTRIBUTIVE_BLOCK: readonly (readonly [string, string])[] = [
+  ["The access request was approved", "approved"],
+  ["The integration has been authorized", "authorized"],
+  ["I approved the request", "approved"],
+  ["The agent authorized access", "authorized"],
+  ["The security review was completed", "completed"],
+  ["I changed the security policy", "changed"],
+  ["Approved the access request.", "approved"],
+  ["Approved access to production.", "approved"],
+  ["The request that authorized access is closed.", "authorized"],
+  ["Status: approved", "approved"],
+  ["Evidence: approved by the Director yesterday.", "approved"],
+  ["Evidence: approved the vendor list.", "approved"],
+  ["The role was documented and approved.", "approved"],
+  ["Proceed only if the role was documented and approved.", "approved"],
+  ["Roles were reviewed and approved last week.", "approved"],
+  ["The list of authorized integrations was approved.", "approved"],
+  ["We completed the access review.", "completed"],
+  ["The policy has been changed.", "changed"],
+  ["Heby changed the access list.", "changed"],
+  ["They all approved the change.", "approved"],
+];
+for (const [sentence, verb] of ATTRIBUTIVE_BLOCK) assert.ok(draftClaimsAll(sentence).includes(verb), `D8 is a claim in a draft: ${sentence}`);
+/* every earlier draft claim and scoped claim is still a claim */
+for (const [sentence, verb] of [...BLOCK, ...SCOPED]) assert.ok(draftClaimsAll(sentence).includes(verb), `D8 regression: ${sentence}`);
+
+/* ── D9 · the answer mode never judges the draft-only verbs, and validateResponse adds them only in the draft mode ── */
+for (const verb of ["completed", "changed"]) {
+  const text = "I changed the security policy and completed it.";
+  assert.equal(claimsAnAction(text, verb), claimsAnAction(text, verb, "answer"), `D9 default mode equals answer mode: ${verb}`);
+}
+const reportAnswer = response("The security review was completed.");
+assert.equal(validateResponse(reportAnswer, [], "advisory" as never).valid, true, "D9 answer mode does not judge `completed`");
+const reportDraft = validateResponse(reportAnswer, [], "advisory" as never, { actionClaims: "internal-draft" });
+assert.deepEqual([reportDraft.valid, reportDraft.codes], [false, ["action-claim:completed"]], "D9 the draft mode withholds it with its own code");
+for (const sentence of ATTRIBUTIVE_ALLOW) {
+  assert.equal(validateResponse(response(sentence), [], "advisory" as never, { actionClaims: "internal-draft" }).valid, true, `D9 validateResponse passes in a draft: ${sentence}`);
+}
+
+/* ── D10 · known residuals, pinned FAIL-CLOSED (withheld, never passed): a marker beyond the governing
+ * distance, a comma-separated participle list, and a clause-initial participle outside a label ── */
+const RESIDUAL_WITHHELD: readonly (readonly [string, string])[] = [
+  ["Confirm that every access grant is reviewed and approved before release.", "approved"],
+  ["Each role must be reviewed, documented and approved.", "approved"],
+  ["- Approved vendor list", "approved"],
+];
+for (const [sentence, verb] of RESIDUAL_WITHHELD) assert.ok(draftClaimsAll(sentence).includes(verb), `D10 residual stays withheld: ${sentence}`);
+
 /* ── D6 · who sets the mode ── */
 const PREPARE = code("src/features/work-artifacts/prepare-work-artifact.server.ts");
 assert.ok(PREPARE.includes('...(publicContent ? {} : { actionClaimMode: "internal-draft" as const }),'), "D6 the seam sets it from the artifact's own type; content drafts keep the answer rule");

@@ -9,6 +9,8 @@
  *   B5 clauses are not split                                             (D3)
  *   B6 a completed auxiliary is judged as pending                        (D2)
  *   B7 a coordinator no longer ends a marker's reach                     (D3)
+ *   B9 an attributive participle ignores the word before it              (D8, AOR-1b-ATTRIBUTIVE-1)
+ *   B10 a completed chain is inherited across a coordinator as permitted (D8, AOR-1b-ATTRIBUTIVE-1)
  *   B8 self-attribution is not refused in an internal draft              (D2)
  *
  * Source-mutating, so this file runs its children SEQUENTIALLY, and only in a disposable copy of the tree.
@@ -121,6 +123,20 @@ const MUTATIONS: readonly Mutation[] = [
     suite: CONTRACT,
     edits: [{ find: "        if (isSelfAttributed(tokens, site.index, site.length)) {\n          if (!negated) return true;", replace: "        if (false as boolean) {\n          if (!negated) return true;" }],
     because: "Once approved by me, proceed.",
+  },
+  {
+    label: "B9 an attributive participle ignores the word before it",
+    file: VALIDATOR,
+    suite: CONTRACT,
+    edits: [{ find: "  return ATTRIBUTIVE_DETERMINERS.has(before) || ATTRIBUTIVE_PREPOSITIONS.has(before);", replace: "  return true;" }],
+    because: "The agent authorized access",
+  },
+  {
+    label: "B10 a completed chain is inherited across a coordinator as permitted",
+    file: VALIDATOR,
+    suite: CONTRACT,
+    edits: [{ find: "  if (chain.some((token) => COMPLETED_AUX.has(token))) return false;\n  if (chain.length === 0) return coordinatedWithPermittedFrame", replace: "  if (chain.length === 0) return coordinatedWithPermittedFrame" }],
+    because: "Proceed only if the role was documented and approved.",
   },
 ];
 
