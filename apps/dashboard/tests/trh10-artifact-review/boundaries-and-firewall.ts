@@ -176,7 +176,9 @@ function main(): void {
      * YouTube observation shipped; what stays true, and is what a reviewer needs, is that no
      * capability exists that could publish what they accept.
      */
-    assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /no provider capability that can publish/i);
+    // CONTENT-PUBLICATION-CAPABILITY-COPY-1: publishing exists since PUBLISH-0; it needs a connected, armed organization.
+    assert.ok(!/no provider capability that can publish/i.test(ARTIFACT_REVIEW_PUBLICATION_NOTICE));
+    assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /connected and its publishing is armed/i);
     assert.match(ARTIFACT_REVIEW_REVISION_SCOPE_NOTICE, /only to the displayed revision/i);
     assert.match(ARTIFACT_REVIEW_ACCEPT_EFFECT, /this exact revision/);
     assert.ok(

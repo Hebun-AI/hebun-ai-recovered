@@ -113,7 +113,7 @@ export const ARTIFACT_REVIEW_REJECT_NON_EFFECTS: readonly string[] = Object.free
 export const ARTIFACT_REVIEW_PUBLICATION_NOTICE =
   "Content acceptance is not publication authorization. Accepting this revision authorizes no " +
   "external act: publishing it would need its own action request, its own Governance decision and " +
-  "its own permit, and Hebun holds no provider capability that can publish.";
+  "its own permit, and it can happen only where this organization's provider is connected and its publishing is armed.";
 
 /**
  * The version-scoping notice, mirroring K4's. A reviewer must not believe they blessed the artifact.

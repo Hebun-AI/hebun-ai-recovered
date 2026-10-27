@@ -250,7 +250,7 @@ export interface RequestMediaGenerationInput {
 export const MEDIA_ASSET_ACCEPTANCE_NOTICE =
   "Asset acceptance is not publication authorization. Accepting this image authorizes no external " +
   "act: publishing it would need its own action request, its own Governance decision and its own " +
-  "permit, and Hebun holds no provider capability that can publish.";
+  "permit, and it can happen only where this organization's provider is connected and its publishing is armed.";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DIGEST_RE = /^[0-9a-f]{64}$/;

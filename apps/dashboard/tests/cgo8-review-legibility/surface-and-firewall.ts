@@ -180,7 +180,14 @@ function wordingIsTruthful(): void {
   assert.ok(!/No social provider is connectable/i.test(destination), "no longer claims no provider is connectable");
   assert.match(destination, /not a provider connection/);
   assert.match(destination, /a connection does not make a draft publishable/);
-  assert.match(destination, /no provider capability that can publish/);
+  /*
+   * CONTENT-PUBLICATION-CAPABILITY-COPY-1 — "no provider capability that can publish" became false when
+   * PUBLISH-0 published to Instagram through the governed act. What stays true is that a destination
+   * publishes nothing and publishing needs a connected, armed organization and its own request.
+   */
+  assert.ok(!/no provider capability that can publish/i.test(destination), "no longer denies that publishing exists");
+  assert.match(destination, /Preparing a draft publishes nothing/);
+  assert.match(destination, /publishing is armed/);
 
   assert.ok(!/no provider is connected/i.test(ARTIFACT_REVIEW_PUBLICATION_NOTICE));
   assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /not publication authorization/i);

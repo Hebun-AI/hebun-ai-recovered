@@ -84,7 +84,7 @@ export const CONTENT_DESTINATION_NON_CLAIMS: readonly string[] = [
   "A declared destination is not a provider connection. Connecting a provider is a separate act, and a connection does not make a draft publishable.",
   "No account is named, linked or authorized by declaring a destination.",
   "Nothing is scheduled. Hebun has no content scheduler, so no content can be queued to publish.",
-  "Nothing is published. Hebun holds no provider capability that can publish, and the only external adapter it registers sends email.",
+  "Nothing is published. Preparing a draft publishes nothing; publishing is possible only for an organization whose provider is connected and whose publishing is armed, and then only through its own action request, Governance decision and permit.",
 ] as const;
 
 /**
