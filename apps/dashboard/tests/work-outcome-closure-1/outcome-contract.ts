@@ -84,7 +84,14 @@ for (const line of contracts.split("\n").filter((l) => /^import /.test(l))) {
 }
 const reader = code("src/features/work-outcome/read-work-outcome-evidence.server.ts");
 const readerImports = reader.split("\n").filter((l) => /^import |^} from /.test(l)).join("\n");
-assert.doesNotMatch(readerImports, /write-|decision-authority|governance-audit|heby-model|heby-runtime|prepare-work-artifact|agent-origination|action-authorization|action-execution/, "the reader imports no writer and no model seam");
+/*
+ * CONTENT-WORK-OUTCOME-1 narrowed this pin, deliberately: the reader now asks Action Authorization's
+ * READ-ONLY publication projection about content drafts. That one specifier is named and removed before
+ * the check; every other Action Authorization module (deciders, permits) and Action Execution stay refused.
+ */
+const PUBLICATION_READ = '"@/features/action-authorization/content-publication-state.server"';
+assert.equal(readerImports.split(PUBLICATION_READ).length - 1, 1, "the reader names the publication projection exactly once");
+assert.doesNotMatch(readerImports.replace(PUBLICATION_READ, ""), /write-|decision-authority|governance-audit|heby-model|heby-runtime|prepare-work-artifact|agent-origination|action-authorization|action-execution/, "the reader imports no writer and no model seam");
 assert.doesNotMatch(reader, /\.insert\(|\.update\(|\.delete\(|\.transaction\(|acceptArtifactRevision|setWorkDeclaredState/, "the reader writes nothing");
 assert.match(reader, /export async function readWorkOutcomeEvidence\(\s*tenant: TenantContext \| null,\s*deps: WorkOutcomeEvidenceDeps = \{\},?\s*\)/, "tenant and deps only: no tenant, work or artifact id input");
 assert.match(reader, /references\.length >= MAX_WORK_EVIDENCE_REFERENCES\) return \{ status: "unavailable" \}/, "a full page is refused");

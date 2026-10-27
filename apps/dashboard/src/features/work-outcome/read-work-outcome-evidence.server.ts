@@ -8,6 +8,8 @@
  *   listWorkArtifacts                 Work Artifacts: what exists, its current revision, retired or not
  *   readWorkEvidenceReferences        Organizational Work (WEV-1): which work declares which draft
  *   readCurrentRevisionReviewStates   Governance ledger (CGO-8): the latest decision on that revision
+ *   readContentPublicationStates      Action Authorization (CONTENT-PUBLICATION-STATE-1): the publication
+ *                                     history of each CONTENT draft's current revision — read only
  *
  * Tenant-scoped by each owner's own predicate; there is no tenant, work item or artifact parameter, so
  * another organization's records are unrepresentable here. No insert, no update, no transaction.
@@ -29,10 +31,13 @@ import {
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { readCurrentRevisionReviewStates } from "@/features/work-artifact-review/review-revision.server";
 import { artifactRowReviewStatus } from "@/features/work-artifact-review/contracts";
-import type { WorkOutcomeEvidence } from "./contracts";
+import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
+import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
+import { workPublicationStatus, type WorkOutcomeEvidence } from "./contracts";
 
 export interface WorkOutcomeEvidenceDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
+  readonly readPublicationStates?: typeof readContentPublicationStates;
 }
 
 export type WorkOutcomeEvidenceRead =
@@ -64,6 +69,16 @@ export async function readWorkOutcomeEvidence(
   });
   const reviews = await readCurrentRevisionReviewStates(tenant, known, { getDb: deps.getDb });
 
+  /*
+   * CONTENT-WORK-OUTCOME-1. Asked only for content drafts, keyed by the reference the publish proposals
+   * record. A revision the projection did not answer (its own bound, a failed read) has no entry and
+   * reads `unavailable`; a throw reads the same. Nothing here decides — the rule does.
+   */
+  const contentRevisions = known.filter((k) => artifacts.get(k.artifactId)?.artifactType === CONTENT_DRAFT_TYPE);
+  const publications = await (deps.readPublicationStates ?? readContentPublicationStates)(tenant, contentRevisions, {
+    getDb: deps.getDb,
+  }).catch(() => new Map());
+
   const byWorkItem: Record<string, WorkOutcomeEvidence[]> = {};
   for (const reference of drafts) {
     const artifact = artifacts.get(reference.referentId);
@@ -76,6 +91,14 @@ export async function readWorkOutcomeEvidence(
             revisionNo: artifact.currentRevision,
             retired: artifact.lifecycleStatus === "retired",
             review: artifactRowReviewStatus(reviews, artifact.id),
+            ...(artifact.artifactType === CONTENT_DRAFT_TYPE
+              ? {
+                  publication: workPublicationStatus(
+                    publications.get(`work-artifact/${artifact.id.toLowerCase()}@${artifact.currentRevision}`),
+                    artifact.intendedDestination,
+                  ),
+                }
+              : {}),
           }
         : /* Declared, but the artifact authority does not know it: unresolved, never guessed. */
           { artifactId: reference.referentId, title: null, artifactType: null, revisionNo: null, retired: false, review: "unknown" },

@@ -82,6 +82,7 @@ import {
   COMPLETION_SUGGESTION_TEXT,
   COMPLETION_WITHHELD_TEXT,
   OUTCOME_REVIEW_WORDING,
+  WORK_PUBLICATION_WORDING,
   SUGGESTED_DECLARED_STATE,
   suggestCompletion,
   type WorkOutcomeEvidence,
@@ -1057,6 +1058,13 @@ function OutcomeLines({ item, evidence }: { item: WorkItemView; evidence: readon
               Draft {draft.title === null ? "Hebun could not name" : `“${draft.title}”`}
               {draft.revisionNo === null ? "" : ` · revision ${draft.revisionNo}`} ·{" "}
               {draft.retired ? "retired" : OUTCOME_REVIEW_WORDING[draft.review]}
+              {/* CONTENT-WORK-OUTCOME-1: a content draft's deliverable is its publication, read from the ledger. */}
+              {!draft.retired && draft.artifactType === "content-draft" ? (
+                <span data-work-publication={draft.publication ?? "unavailable"}>
+                  {" · "}
+                  {WORK_PUBLICATION_WORDING[draft.publication ?? "unavailable"]}
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
