@@ -144,18 +144,23 @@ not armed); the automated grounding check could not judge any Turkish sentence, 
 - Test environment: worktree .claude/worktrees/next-specialist-1 (npm ci, published lockfile); macOS Darwin 25.2.0; PostgreSQL 18.6 on 127.0.0.1:55499, system_identifier 7701071965303287020, via HEBUN_TEST_ADMIN_DATABASE_URL; model faked at the transport; no production database, no provider
 - Deployment evidence: 2026-10-27, dpl_DXfMjijQfYAdj8yAHAE5ZecTpoVu, commit d87fb505, production Ready, www/apex/vercel.app aliased, smoke / 200, /login 200, apex 308, no 5xx
 - Production acceptance evidence: 2026-10-27, Hebun (§7): Content Agent 017002fb mandate rev 1 (Content only) on work 135c3773; content draft 94569529 revisions 1–3 authored by Content Agent from 3 real model calls, grounded on the 3 ratified public-use Knowledge records; rev 1 and 2 changes requested, rev 3 accepted by the Director; no publication request or permit
-- Deferred risks: CAS1-ACTIVATION-PENDING-1 (CLOSED); CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED); CAS1-PUBLISH-COPY-STALE-1 (DEFERRED)
-- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; release (push of 3f387547 and d87fb505, this record) and read-only activation readiness, 2026-10-27; production activation in Hebun, 2026-10-27, step by step: three public Knowledge records (create, ratify, public use), the content work domain (Director ran --confirm), the Content department, the Content Agent identity and mandate rev 1, one content work (propose, authorize 1 h, execute), the first preparation, the link, two change requests with revisions 2 and 3, and acceptance of revision 3; publication, publication arming and pushing b2471ec8 NOT approved
+- Deferred risks: CAS1-ACTIVATION-PENDING-1 (CLOSED); CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED); CAS1-PUBLISH-COPY-STALE-1 (CLOSED)
+- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; release (push of 3f387547 and d87fb505, this record) and read-only activation readiness, 2026-10-27; production activation in Hebun, 2026-10-27, step by step: three public Knowledge records (create, ratify, public use), the content work domain (Director ran --confirm), the Content department, the Content Agent identity and mandate rev 1, one content work (propose, authorize 1 h, execute), the first preparation, the link, two change requests with revisions 2 and 3, and acceptance of revision 3; docs push 1a239d60 + 0b4764b9 and the copy fix e6e02a56 (push and deploy), 2026-10-27; closing CAS1-PUBLISH-COPY-STALE-1, 2026-10-27; publication and publication arming NOT approved
 
 ### Deferred risk detail
 
 - **CAS1-ACTIVATION-PENDING-1 (DEFERRED).** No Content Agent exists in any production tenant and no real
   model has written a content draft as one. Acceptance dependency: the §5 steps, each a Director decision.
 - **CAS1-ACTIVATION-PENDING-1 (CLOSED).** Closed by §7: activated in Hebun and accepted on one draft.
-- **CAS1-PUBLISH-COPY-STALE-1 (DEFERRED).** The review and asset notices still say "Hebun holds no provider
-  capability that can publish", false since PUBLISH-0. Copy fix `b2471ec8` (branch
-  fix/content-publication-capability-copy-1, targeted suites PASS) is not pushed. Acceptance dependency: a
-  Director push/deploy decision.
+- **CAS1-PUBLISH-COPY-STALE-1 (CLOSED — production verified).** The review and asset notices said "Hebun holds
+  no provider capability that can publish", false since PUBLISH-0. Fixed in `e6e02a56` (cherry-pick of
+  `b2471ec8` onto `0b4764b9`; three copy constants and two pinning tests, no behaviour change): publishing is
+  stated as possible only where the organization's provider is connected and its publishing is armed, through
+  its own request, Governance decision and permit. Verified 2026-10-27: cgo1, cgo8, trh10,
+  content-publication-state-1, media5 and continuity PASS, `tsc --noEmit` and eslint exit 0; fast-forward
+  `0b4764b9..e6e02a56`; `dpl_8JH97G5K9MzuoyZsZ5NL5vBw1vnN` production Ready, www/apex/vercel.app aliased,
+  smoke `/` 200, `/login` 200, apex 308, no 5xx; signed-in Hebun `/operations` shows the new notice and
+  destination sentence and the old text 0 times. Hebun's publishing remains unarmed.
 - **CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED).** A tenant cannot record a work domain from the product (AP-4A
   Release A); every specialist needs one. Acceptance dependency: a Director decision to keep the operator
   ceremony or to give the released writer a product surface.
