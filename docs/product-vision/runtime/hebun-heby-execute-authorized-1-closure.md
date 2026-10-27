@@ -1,10 +1,12 @@
-# HEBY-EXECUTE-AUTHORIZED-1 · closure record · VERIFIED (local) — RELEASE APPROVAL REQUIRED
+# HEBY-EXECUTE-AUTHORIZED-1 · closure record · DEPLOYED — INTERACTIVE EXECUTION ACCEPTANCE PENDING
 
 **Scope, stated first.** Authorized by the Director on 2026-10-27 ("HEBY EXECUTION COORDINATION"). A person
 can now perform an internal act a human already authorized — `record-work` or `set-work-declared-state` —
 from Heby, where they asked for it, instead of finishing it in Approvals. Heby gains no execution authority:
 the click is the signed-in person's, through the same named server actions Approvals calls, and the server
-still asks for this tenant's Governance authority. Verified locally only: **nothing was pushed or deployed**.
+still asks for this tenant's Governance authority. Released on 2026-10-27 ("GO — CONTROLLED PRODUCTION
+RELEASE") and **deployed**; production shows the control withheld wherever it must be, **but no request with
+an active internal permit existed, so the offered control was not observed and nothing was performed** (§5).
 No new agent, schema, migration, authority, provider, Governance decision or model call.
 
 ## 1 · Current execution reality (at `0fbe05c7`)
@@ -67,27 +69,53 @@ executors it calls are driven directly in X1–X8.
 
 ## 5 · Production
 
-Not released, not deployed. `main` = `0fbe05c7` at the start of this phase.
+**Release.** `git ls-remote` read `0fbe05c7` immediately before the push; `a46e9924` descends from it.
+Fast-forward push `0fbe05c7..a46e9924` at 10:34:26Z on 2026-10-27, no force; remote read back
+`a46e9924a998db42d3c0696ced243b932985920c`. Pre-push on the release commit: `tsc --noEmit` exit 0; HEA-1
+contract (6/6 bites) and X1–X8 PostgreSQL PASS; heby-request-lifecycle wording-and-firewall and
+lifecycle-postgres (9 cases) PASS; the three wording tests and enterprise-operations-1 next steps PASS;
+continuity PASS; `git diff --check` clean. The permit consumer, both executors and the Approvals actions are
+byte-identical to `0fbe05c7`. Build and affected-file regression (§4) not rerun: code unchanged since.
+
+**Deployment** (Vercel record, project `hebun-ai-recovered`): `dpl_EZS2h2CBivnwkhCcuT1VRKrFg4b7`, target
+production, READY 2026-10-27T10:35:27.066Z, `githubCommitSha` `a46e9924…`, ref `main`. Aliases
+`www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app`,
+`hebun-ai-recovered-hebuntechs-projects.vercel.app`. Smoke: `/` 200, `/login` 200, apex 308, signed-out `/heby`
+307. Runtime logs for the deployment: 16 × 200, 1 × 307, 0 × 5xx. READY is not functional acceptance.
+
+**Production UI, hebun tenant** (2026-10-27, Director-signed-in built-in browser, read-only: page loads,
+opening "Your requests" — one lifecycle read — and DOM/bundle reads; no execution control clicked, no
+decision, no permit spent, no work change, no model or provider call):
+
+| Check | Result |
+|---|---|
+| "Your requests" | Opens and lists 10 requests: 2 awaiting a decision ("Open Approvals"), 4 executed (work outcome sentences and "Open the work register"), 4 rejected |
+| Lifecycle wording | Unchanged sentences and next-step links on every item |
+| Control withheld where it must be | 0 of 10 carry `data-heby-execute-authorized`; none has an active permit (pending, spent or rejected) |
+| `send` | No `send` request is in this person's list; the tenant's known sends are awaiting a decision (no permit). Withholding for `send` is proven by C1, not observed live |
+| Served code | The deployed chunk contains "Perform it here" and "The authorization was not used." |
+| Offered control (approved, active internal permit) | **UNVERIFIED** — no such request exists in production; none was created |
 
 ## Closure Contract (v1)
 
 - Phase: HEBY-EXECUTE-AUTHORIZED-1
 - Owner: apps/dashboard/src/components/layout/heby (the control and its two mounts) and the lifecycle read in apps/dashboard/src/features/action-authorization/read-action-authorizations.server.ts; permit consumption, the two executors, the Approvals server actions, Organizational Work and Governance unchanged
-- Reached state: VERIFIED
-- Implementation commit: 575beac4e5f4e7682dc7526acec4f9b6d2880125 — local branch feat/heby-exec-coord-1 on 0fbe05c7, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: 575beac4e5f4e7682dc7526acec4f9b6d2880125 — released to main by fast-forward 0fbe05c7..a46e9924
 - Verification level: V2 — a Heby surface reaches two released execution seams; no authority, tenant, lifecycle, schema or provider boundary moved
 - Verification evidence: 2026-10-27, affected files baseline 68/68 and candidate 70/70 in disposable detached worktrees; tests/heby-execute-authorized-1/contract.ts PASS with 6/6 bites; tests/heby-execute-authorized-1/execute-postgres.ts X1–X8 PASS; tsc and eslint exit 0; npm run build exit 0
 - Test environment: worktree .claude/worktrees/heby-exec-coord-1 (npm ci, published lockfile); disposable hea1-baseline and hea1-candidate; macOS Darwin 25.2.0; PostgreSQL 18.6 on 127.0.0.1:55499, system_identifier 7701071965303287020, via HEBUN_TEST_ADMIN_DATABASE_URL; no production database, no provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not released
+- Deployment evidence: dpl_EZS2h2CBivnwkhCcuT1VRKrFg4b7 — production, READY 2026-10-27T10:35:27.066Z, githubCommitSha a46e9924a998db42d3c0696ced243b932985920c, aliases www.hebuntech.com and hebuntech.com; / and /login 200; 0 × 5xx
+- Production acceptance evidence: N/A — interactive execution acceptance pending: withholding observed on 10 production requests, the offered control and a performed act UNVERIFIED (§5)
 - Deferred risks: HEA1-BROWSER-UNVERIFIED-1 (DEFERRED); HEA1-SEND-STAYS-IN-APPROVALS-1 (DEFERRED)
-- Director approvals: scoped implementation in an isolated worktree, targeted and regression tests, local commit, 2026-10-27; push, deployment, production Governance decisions, provider execution, model calls and work completion NOT approved
+- Director approvals: scoped implementation in an isolated worktree, targeted and regression tests, local commit, 2026-10-27; controlled production release with read-only UI acceptance, 2026-10-27; clicking the control, Governance decisions, permit spends, provider execution, model calls and work completion NOT approved
 
 ### Deferred risk detail
 
-- **HEA1-BROWSER-UNVERIFIED-1 (DEFERRED).** The control was not rendered or clicked in a browser.
-  Acceptance dependency: after a release, a signed-in production read of a request with an active internal
-  permit (performing it is a separate Director decision).
+- **HEA1-BROWSER-UNVERIFIED-1 (DEFERRED).** In production the control is observed withheld on 10 requests
+  and present in the served code; it was never rendered offered or clicked, because no request with an
+  active internal permit exists. Acceptance dependency: a signed-in production read of such a request, and —
+  as a separate Director decision — one performed act read back through its lifecycle.
 - **HEA1-SEND-STAYS-IN-APPROVALS-1 (DEFERRED).** An authorized `send` is still performed only in Approvals
   (external, irreversible, deployment-armed). Acceptance dependency: a Director decision if sends should be
   performed from Heby.
