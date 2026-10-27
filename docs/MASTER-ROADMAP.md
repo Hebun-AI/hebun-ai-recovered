@@ -5745,6 +5745,7 @@ re-graded here.
 | AOR-1b | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
 | CONTENT-WORK-OUTCOME-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
+| HEBY-EXECUTE-AUTHORIZED-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` |
 
 ---
 
@@ -5914,3 +5915,5 @@ before §16.1 are not yet indexed (Phase B).
 | CWO1-TRH-READINESS-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Verification gap | DEFERRED | A read-only signed-in pass in the TRH tenant: agent mandate and work scope, AI assistance Governance, publication capability and arming, existing work/artifact/publication links |
 | CWO1-REAL-PUBLICATION-PATH-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Verification gap | DEFERRED | A read-only production render of a work whose content draft has a provider-accepted publication attempt for its current revision |
 | CWO1-UNPUBLISHED-CONTENT-WITHHOLDS-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Product policy | DEFERRED | A Director decision only if content drafts not published through Hebun (elsewhere, or TikTok) prove to be a real workflow; the human declaration stays available |
+| HEA1-BROWSER-UNVERIFIED-1 | HEBY-EXECUTE-AUTHORIZED-1 | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` | Verification gap | DEFERRED | After release, a signed-in production read of a request with an active internal permit; performing it is a separate Director decision |
+| HEA1-SEND-STAYS-IN-APPROVALS-1 | HEBY-EXECUTE-AUTHORIZED-1 | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` | Product scope | DEFERRED | A Director decision if an authorized external send should be performed from Heby (irreversible, deployment-armed) |
