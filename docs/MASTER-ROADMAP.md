@@ -5755,6 +5755,7 @@ re-graded here.
 | HEBY-EXECUTE-AUTHORIZED-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` |
 | CONTENT-AGENT-SPECIALIST-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
 | AOR-1b-ATTRIBUTIVE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` |
+| OUTPUT-INTEGRITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` |
 
 ---
 
@@ -5919,6 +5920,10 @@ before §16.1 are not yet indexed (Phase B).
 | AOR1BA-PROD-UNVERIFIED-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Verification gap | DEFERRED | A Director-approved Security Planning Agent retry, or an organic internal draft that passes, read back |
 | AOR1BA-ATTRIBUTIVE-PRESUPPOSITION-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Output validation | DEFERRED | An attributive participle presupposes a past act ("the approved budget" passes); a Director decision if drafts are observed relying on it |
 | AOR1BA-LABEL-TELEGRAPHIC-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Output validation | DEFERRED | After a colon a participle and noun pass ("Note: approved deployment of 4.2"); a Director decision if diagnosis or review shows it |
+| OI1-PROD-UNVERIFIED-1 | OUTPUT-INTEGRITY-1 | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` | Verification gap | DEFERRED | A Director-approved preparation read back: refused as `output-truncated` with its wording, or filed complete on `end_turn` |
+| OI1-EXISTING-TRUNCATED-ARTIFACT-1 | OUTPUT-INTEGRITY-1 | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` | Artifact integrity | DEFERRED | Artifact 1196db5f revision 1 stays truncated and unmarked, not accepted or linked; a Director decision to request changes, retire or leave it |
+| OI1-UNREPORTED-STOP-1 | OUTPUT-INTEGRITY-1 | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` | Output validation | DEFERRED | A transport reporting no stop reason is not treated as truncated; the production Anthropic transport reports it |
+| OI1-CEILING-FIT-1 | OUTPUT-INTEGRITY-1 | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` | Product reach | DEFERRED | At 1024 output tokens large plans are refused instead of filed cut; a Director decision on request size or the ceiling |
 | AOR1B-ATTRIBUTED-HISTORY-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Product reach | DEFERRED | By D-AOR1b-1 a draft restating a real recorded approval is withheld; a Director decision if observed |
 | AOR1B-NON-ENGLISH-CLAIMS-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | The action-claim verbs are English only; Turkish draft claims are judged in neither mode; a Director decision before Turkish drafts are relied on |
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | Remediated in f7488863, deployed dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf (3c6c1204); production UI acceptance UNVERIFIED on both surfaces, pending a read-only render of a naturally changes-requested record; observed scope CONTENT-AGENT-2 and HEBY-WORKFLOW-1 justification copying |
