@@ -5744,7 +5744,7 @@ re-graded here.
 | HEBY-WORKFLOW-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` |
 | AOR-1b | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
-| CONTENT-WORK-OUTCOME-1 | VERIFIED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
+| CONTENT-WORK-OUTCOME-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
 
 ---
 
