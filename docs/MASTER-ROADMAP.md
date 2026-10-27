@@ -5573,6 +5573,13 @@ is a cross-cutting constraint that owns no truth.
 Secure Content Ingestion (§13.1.1, **PLANNED · NOT IMPLEMENTED**) is a cross-cutting dependency of
 any future agent platform: an agent gains no trust in content because it can retrieve it.
 
+> **SECURITY-AGENT-D1 (Director, 2026-10-27).** The prohibition above stands unchanged. A specialist
+> agent for security **planning** is not a Security Agent authority: it is an identity, a mandate and a
+> work domain on released authorities, like the Content Agent, and it prepares internal drafts only —
+> from the person's instruction and ratified Knowledge, under human review and Governance. It holds no
+> security truth, scans nothing, touches no system, reads no audit log and no unconnected security
+> data. Nothing is created by this note. Record: `hebun-security-agent-d1-decision.md`.
+
 **Autonomous evolution.** **Do not create another Observe → Learn runtime.** The chain already has
 owners: provider observation, derived intelligence, origination, proposal, human Governance
 decision, permit-bounded execution, outcome observation and the SIA pre-application loop. **Future
