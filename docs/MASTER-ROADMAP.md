@@ -5746,7 +5746,7 @@ re-graded here.
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
 | CONTENT-WORK-OUTCOME-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
 | HEBY-EXECUTE-AUTHORIZED-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` |
-| CONTENT-AGENT-SPECIALIST-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
+| CONTENT-AGENT-SPECIALIST-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
 
 ---
 
@@ -5918,5 +5918,6 @@ before §16.1 are not yet indexed (Phase B).
 | CWO1-UNPUBLISHED-CONTENT-WITHHOLDS-1 | CONTENT-WORK-OUTCOME-1 | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` | Product policy | DEFERRED | A Director decision only if content drafts not published through Hebun (elsewhere, or TikTok) prove to be a real workflow; the human declaration stays available |
 | HEA1-BROWSER-UNVERIFIED-1 | HEBY-EXECUTE-AUTHORIZED-1 | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` | Verification gap | DEFERRED | Withholding observed in production on 10 requests; a signed-in read of a request with an active internal permit, and one performed act as a separate Director decision |
 | HEA1-SEND-STAYS-IN-APPROVALS-1 | HEBY-EXECUTE-AUTHORIZED-1 | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` | Product scope | DEFERRED | A Director decision if an authorized external send should be performed from Heby (irreversible, deployment-armed) |
-| CAS1-ACTIVATION-PENDING-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Activation | DEFERRED | The Director-authorized activation steps in the record (domain ceremony, identity, mandate, content work, one approved preparation) in a target tenant |
+| CAS1-ACTIVATION-PENDING-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Activation | CLOSED | The Director-authorized activation steps in the record (domain ceremony, identity, mandate, content work, one approved preparation) in a target tenant |
 | CAS1-DOMAIN-OPERATOR-ONLY-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Product reach | DEFERRED | A Director decision to keep work domains operator-only or to give the released Work Domain writer a product surface |
+| CAS1-PUBLISH-COPY-STALE-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Truthful copy | DEFERRED | A Director push/deploy decision for the copy fix `b2471ec8` |

@@ -1,4 +1,4 @@
-# CONTENT-AGENT-SPECIALIST-1 · closure record · DEPLOYED — ACTIVATION BLOCKED (tenant identity unverified)
+# CONTENT-AGENT-SPECIALIST-1 · closure record · PRODUCTION-ACCEPTED (scoped) — first Content Agent draft accepted in Hebun
 
 **Scope, stated first.** Authorized by the Director on 2026-10-27 ("NEXT SPECIALIST AGENT", then "SAFE DISK
 RECOVERY & CONTENT AGENT CONTINUATION"). The next specialist agent is a **Content Agent**. It needs **no new
@@ -101,24 +101,61 @@ PostgreSQL 18.6 initialised UTF8 (`initdb --no-locale -E UTF8`) on 127.0.0.1:554
 **Decision: ACTIVATION BLOCKED** — tenant identity, Governance, Knowledge, domain, identity and mandate are
 unmeasured in production. Nothing was created, decided, called or published.
 
+## 7 · Production activation and acceptance — Hebun (2026-10-27)
+
+Every step below was a separate, explicit Director authorization, performed through the released product
+surfaces in a session the Director signed in to (no credential entered by this session), except the domain
+ceremony's `--confirm`, which the Director ran in their own terminal. Each result was read back from
+production after the write. No code was changed and nothing was deployed for this section.
+
+| Step | Authoritative surface | Result read back |
+|---|---|---|
+| Public Knowledge | `/knowledge` create → ratify v1 → allow public factual use v1 | `identity/hebun-public-product-overview`, `policies/hebun-public-human-governance`, `systems/hebun-public-agent-architecture`, each v1 ratified (decisions `8db923eb`, `59bdb33b`, `9a85ba93`) and "Allowed as public factual grounding"; statements byte-identical to the reviewed draft (SHA-256 checked); the internal test record left without a public-use decision |
+| Work domain | `platform:work-domain` (list + dry run here; `--confirm` by the Director) | `content` · in service · "Content", `5dab5ad5-7511-4ede-bbbb-ef54311ca36a`; `engineering` unchanged; 2 domains |
+| Department | `/director/organization` (Organization Structure Authority) | Content · `content` · in service, `0bcc14e8-61c2-4873-ba0e-20f7ca6633cc` — needed because a work proposal requires a department |
+| Identity | `/agents` registration | Content Agent `017002fb-fcc9-43ea-894f-db98e2f79121`, in service, owned by the Director |
+| Mandate | `/agents` mandate | revision 1, ceiling `set-work-declared-state`, responsible for Content only; decision `69768a6e-8400-41e9-a792-f6bdaf425bcc`; Engineering Agent (rev 1) and Heby (rev 5) unchanged |
+| Content work | `/director/work` propose → `/approvals` authorize (1 h) → execute | request `c7aa9d55-62b5-4408-a29a-a750e5fda90b`, permit `d3a31839-242f-44e2-8a16-ffd0fb5ba9f1` consumed 13:14:58Z; work `135c3773-5d7a-49f6-a143-c525e7d6f9f2`, declared planned, department and scope Content |
+| Draft rev 1 | Heby → Prepare a draft (Content Agent offered as this work's specialist, Engineering Agent and Heby not eligible) | content-draft for Instagram, artifact `94569529-4a73-4f1b-8dd9-a767e4b5ee81`, authored by Content Agent; all 3 public-eligible Knowledge records supplied whole (bounded universe) |
+| Review rev 1 | `/operations` request changes | three statements exceeded the Knowledge (an aim stated as a fact, "every act is recorded permanently", "transparent") |
+| Link | `/director/work` → Concerns → Document | the draft declared as the work's evidence by the Director |
+| Rev 2 | Heby → change request → Content Agent | authored by Content Agent; changes requested again (two narrower claims) |
+| Rev 3 | Heby → change request → Content Agent | authored by Content Agent, 479 characters, 2 hashtags, every sentence traceable to the three records; **accepted for next internal step** |
+| Outcome | `/director/work`, `/approvals` | work register: "revision 3 · current revision accepted for the next internal step · no publication of this revision accepted by the provider yet"; no publication request, no new permit, pending requests unchanged (5) |
+
+Three real model calls (rev 1, 2, 3), each one click. One attempt to revise the **unlinked** draft from
+`/operations` was refused before the model ("A draft prepared here is organization work, so it needs an agent
+responsible for the organization") — the mandate boundary held; nothing was written.
+
+**What this proves.** The Content Agent is configuration on released authorities: Heby recommended it for
+Content work, refused other agents, wrote grounded content only from ratified public Knowledge, revised it
+from Governance change requests, and acceptance stayed separate from publication. **What it does not.** It
+says nothing about caption quality beyond one Director review; publication was not attempted (the tenant is
+not armed); the automated grounding check could not judge any Turkish sentence, so every review was manual.
+
 ## Closure Contract (v1)
 
 - Phase: CONTENT-AGENT-SPECIALIST-1
 - Owner: apps/dashboard/tests/content-agent-specialist-1 (proof only); Agent Identity, Agent Mandate, Work Domain, Organizational Work, Work Artifacts, Governance review, External-AI Data Use and publication state unchanged
-- Reached state: DEPLOYED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: 3f38754769599f6fbb1ca94635f33e480e85e97a — on main via fast-forward 105755dd..d87fb505
 - Verification level: V1 — no behaviour changed; one new integration test is the direct evidence
 - Verification evidence: 2026-10-27, tests/content-agent-specialist-1/workflow-postgres.ts A1–A11 PASS; tsc and eslint exit 0
 - Test environment: worktree .claude/worktrees/next-specialist-1 (npm ci, published lockfile); macOS Darwin 25.2.0; PostgreSQL 18.6 on 127.0.0.1:55499, system_identifier 7701071965303287020, via HEBUN_TEST_ADMIN_DATABASE_URL; model faked at the transport; no production database, no provider
 - Deployment evidence: 2026-10-27, dpl_DXfMjijQfYAdj8yAHAE5ZecTpoVu, commit d87fb505, production Ready, www/apex/vercel.app aliased, smoke / 200, /login 200, apex 308, no 5xx
-- Production acceptance evidence: N/A — not activated; readiness in §6 is ACTIVATION BLOCKED (tenant identity unverified)
-- Deferred risks: CAS1-ACTIVATION-PENDING-1 (DEFERRED); CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED)
-- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; release (push of 3f387547 and d87fb505, this record) and read-only activation readiness, 2026-10-27; production agent, mandate, domain, Governance decision, work, model, provider and publication NOT approved
+- Production acceptance evidence: 2026-10-27, Hebun (§7): Content Agent 017002fb mandate rev 1 (Content only) on work 135c3773; content draft 94569529 revisions 1–3 authored by Content Agent from 3 real model calls, grounded on the 3 ratified public-use Knowledge records; rev 1 and 2 changes requested, rev 3 accepted by the Director; no publication request or permit
+- Deferred risks: CAS1-ACTIVATION-PENDING-1 (CLOSED); CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED); CAS1-PUBLISH-COPY-STALE-1 (DEFERRED)
+- Director approvals: local proof of a Content Agent on released authorities and a scoped cleanup of three completed worktrees, 2026-10-27; release (push of 3f387547 and d87fb505, this record) and read-only activation readiness, 2026-10-27; production activation in Hebun, 2026-10-27, step by step: three public Knowledge records (create, ratify, public use), the content work domain (Director ran --confirm), the Content department, the Content Agent identity and mandate rev 1, one content work (propose, authorize 1 h, execute), the first preparation, the link, two change requests with revisions 2 and 3, and acceptance of revision 3; publication, publication arming and pushing b2471ec8 NOT approved
 
 ### Deferred risk detail
 
 - **CAS1-ACTIVATION-PENDING-1 (DEFERRED).** No Content Agent exists in any production tenant and no real
   model has written a content draft as one. Acceptance dependency: the §5 steps, each a Director decision.
+- **CAS1-ACTIVATION-PENDING-1 (CLOSED).** Closed by §7: activated in Hebun and accepted on one draft.
+- **CAS1-PUBLISH-COPY-STALE-1 (DEFERRED).** The review and asset notices still say "Hebun holds no provider
+  capability that can publish", false since PUBLISH-0. Copy fix `b2471ec8` (branch
+  fix/content-publication-capability-copy-1, targeted suites PASS) is not pushed. Acceptance dependency: a
+  Director push/deploy decision.
 - **CAS1-DOMAIN-OPERATOR-ONLY-1 (DEFERRED).** A tenant cannot record a work domain from the product (AP-4A
   Release A); every specialist needs one. Acceptance dependency: a Director decision to keep the operator
   ceremony or to give the released writer a product surface.
