@@ -5743,7 +5743,7 @@ re-graded here.
 | AOR-1a | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` |
 | HEBY-WORKFLOW-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` |
 | AOR-1b | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` |
-| EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
+| EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | DEPLOYED | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` |
 
 ---
 
@@ -5907,6 +5907,6 @@ before §16.1 are not yet indexed (Phase B).
 | AOR1B-HEURISTIC-RESIDUAL-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | Lexical per-clause heuristic: claims without a listed verb pass, distant markers and status labels are withheld; a Director decision if diagnosis lines show either |
 | AOR1B-ATTRIBUTED-HISTORY-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Product reach | DEFERRED | By D-AOR1b-1 a draft restating a real recorded approval is withheld; a Director decision if observed |
 | AOR1B-NON-ENGLISH-CLAIMS-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | The action-claim verbs are English only; Turkish draft claims are judged in neither mode; a Director decision before Turkish drafts are relied on |
-| EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | Remediated in f7488863, verified locally, live in production until a Director-approved push and a verified production deployment; observed scope CONTENT-AGENT-2 and HEBY-WORKFLOW-1 justification copying |
+| EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | Remediated in f7488863, deployed dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf (3c6c1204); production UI acceptance UNVERIFIED on both surfaces, pending a read-only render of a naturally changes-requested record; observed scope CONTENT-AGENT-2 and HEBY-WORKFLOW-1 justification copying |
 | ESC1-HISTORICAL-DISCLOSURE-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | A Director-authorized read-only production measurement of preparations submitted with a copied justification, and a decision on it |
 | ESC1-ROLLBACK-RESTORES-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | Release safety | DEFERRED | After release, any rollback below the release commit restores both copy controls; a Director decision |

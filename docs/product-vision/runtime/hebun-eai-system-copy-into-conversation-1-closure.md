@@ -1,10 +1,11 @@
-# EAI-SYSTEM-COPY-INTO-CONVERSATION-1 · closure record · VERIFIED (local) — RELEASE APPROVAL REQUIRED
+# EAI-SYSTEM-COPY-INTO-CONVERSATION-1 · closure record · DEPLOYED — PRODUCTION ACCEPTANCE PENDING
 
 **Scope, stated first.** A narrow security remediation, authorized by the Director on 2026-10-26
-("GO — Narrow Security Remediation"). It removes two UI paths that copied authoritative Governance
-data into a user instruction field. It is verified locally only: **nothing was pushed, deployed or
-observed in production**, and the risk it remediates stays open in production until a release. It
-creates no provider disclosure permission and no data-use class. CONTENT-AGENT-2 and HEBY-WORKFLOW-1
+("GO — Narrow Security Remediation") and released on 2026-10-26 ("GO — CONTROLLED PRODUCTION
+RELEASE"). It removes two UI paths that copied authoritative Governance data into a user instruction
+field. It is **deployed to production; production UI acceptance is pending** (§4): neither surface had a
+naturally eligible change-requested record to render, so the risk stays open. It creates no provider
+disclosure permission and no data-use class. CONTENT-AGENT-2 and HEBY-WORKFLOW-1
 are **not reopened**; their records stand as written.
 
 ## 1 · Risk and root cause
@@ -89,16 +90,34 @@ inside the full suite in the disposable worktree.
 
 ## 4 · Production
 
-Not released, not deployed. `main` = `7f297320` at the start of this phase (`git ls-remote`). The
-vulnerable controls are live in production until a release (EAI-SYSTEM-COPY-INTO-CONVERSATION-1 stays
-open).
+**Release.** `git ls-remote` read `7f297320` immediately before the push; `3c6c1204` descends from it.
+Fast-forward push `7f297320..3c6c1204` to `refs/heads/main` on 2026-10-26 (~20:49:11Z), no force; remote
+read back `3c6c1204f58f35500ca1aecde65085062f711681`. Released commits: `f7488863` (implementation),
+`3c6c1204` (this record, VERIFIED state). Pre-push: `tsc --noEmit` exit 0, `git diff --check` clean,
+contract and bite-proofs PASS, continuity PASS; full suite not rerun (code unchanged since §3).
 
-**Checks a release needs** (each a Director gate): re-read `git ls-remote origin refs/heads/main` and
-prove the release commit descends from it; `tsc --noEmit` after the last edit (the Vercel build
-type-checks `tests/`); a push of exactly this branch's commits; the production deployment read from the
-Vercel record at the pushed SHA, READY, with aliases on it; a signed-in render of both surfaces showing the
-reason readable and no copy control (Vercel skew protection may pin an open tab to the old deployment — hard
-reload). Only then may a later record close the risk.
+**Deployment** (Vercel record, project `hebun-ai-recovered`): `dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf`, target
+production, READY 2026-10-26T20:49:52.892Z, `githubCommitSha` `3c6c1204…`, ref `main`, source git. Aliases
+`www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered-hebuntechs-projects.vercel.app` on it. Smoke:
+`/` 200, `/login` 200; signed-out `/operations`, `/heby`, `/dashboard` 307 → `/login`. Runtime logs since
+20:49Z: 23 requests, 0 × 5xx. READY is not functional acceptance.
+
+**Production UI acceptance — UNVERIFIED on both surfaces** (2026-10-27, Director-signed-in built-in
+browser, read-only: page loads and DOM/bundle reads, no click that writes, no model call):
+
+| Surface | Result |
+|---|---|
+| CONTENT-AGENT-2 `/operations` | **UNVERIFIED.** No content draft whose current revision carries a `changes-requested` decision; the change-request block (`data-content-agent-2="change-request"`) is not rendered, so justification, control absence and binding could not be seen live. 5 "Prepare with Hebun" forms render. |
+| HEBY-WORKFLOW-1 `/heby` | **UNVERIFIED.** The revise panel renders only for a `changes-requested` draft; the known example is rev 2 `awaiting-review`. No decision was created and no artifact changed to make one. |
+
+Bundle evidence, **not** UI evidence: the JavaScript served for `/operations` contains the new CA2 hint
+("The reason is not copied into it") and neither old string; the JavaScript served for `/heby` contains
+the new HW1 hint ("the reason is not sent to the agent") and not "Use this reason as my instruction".
+So the live tab runs post-fix code, but no rendered change request was observed.
+
+**To close the risk:** a signed-in, read-only render of a naturally `changes-requested` record on each
+surface showing the reason readable, no copy control, manual instruction field present (and for HW1,
+explicit agent choice).
 
 ## 5 · Read-only scan for the same mechanism
 
@@ -117,22 +136,23 @@ fed by anything but typed input or `""`, and for prefill, initial-prompt and def
 
 - Phase: EAI-SYSTEM-COPY-INTO-CONVERSATION-1
 - Owner: apps/dashboard/src/components/operations-preparation/prepare-with-hebun.tsx (CONTENT-AGENT-2 revision form) and apps/dashboard/src/components/layout/heby/heby-work-draft-affordance.tsx (HEBY-WORKFLOW-1 revise panel); preparation seam, assign path, brief, EAI data-use policy, Governance and lifecycle unchanged
-- Reached state: VERIFIED
-- Implementation commit: f7488863fb64f4108d1caf63af65c0fecb7194c3 — local branch fix/eai-system-copy-into-conversation-1 on 7f297320, not pushed
+- Reached state: DEPLOYED
+- Implementation commit: f7488863fb64f4108d1caf63af65c0fecb7194c3 — released to main by fast-forward 7f297320..3c6c1204
 - Verification level: V3 — external-model egress classification boundary; full suite run in a disposable detached worktree
 - Verification evidence: 2026-10-26, tests/eai-system-copy-1/contract.ts exit 0 PASS; tests/eai-system-copy-1/bite-proofs.ts exit 0, 6/6 caught, checker positive on both released files; 10 static UI regression files PASS; 4 PostgreSQL suites PASS; tsc exit 0; eslint on changed files exit 0; npm run build exit 0; full suite 1104 PASS / 1 BLOCKED / 1105, zero REGRESSION (tests/r3w-flow/ambient-database-safety.ts BLOCKED: canonical hebun_r1 at 127.0.0.1:55432 unreachable, not a pass)
 - Test environment: worktree .claude/worktrees/eai-system-copy-1 at f7488863 (dependencies from npm ci, published lockfile); full suite in detached .claude/worktrees/esc1-suite-f7488863; macOS Darwin 25.2.0; PostgreSQL 18.6 initialised by this session on 127.0.0.1:55499, system_identifier 7701071965303287020, via HEBUN_TEST_ADMIN_DATABASE_URL; no production database, no provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not released
+- Deployment evidence: dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf — production, READY 2026-10-26T20:49:52.892Z, githubCommitSha 3c6c1204f58f35500ca1aecde65085062f711681, aliases www.hebuntech.com and hebuntech.com; / and /login 200; 0 × 5xx since 20:49Z
+- Production acceptance evidence: N/A — production UI acceptance UNVERIFIED on both surfaces (no naturally changes-requested record); served bundles carry the fix, which is not UI evidence (§4)
 - Deferred risks: EAI-SYSTEM-COPY-INTO-CONVERSATION-1 (DEFERRED); ESC1-HISTORICAL-DISCLOSURE-1 (DEFERRED); ESC1-ROLLBACK-RESTORES-1 (DEFERRED)
-- Director approvals: narrow security remediation of the two observed copy paths, isolated worktree, targeted and regression tests, local commit, 2026-10-26; push, deployment and closing the risk NOT approved
+- Director approvals: narrow security remediation of the two observed copy paths, isolated worktree, targeted and regression tests, local commit, 2026-10-26; controlled production release of f7488863 + 3c6c1204 with read-only UI acceptance, 2026-10-26; closing the risk only on verified UI of both paths (not met)
 
 ### Deferred risk detail
 
 - **EAI-SYSTEM-COPY-INTO-CONVERSATION-1 (DEFERRED).** Observed scope: CONTENT-AGENT-2 and HEBY-WORKFLOW-1
-  Governance justification copying. Remediated in `f7488863`, verified locally, **live in production**
-  until released. Acceptance dependency: Director-approved push of `f7488863` and its production
-  deployment, verified per §4; only then may a record mark it CLOSED.
+  Governance justification copying. Remediated in `f7488863`, deployed in
+  `dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf`. Production UI acceptance UNVERIFIED on both surfaces (§4).
+  Acceptance dependency: a read-only signed-in render of a naturally `changes-requested` record on each
+  surface; only then may a record mark it CLOSED (scoped to the two copy paths).
 - **ESC1-HISTORICAL-DISCLOSURE-1 (DEFERRED).** Preparations already submitted with a copied justification
   sent Governance text to the provider as `conversation`; how many is unknown. Acceptance dependency: a
   Director-authorized read-only production measurement (no content read) and a decision on it.
