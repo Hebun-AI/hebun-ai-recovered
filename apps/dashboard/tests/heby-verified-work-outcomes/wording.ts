@@ -17,7 +17,7 @@ const executed: ActionRequestLifecycleView = {
   proposedByActorType: "agent",
   proposedAt: T,
   decision: { status: "approved", at: T, standing: false },
-  permit: { state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
+  permit: { permitId: "permit-1", state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
   execution: null,
   workOutcome: {
     status: "recorded",
@@ -45,9 +45,9 @@ assert.doesNotMatch(unavailable, /Work item recorded|work item [0-9a-f]{8}-/);
 const none = { workOutcome: null };
 const cases: readonly [Partial<ActionRequestLifecycleView>, RegExp][] = [
   [{ ...none, decision: { status: "pending" }, permit: null }, /Waiting for a human decision in Approvals\. Nothing is authorized or executed yet\.$/],
-  [{ ...none, permit: { state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }, /Authorized and not yet executed\. The authorization expires/],
-  [{ ...none, permit: { state: "expired", expiresAt: T, consumedAt: null, revokedAt: null } }, /expired .* without being used\. Nothing was executed\.$/],
-  [{ ...none, permit: { state: "revoked", expiresAt: T, consumedAt: null, revokedAt: T } }, /revoked .*Nothing was executed under it\.$/],
+  [{ ...none, permit: { permitId: "permit-1", state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }, /Authorized and not yet executed\. The authorization expires/],
+  [{ ...none, permit: { permitId: "permit-1", state: "expired", expiresAt: T, consumedAt: null, revokedAt: null } }, /expired .* without being used\. Nothing was executed\.$/],
+  [{ ...none, permit: { permitId: "permit-1", state: "revoked", expiresAt: T, consumedAt: null, revokedAt: T } }, /revoked .*Nothing was executed under it\.$/],
   [{ ...none, decision: { status: "rejected", at: T }, permit: null }, /Rejected .*Nothing will be executed\./],
 ];
 for (const [view, re] of cases) {
@@ -56,7 +56,7 @@ for (const [view, re] of cases) {
   assert.doesNotMatch(text, /Work item recorded|Work item reference/);
 }
 /* A stale outcome on a non-spent row is never rendered: the permit state decides first. */
-assert.doesNotMatch(say({ permit: { state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }), /Work item recorded/);
+assert.doesNotMatch(say({ permit: { permitId: "permit-1", state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }), /Work item recorded/);
 
 /* An external send never speaks about work items. */
 assert.doesNotMatch(

@@ -32,7 +32,7 @@ const base: ActionRequestLifecycleView = {
   proposedByActorType: "agent",
   proposedAt: T,
   decision: { status: "approved", at: T, standing: false },
-  permit: { state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
+  permit: { permitId: "permit-1", state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
   execution: null,
   workOutcome: null,
 };
@@ -71,12 +71,12 @@ assert.match(say({ actionKind: "send-external-communication" }), /no delivery at
 
 /* ── 5. THE EARLIER STATES ARE UNCHANGED FOR A STATE CHANGE ── */
 assert.match(say({ decision: { status: "pending" }, permit: null }), /Waiting for a human decision in Approvals/);
-assert.match(say({ permit: { state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }), /Authorized and not yet executed/);
-assert.match(say({ permit: { state: "expired", expiresAt: T, consumedAt: null, revokedAt: null } }), /expired .*without being used\. Nothing was executed\./);
-assert.match(say({ permit: { state: "revoked", expiresAt: T, consumedAt: null, revokedAt: T } }), /revoked .*Nothing was executed under it\./);
+assert.match(say({ permit: { permitId: "permit-1", state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }), /Authorized and not yet executed/);
+assert.match(say({ permit: { permitId: "permit-1", state: "expired", expiresAt: T, consumedAt: null, revokedAt: null } }), /expired .*without being used\. Nothing was executed\./);
+assert.match(say({ permit: { permitId: "permit-1", state: "revoked", expiresAt: T, consumedAt: null, revokedAt: T } }), /revoked .*Nothing was executed under it\./);
 assert.match(say({ decision: { status: "rejected", at: T } }), /Rejected .*Nothing will be executed\./);
 for (const state of ["active", "expired", "revoked"] as const) {
-  assert.doesNotMatch(say({ permit: { state, expiresAt: T, consumedAt: null, revokedAt: null }, workOutcome: recorded }), /recorded the change/, `${state}: no effect claimed`);
+  assert.doesNotMatch(say({ permit: { permitId: "permit-1", state, expiresAt: T, consumedAt: null, revokedAt: null }, workOutcome: recorded }), /recorded the change/, `${state}: no effect claimed`);
 }
 
 console.log("operational-reliability-1 work-state lifecycle wording: ok");

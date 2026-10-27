@@ -17,6 +17,7 @@ import {
   type MyActionRequestLifecyclesRead,
 } from "@/app/(dashboard)/heby/request-lifecycle-actions";
 import { describeRequestLifecycle, LifecycleNextStepLink } from "./heby-origination-affordance";
+import { HebyExecuteAuthorized } from "./heby-execute-authorized";
 
 const UNREADABLE = "Hebun could not read your requests right now. Nothing was changed.";
 
@@ -92,6 +93,8 @@ export function HebyMyRequests() {
                     <p key={line}>{line}</p>
                   ))}
                   <LifecycleNextStepLink view={item} />
+                  {/* HEBY-EXECUTE-AUTHORIZED-1: an authorized act, performed here; the list is re-read after it. */}
+                  <HebyExecuteAuthorized view={item} onExecuted={load} />
                 </li>
               ))}
             </ol>

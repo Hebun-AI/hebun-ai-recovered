@@ -43,6 +43,7 @@ import type { AgentOriginationAvailability, OriginationUnavailableReason } from 
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
 import { WorkScopeSelect, workScopeFromChoice, choiceFromWorkScope } from "@/components/work-domain/work-scope-select";
 import { PLAN_FOLLOW_UP_LABEL } from "@/features/heby-commands/plan-follow-up";
+import { HebyExecuteAuthorized } from "./heby-execute-authorized";
 import {
   ALREADY_PENDING_DETAIL,
   PROPOSED_KIND_WORDING,
@@ -445,6 +446,7 @@ export function HebyOriginationAffordance({
   }
 
   if (state.kind === "proposed") {
+    const proposed = state;
     return (
       <div className={PANEL} role="status">
         <p className="text-fg">
@@ -473,6 +475,8 @@ export function HebyOriginationAffordance({
                   </p>
                 ))}
                 <LifecycleNextStepLink view={state.lifecycle.lifecycle} />
+                {/* HEBY-EXECUTE-AUTHORIZED-1: the authorized act, performed here; the outcome is the re-read above. */}
+                <HebyExecuteAuthorized view={state.lifecycle.lifecycle} onExecuted={() => readLifecycle(proposed)} />
               </>
             ) : (
               <p>{LIFECYCLE_UNREADABLE[state.lifecycle.status]}</p>

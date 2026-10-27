@@ -427,6 +427,12 @@ export interface ActionRequestLifecycleView {
     | { readonly status: "approved"; readonly at: string; readonly standing: boolean }
     | { readonly status: "rejected"; readonly at: string };
   readonly permit: {
+    /**
+     * HEBY-EXECUTE-AUTHORIZED-1. The permit's own id, so the person can spend it from Heby through the
+     * same named server action Approvals uses. An identifier, not an authority: spending still asks
+     * the server for this tenant's Governance authority and refuses everyone else.
+     */
+    readonly permitId: string;
     readonly state: PermitDisplayState;
     readonly expiresAt: string;
     readonly consumedAt: string | null;
@@ -464,6 +470,7 @@ function selectLifecycleRows(db: ControlPlaneDatabase) {
   return db
     .select({
       request: hebyActionRequests,
+      permitId: actionPermits.id,
       permitStatus: actionPermits.status,
       permitExpiresAt: actionPermits.expiresAt,
       permitConsumedAt: actionPermits.consumedAt,
@@ -561,9 +568,10 @@ function toLifecycleView(
           ? { status: "rejected", at: iso(request.rejectedAt) ?? "" }
           : { status: "pending" },
     permit:
-      row.permitStatus === null || row.permitExpiresAt === null
+      row.permitId === null || row.permitStatus === null || row.permitExpiresAt === null
         ? null
         : {
+            permitId: row.permitId,
             state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
             expiresAt: iso(row.permitExpiresAt) ?? "",
             consumedAt: iso(row.permitConsumedAt),

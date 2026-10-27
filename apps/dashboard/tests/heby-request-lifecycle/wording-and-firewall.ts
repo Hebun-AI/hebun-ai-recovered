@@ -27,7 +27,7 @@ const base: ActionRequestLifecycleView = {
   proposedByActorType: "agent",
   proposedAt: T,
   decision: { status: "approved", at: T, standing: false },
-  permit: { state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
+  permit: { permitId: "permit-1", state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
   execution: null,
   workOutcome: null,
 };
@@ -42,7 +42,7 @@ assert.match(say({ execution: { status: "pending", providerAccepted: false } }),
 assert.match(say({ execution: null }), /no delivery attempt is recorded, so no effect can be claimed/, "a spent external permit with no attempt claims nothing");
 assert.match(say({ actionKind: "record-work" }), /Executed .*the change is recorded\./, "internal acts commit with the spend");
 assert.match(say({ actionKind: "place-human-in-department" }), /Executed /);
-assert.match(say({ decision: { status: "approved", at: T, standing: true }, permit: { state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }),
+assert.match(say({ decision: { status: "approved", at: T, standing: true }, permit: { permitId: "permit-1", state: "active", expiresAt: T, consumedAt: null, revokedAt: null } }),
   /standing authorization a human signed in advance\. Authorized and not yet executed\./);
 assert.match(say({ permit: null }), /No usable authorization is recorded/);
 const pendingWords = say({ decision: { status: "pending" }, permit: null });
@@ -51,7 +51,7 @@ const rejectedWords = say({ decision: { status: "rejected", at: T } });
 assert.ok(!/Authorized|Executed|Delivered/.test(rejectedWords), "rejected stops at the decision");
 assert.match(say({ proposedByActorType: "system" }), /by the system\./, "a system proposer is not called a person");
 assert.match(say({ proposedByActorType: "human" }), /by a person\./);
-assert.ok(!/ \./.test(say({ actionKind: "record-work", permit: { state: "consumed", expiresAt: T, consumedAt: null, revokedAt: null } })), "a missing instant leaves no dangling words");
+assert.ok(!/ \./.test(say({ actionKind: "record-work", permit: { permitId: "permit-1", state: "consumed", expiresAt: T, consumedAt: null, revokedAt: null } })), "a missing instant leaves no dangling words");
 for (const status of ["pending", "refused", "failed", "unknown"] as const) {
   assert.ok(!/Delivered|Executed/.test(say({ execution: { status, providerAccepted: false } })), `${status} never reads as an effect`);
 }
@@ -124,7 +124,13 @@ for (const i of [...mr.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!)) {
   assert.ok(!/\.server$|approvals\/actions|decide-action|action-execution|governance|heby-model|\/actions"?$/.test(i) || i === "@/app/(dashboard)/heby/request-lifecycle-actions",
     `the list imports no writer or acting action: ${i}`);
 }
-assert.ok(!/approve|execute\(|revoke/i.test(mr.replace(/Approvals/g, "")), "the list offers no decision or execution");
+/*
+ * HEBY-EXECUTE-AUTHORIZED-1 changed this boundary, deliberately and by Director decision: the list may
+ * render the ONE named control that performs an already-authorized internal act. It still offers no
+ * decision and no revocation, and the control is pinned in tests/heby-execute-authorized-1.
+ */
+assert.equal((mr.match(/<HebyExecuteAuthorized view=\{item\} onExecuted=\{load\} \/>/g) ?? []).length, 1, "the one execution control, re-reading the list after it");
+assert.ok(!/approve|execute\(|revoke/i.test(mr.replace(/Approvals/g, "").replace(/HebyExecuteAuthorized/g, "")), "the list itself offers no decision, execution or revocation");
 /* HEBY-CONVERSATION-CONTINUITY-1 put the conversation list beside it, in the same top-bar slot. */
 assert.match(code("src/components/layout/heby/heby-workspace-client.tsx"), /headerAction=\{\s*<>[^]*?<HebyMyRequests \/>\s*<\/>\s*\}/, "mounted in the Heby top bar");
 
