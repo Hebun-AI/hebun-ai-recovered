@@ -5754,6 +5754,7 @@ re-graded here.
 | CONTENT-WORK-OUTCOME-1 | DEPLOYED | `docs/product-vision/runtime/hebun-content-work-outcome-1-closure.md` |
 | HEBY-EXECUTE-AUTHORIZED-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-execute-authorized-1-closure.md` |
 | CONTENT-AGENT-SPECIALIST-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
+| AOR-1b-ATTRIBUTIVE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` |
 
 ---
 
@@ -5914,7 +5915,10 @@ before §16.1 are not yet indexed (Phase B).
 | HW1-PSI-BITE-FLAKE-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Verification reliability | DEFERRED | plan-step-idempotency-1/bite-proofs red 1 of 6 on unchanged 59c00b99, root cause UNVERIFIED; a captured failing run on an unchanged tree |
 | HW1-SUCCESS-FEEDBACK-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | UX legibility | DEFERRED | Non-blocking: after a revision is filed the revise block and its success message disappear; a Director-selected UI change deriving feedback from the authoritative artifact state |
 | AOR1B-PROD-UNVERIFIED-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Verification gap | CLOSED | — |
-| AOR1B-HEURISTIC-RESIDUAL-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | Lexical per-clause heuristic: claims without a listed verb pass, distant markers and status labels are withheld; a Director decision if diagnosis lines show either |
+| AOR1B-HEURISTIC-RESIDUAL-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | Lexical per-clause heuristic: claims without a listed verb pass, distant markers and status labels are withheld; a Director decision if diagnosis lines show either. Narrowed by AOR-1b-ATTRIBUTIVE-1 (attributive and coordinated participles pass in drafts; residuals pinned in D10) |
+| AOR1BA-PROD-UNVERIFIED-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Verification gap | DEFERRED | A Director-approved Security Planning Agent retry, or an organic internal draft that passes, read back |
+| AOR1BA-ATTRIBUTIVE-PRESUPPOSITION-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Output validation | DEFERRED | An attributive participle presupposes a past act ("the approved budget" passes); a Director decision if drafts are observed relying on it |
+| AOR1BA-LABEL-TELEGRAPHIC-1 | AOR-1b-ATTRIBUTIVE-1 | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` | Output validation | DEFERRED | After a colon a participle and noun pass ("Note: approved deployment of 4.2"); a Director decision if diagnosis or review shows it |
 | AOR1B-ATTRIBUTED-HISTORY-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Product reach | DEFERRED | By D-AOR1b-1 a draft restating a real recorded approval is withheld; a Director decision if observed |
 | AOR1B-NON-ENGLISH-CLAIMS-1 | AOR-1b | `docs/product-vision/runtime/hebun-aor-1b-internal-draft-action-claims-closure.md` | Output validation | DEFERRED | The action-claim verbs are English only; Turkish draft claims are judged in neither mode; a Director decision before Turkish drafts are relied on |
 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | EAI-SYSTEM-COPY-INTO-CONVERSATION-1 | `docs/product-vision/runtime/hebun-eai-system-copy-into-conversation-1-closure.md` | External AI disclosure | DEFERRED | Remediated in f7488863, deployed dpl_DpEGhWjvjU89TwhqHtf41DZHbDtf (3c6c1204); production UI acceptance UNVERIFIED on both surfaces, pending a read-only render of a naturally changes-requested record; observed scope CONTENT-AGENT-2 and HEBY-WORKFLOW-1 justification copying |
