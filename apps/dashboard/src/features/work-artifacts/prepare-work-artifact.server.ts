@@ -251,6 +251,11 @@ export type PreparationRefusal =
    * responsibility was withdrawn; the message record stays, no revision was filed.
    */
   | "agent-mandate-changed-while-preparing"
+  /**
+   * OUTPUT-INTEGRITY-1 post-invocation. The provider stopped at the output limit (`max_tokens`), so the
+   * text is incomplete. A cut reply is never filed as a review-ready draft; the message record stays.
+   */
+  | "output-truncated"
   /** CGO-9 preflight. The Director's Claude provider control is off, so no model was invoked. */
   | "model-connectivity-disabled"
   /** CGO-9 preflight. The released validator refused the classification or title; see `problems`. */
@@ -526,6 +531,14 @@ export async function prepareWorkArtifact(
   }
   if (!answer.persistence.durable) {
     return { status: "refused", reason: "not-durable", answer };
+  }
+  /*
+   * OUTPUT-INTEGRITY-1 — RECEIVED != COMPLETE. The validator judges what the text says, not whether it
+   * ended; a reply cut at the output limit passes it and would be filed as if finished. Only the
+   * provider's explicit `max_tokens` refuses: an unreported stop reason is not evidence of a cut.
+   */
+  if (answer.modelStopReason === "max_tokens") {
+    return { status: "refused", reason: "output-truncated", answer };
   }
 
   /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */
