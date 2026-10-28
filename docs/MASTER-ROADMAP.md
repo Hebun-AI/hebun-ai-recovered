@@ -5756,6 +5756,7 @@ re-graded here.
 | CONTENT-AGENT-SPECIALIST-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` |
 | AOR-1b-ATTRIBUTIVE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` |
 | OUTPUT-INTEGRITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` |
+| GOVERNANCE-DECISION-EVIDENCE-READ-1 | VERIFIED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
 
 ---
 
@@ -5937,3 +5938,6 @@ before §16.1 are not yet indexed (Phase B).
 | CAS1-ACTIVATION-PENDING-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Activation | CLOSED | The Director-authorized activation steps in the record (domain ceremony, identity, mandate, content work, one approved preparation) in a target tenant |
 | CAS1-DOMAIN-OPERATOR-ONLY-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Product reach | DEFERRED | A Director decision to keep work domains operator-only or to give the released Work Domain writer a product surface |
 | CAS1-PUBLISH-COPY-STALE-1 | CONTENT-AGENT-SPECIALIST-1 | `docs/product-vision/runtime/hebun-content-agent-specialist-1-closure.md` | Truthful copy | CLOSED | Production verified: `e6e02a56`, `dpl_8JH97G5K9MzuoyZsZ5NL5vBw1vnN`, `/operations` shows the corrected copy |
+| GDER1-NOT-RELEASED-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Release | DEFERRED | The approved push was refused by the session permission layer; a Director push of the prepared integration, the Vercel record, and the production acceptance |
+| GDER1-AUTH-ACTION-UNVERIFIED-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Verification gap | DEFERRED | An authenticated invocation of the evidence read action, by the production read of decision 9e4291a3 |
+| GDER1-ACTOR-LABEL-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Product reach | DEFERRED | A Director decision to grow the HLR-1 label census or keep the decider as an id |
