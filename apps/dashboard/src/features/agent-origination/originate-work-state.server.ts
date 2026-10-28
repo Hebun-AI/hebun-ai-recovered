@@ -180,7 +180,7 @@ function refused(reason: WorkStateOriginationRefusal, detail?: string): Originat
 }
 
 /** Codes the released transport raises BEFORE any network I/O (the released origination's list). */
-const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze(["invalid-configuration", "rate-limited", "missing-credential"]);
+const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze(["invalid-configuration", "rate-limited", "budget-exhausted", "missing-credential"]);
 
 /**
  * Ask the agent once. ORDER: the proposer, the target and the human's state are all resolved before

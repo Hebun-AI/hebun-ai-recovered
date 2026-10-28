@@ -135,7 +135,7 @@ export function getProcessLiveSpendBudget(): LiveSpendBudget {
 /** The refusal, in one place, so every caller reports an exhausted budget identically. */
 export function liveBudgetExhaustedError(): ModelConnectivityError {
   return new ModelConnectivityError(
-    "rate-limited",
+    "budget-exhausted",
     "The live model call budget for this process is exhausted.",
   );
 }

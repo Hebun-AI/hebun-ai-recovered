@@ -890,8 +890,10 @@ type SelectionOutcome =
 const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
   /* Output bound exceeded — a configuration error, detected before anything goes out. */
   "invalid-configuration",
-  /* The per-instance cap AND an exhausted process budget both raise this; neither dispatches. */
+  /* The per-instance cap raises this; it does not dispatch. */
   "rate-limited",
+  /* B1-C — an exhausted process budget, refused before any network I/O. */
+  "budget-exhausted",
   /* Raised when the transport is CONSTRUCTED without a key, so no request can have been made. */
   "missing-credential",
 ]);

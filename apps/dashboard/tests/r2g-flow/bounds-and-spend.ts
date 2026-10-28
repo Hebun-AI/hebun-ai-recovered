@@ -178,7 +178,8 @@ async function main(): Promise<void> {
         results.push((error as ModelConnectivityError).code);
       }
     }
-    assert.deepEqual(results, ["sent", "sent", "rate-limited"], "N allowed, N+1 refused");
+    /* B1-C: the budget refuses with its own code, no longer the provider's `rate-limited`. */
+    assert.deepEqual(results, ["sent", "sent", "budget-exhausted"], "N allowed, N+1 refused");
     assert.equal(s.count(), 2, "THE POINT: the refused call never reached fetch");
     assert.equal(shared.spent(), 2, "an exhausted budget does not keep counting");
   }
@@ -252,7 +253,8 @@ async function main(): Promise<void> {
     });
     await assert.rejects(
       () => transport.send(REQ),
-      (e: unknown) => e instanceof ModelConnectivityError && e.code === "rate-limited",
+      /* B1-C: a zero budget refuses with the budget's own code. */
+      (e: unknown) => e instanceof ModelConnectivityError && e.code === "budget-exhausted",
     );
     assert.equal(s.count(), 0, "a zero budget contacts nothing");
   }

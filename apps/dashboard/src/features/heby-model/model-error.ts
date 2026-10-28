@@ -16,6 +16,8 @@ export type ModelConnectivityErrorCode =
   | "authentication-failed"
   | "timeout"
   | "rate-limited"
+  /* B1-C — Hebun's own per-process live-call budget refused before any request went out. Not the provider's 429. */
+  | "budget-exhausted"
   | "provider-unavailable"
   | "malformed-response"
   /* HEBY-PROMPT-INJECTION-BOUNDARY-1 — the data boundary of a request could not be stated, so it was not sent. */

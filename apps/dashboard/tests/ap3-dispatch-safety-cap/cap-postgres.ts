@@ -7,7 +7,7 @@
  *   M2 at the cap: DISPATCH_SAFETY_CAP_REACHED; no fetch; process budget NOT consumed; no evidence;
  *      one `ai-dispatch-cap.refused` row, which is never counted.
  *   M3 tenant isolation: another tenant is admitted while the first is capped.
- *   M4 process budget exhausted: the released `rate-limited` error; no fetch; no evidence; no refusal
+ *   M4 process budget exhausted: `budget-exhausted` (B1-C; was `rate-limited`); no fetch; no evidence; no refusal
  *      row; the cap is not charged (the tenant still has its unit afterwards).
  *   M5 window: evidence from the previous UTC day is not counted.
  *   M6 fail-closed: an invalid cap setting is 0 — refused before the budget.
@@ -147,8 +147,9 @@ async function main(): Promise<void> {
       const refusalsBefore = await refusalCount(b.tenantId, "model");
       assert.deepEqual(
         await ask(b, { cap: "2", budget: createLiveSpendBudget(0) }),
-        { state: "threw:rate-limited", fetched: 0, spent: 0 },
-        "M4: the released process-budget refusal, before the network",
+        /* B1-C: the budget's own code, no longer the provider's `rate-limited`. */
+        { state: "threw:budget-exhausted", fetched: 0, spent: 0 },
+        "M4: the process-budget refusal, before the network",
       );
       assert.equal(await evidenceCount(b.tenantId), evidenceBefore, "M4: no authorized evidence");
       assert.equal(await refusalCount(b.tenantId, "model"), refusalsBefore, "M4: no cap refusal row — it was not the cap");

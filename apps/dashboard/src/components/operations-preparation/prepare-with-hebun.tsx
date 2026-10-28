@@ -116,6 +116,10 @@ export function modelFallbackSentence(fallback: HebyModelFallback): string {
     case "director-disabled":
       return `Claude is switched off by the Director's provider control, so the model was not asked. ${NOTHING_FILED}`;
     case "provider-failed":
+      /* B1-C — Hebun's own short-term call limit refused before sending: nothing reached the provider. */
+      if (fallback.code === "budget-exhausted") {
+        return `Hebun reached its short-term limit on live model calls, so the model was not asked. Try again in a minute. ${NOTHING_FILED}`;
+      }
       return `The request to the model provider did not succeed (${fallback.code}). Whether the provider received it is not known. ${NOTHING_FILED}`;
     case "withheld":
       return `The model answered, but its answer failed Hebun's validation and was withheld. ${NOTHING_FILED}`;
