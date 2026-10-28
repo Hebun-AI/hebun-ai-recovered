@@ -13,6 +13,8 @@
  *   T8  no work row, action request or permit changes in any case
  *   T9  no duplicate: every filing adds exactly one artifact or revision, every refusal adds none
  *   T10 the seam asks the stop reason after the answer and before either writer
+ *   T11 refusal + otherwise valid text → `model-refused`: no artifact, no revision; the message record stays
+ *   T12 the refusal guard sits beside the max_tokens guard: after the answer, before either writer
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -53,6 +55,7 @@ const PLAN = "Review objective: confirm each grant must be approved by the Direc
 const CUT = "Review objective: confirm each grant must be approved by the Director. Acceptance criterion: documented rotation practices, sample";
 const CAPTION = "New kilims are in. Each one is woven by hand. Message us to reserve one.";
 const WITHHELD = "The access request was approved.";
+const DECLINED = "I can't help prepare this plan.";
 const APPROVE = "I have read this proposal and authorize it for the output integrity proof.";
 const MANDATE = "Bounding what this agent may do for the output integrity proof.";
 const PURPOSE = "Assist authorized people with work inside the agent's assigned responsibility.";
@@ -112,8 +115,21 @@ function theGuardPrecedesTheWriters(): void {
   assert.match(HEBUN_PREPARATION_REFUSAL_WORDING["output-truncated"], /No prepared work was written/, "T10: the surface says nothing was filed");
 }
 
+/* T12 — the provider's refusal is asked at the same point as its output limit. */
+function theRefusalGuardPrecedesTheWriters(): void {
+  const seam = readFileSync(path.join(ROOT, "src/features/work-artifacts/prepare-work-artifact.server.ts"), "utf8");
+  const body = seam.slice(seam.indexOf("export async function prepareWorkArtifact"));
+  const guard = body.indexOf('if (answer.modelStopReason === "refusal") {');
+  assert.ok(guard > 0, "T12: the seam refuses an explicit provider refusal");
+  assert.ok(guard > body.indexOf('reason: "no-model-answer"'), "T12: after the answer is known to be the model's");
+  assert.ok(guard < body.indexOf("reviseWorkArtifactFromHebyPreparation("), "T12: before the revision writer");
+  assert.ok(guard < body.indexOf("createWorkArtifactFromHebyPreparation("), "T12: before the creation writer");
+  assert.match(HEBUN_PREPARATION_REFUSAL_WORDING["model-refused"], /No prepared work was written/, "T12: the surface says nothing was filed");
+}
+
 async function main(): Promise<void> {
   theGuardPrecedesTheWriters();
+  theRefusalGuardPrecedesTheWriters();
   const harness = createDisposablePostgresHarness("hebun_oi1_truncation");
   await harness.createDatabase();
   harness.migrateDatabase();
@@ -239,6 +255,16 @@ async function main(): Promise<void> {
     const t3 = await expectDelta("T3", () => assign(securityWork, planner, "operational-plan"), 0, 0);
     assert.deepEqual([t3.result.status, t3.result.reason, t3.result.modelFallback?.kind], ["not-prepared", "no-model-answer", "withheld"], `T3: ${JSON.stringify(t3.result)}`);
 
+    /* ── T11 · refusal: the provider declined; refused, nothing filed, the message record stays ── */
+    nextText = DECLINED;
+    nextStop = "refusal";
+    const t11 = await expectDelta("T11", () => assign(securityWork, planner, "operational-plan"), 0, 0);
+    assert.deepEqual([t11.result.status, t11.result.reason], ["not-prepared", "model-refused"], `T11: ${JSON.stringify(t11.result)}`);
+    assert.ok(t11.after.messages > t11.before.messages, "T11: the model exchange stays in its message record");
+    const t11content = await expectDelta("T11 content", () => assign(contentWork, writer, "content-draft", { intendedDestination: "instagram" }), 0, 0);
+    assert.equal(t11content.result.reason, "model-refused", `T11: ${JSON.stringify(t11content.result)}`);
+    nextStop = "end_turn";
+
     /* ── T4 · provider failure: nothing filed ── */
     failNext = true;
     const t4 = await expectDelta("T4", () => assign(securityWork, planner, "operational-plan"), 0, 0);
@@ -289,7 +315,7 @@ async function main(): Promise<void> {
 
     assert.equal(networkCalls, 0, "no network");
     finished = true;
-    console.log("output-integrity-1/truncation-postgres: T1–T10 ok");
+    console.log("output-integrity-1/truncation-postgres: T1–T12 ok");
   } finally {
     await setup.end().catch(() => {});
     await (handle as { dispose?: () => Promise<void> }).dispose?.().catch?.(() => {});

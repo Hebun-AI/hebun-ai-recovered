@@ -256,6 +256,11 @@ export type PreparationRefusal =
    * text is incomplete. A cut reply is never filed as a review-ready draft; the message record stays.
    */
   | "output-truncated"
+  /**
+   * B2-REFUSAL-GUARD-1 post-invocation. The provider reported `refusal`: it declined the task, so the text
+   * is not the requested draft. Never filed as a review-ready draft; the message record stays.
+   */
+  | "model-refused"
   /** CGO-9 preflight. The Director's Claude provider control is off, so no model was invoked. */
   | "model-connectivity-disabled"
   /** CGO-9 preflight. The released validator refused the classification or title; see `problems`. */
@@ -539,6 +544,10 @@ export async function prepareWorkArtifact(
    */
   if (answer.modelStopReason === "max_tokens") {
     return { status: "refused", reason: "output-truncated", answer };
+  }
+  /* B2-REFUSAL-GUARD-1 — the provider's own refusal is not a draft, whatever text came with it. */
+  if (answer.modelStopReason === "refusal") {
+    return { status: "refused", reason: "model-refused", answer };
   }
 
   /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */

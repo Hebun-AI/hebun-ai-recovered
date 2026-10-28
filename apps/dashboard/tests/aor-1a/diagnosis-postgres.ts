@@ -6,8 +6,8 @@
  *   D1  a withheld reply: not-prepared, nothing filed; the client result names the closed codes and the
  *       classified stop reason; one log line with the same codes, the stop reason and the message id,
  *       and none of the prompt, the reply, a tenant, a user or an agent; the message row keeps its provenance
- *   D2  a valid reply whose provider stop reason is `refusal`: still prepared exactly as before — the
- *       stop reason is recorded, never treated as Hebun's judgement and never blocking the filing
+ *   D2  a valid reply whose provider stop reason is `refusal`: the stop reason is recorded on the line, and
+ *       B2-REFUSAL-GUARD-1 refuses the filing (`model-refused`) — the provider declined, so it is not a draft
  *   D3  the provider reports no stop reason: prepared, the line says `unreported`
  *   D4  an unexpected provider stop reason is carried as `other`, never as the raw string
  *   D5  the provider fails: no model answered, no line; the refusal is unchanged
@@ -202,11 +202,15 @@ async function main(): Promise<void> {
       assert.ok(!lines[0]!.includes(secret), `D1: the line carries no ${secret}`);
     }
 
-    /* ── D2 · a provider refusal stop reason is recorded, not acted on ── */
+    /*
+     * ── D2 · a provider refusal stop reason is recorded, and refuses the filing ──
+     * B2-REFUSAL-GUARD-1 changed this pin: AOR-1a recorded `refusal` without acting on it, which filed a
+     * declined reply as a draft (AE2-DECLINED-DRAFT-FILED-1). The line is unchanged; the filing is not.
+     */
     script.push({ text: GOOD_REPLY, stopReason: "refusal" });
     const d2 = await ask(acme, acmeWork, acmeAgent);
-    assert.equal(d2.status, "prepared", `D2: the filing is unchanged — ${JSON.stringify(d2)}`);
-    assert.equal(await artifacts(), before1 + 1);
+    assert.deepEqual([d2.status, d2.status === "not-prepared" && d2.reason], ["not-prepared", "model-refused"], `D2: refused — ${JSON.stringify(d2)}`);
+    assert.equal(await artifacts(), before1, "D2: nothing filed");
     const l2 = parse(lines[1]!);
     assert.deepEqual([l2.served, l2.stopReason, l2.issueCodes], ["model", "refusal", []], "D2: served, with the provider's stop reason");
     assert.ok(!lines[1]!.includes(REPLY_SENTINEL), "D2: no reply text");

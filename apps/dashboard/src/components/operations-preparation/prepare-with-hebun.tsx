@@ -90,6 +90,8 @@ export const HEBUN_PREPARATION_REFUSAL_WORDING: Record<PreparationRefusal, strin
   "agent-mandate-changed-while-preparing": `While Hebun was writing, the agent's mandate or responsibility was withdrawn, so nothing was filed. ${NOT_FILED}`,
   /* OUTPUT-INTEGRITY-1 post-invocation: the reply was cut at the model's output limit. */
   "output-truncated": `The model stopped at its output limit before finishing, so the text was incomplete and was not filed as a draft. A shorter request may fit. ${NOT_FILED}`,
+  /* B2-REFUSAL-GUARD-1 post-invocation: the provider declined the task. */
+  "model-refused": `The model declined this request, so its reply was not a draft and was not filed. ${NOT_FILED}`,
   /* CONTENT-AGENT-2 post-invocation: the writer refused under its lock. */
   "changed-while-preparing": `While Hebun was writing, the draft was revised or its review changed, so nothing was filed on top of it. ${NOT_FILED}`,
 };

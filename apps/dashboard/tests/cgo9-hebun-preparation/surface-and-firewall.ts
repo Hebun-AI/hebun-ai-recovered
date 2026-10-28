@@ -181,7 +181,8 @@ function everyRefusalSaysWhichOutcomeItIs(): void {
   /* CONTENT-AGENT-2 adds `changed-while-preparing`: the writer refused under its lock AFTER the model answered. */
   /* AGENT-EXECUTION-1 adds `agent-mandate-changed-while-preparing`: the author's mandate was withdrawn while the model wrote. */
   /* OUTPUT-INTEGRITY-1 adds `output-truncated`: the provider stopped at `max_tokens`, so nothing was filed. */
-  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused", "changed-while-preparing", "agent-mandate-changed-while-preparing", "output-truncated"]);
+  /* B2-REFUSAL-GUARD-1 adds `model-refused`: the provider reported `refusal`, so nothing was filed. */
+  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused", "changed-while-preparing", "agent-mandate-changed-while-preparing", "output-truncated", "model-refused"]);
   for (const [reason, sentence] of Object.entries(HEBUN_PREPARATION_REFUSAL_WORDING)) {
     if (POST_INVOCATION.has(reason)) {
       assert.ok(sentence.includes("No prepared work was written"), `${reason} says no prepared work was written`);
