@@ -5758,6 +5758,7 @@ re-graded here.
 | OUTPUT-INTEGRITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` |
 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
 | B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
+| B1-LIVE-BUDGET-1 | VERIFIED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
 
 ---
 
@@ -5946,3 +5947,9 @@ before §16.1 are not yet indexed (Phase B).
 | B2-NOT-RELEASED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Release | CLOSED | Fast-forward 0cb525f9..1cca5302, dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx READY |
 | B2-SUITE-COVERAGE-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | 11 targeted suites accepted for release by the Director; the 48-suite seam census stays unrun and uncounted until a change touches the seam |
 | B2-PROD-UNVERIFIED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | An organic production refusal read back as `model-refused` after deployment; not provoked on purpose |
+| B1-NOT-RELEASED-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Release | DEFERRED | A Director push gate for 0db689f9 + 943833e5; until then production never renews the budget and reports `rate-limited` |
+| B1-PROD-UNVERIFIED-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Verification gap | DEFERRED | An organic `budget-exhausted` or renewal read back after deployment, or a Director-approved read; not provoked |
+| B1-BOUNDARY-BURST-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Cost control | DEFERRED | Fixed window admits up to 2N across one boundary, bounded daily by AP-3; a Director decision to keep it or use a sliding window |
+| B1-EXHAUSTION-NOT-AUDITED-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Observability | DEFERRED | A process-budget refusal writes no audit row; a Director decision on a new audit action |
+| B1-PREPAY-UNIT-LOSS-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Cost control | DEFERRED | A prepaid unit is not returned when the AP-3 evidence write throws; lost for one window; recorded, not fixed |
+| B1-429-PREDISPATCH-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Provenance | DEFERRED | Origination records a provider 429 as `not-dispatched` because the instance cap shares `rate-limited`; a Director decision on separate codes |
