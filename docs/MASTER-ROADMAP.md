@@ -5757,6 +5757,7 @@ re-graded here.
 | AOR-1b-ATTRIBUTIVE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` |
 | OUTPUT-INTEGRITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` |
 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
+| B2-REFUSAL-GUARD-1 | VERIFIED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 
 ---
 
@@ -5942,3 +5943,6 @@ before §16.1 are not yet indexed (Phase B).
 | GDER1-AUTH-ACTION-UNVERIFIED-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Verification gap | CLOSED | Production read of decision 9e4291a3 by the Governance authority, 2026-10-28 |
 | GDER1-ACTOR-LABEL-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Product reach | DEFERRED | A Director decision to grow the HLR-1 label census or keep the decider as an id |
 | GDER1-NONGOV-PROD-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Verification gap | DEFERRED | A production read by an authenticated member without Governance authority, when one exists; proved on the reader against PostgreSQL |
+| B2-NOT-RELEASED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Release | DEFERRED | A Director push gate for 95bd5874; until then production still files a provider refusal as a draft |
+| B2-SUITE-COVERAGE-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | The OUTPUT-INTEGRITY-1 48-suite seam census on baseline and candidate before release, or a Director acceptance of the 11 targeted suites |
+| B2-PROD-UNVERIFIED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | An organic production refusal read back as `model-refused` after deployment; not provoked on purpose |
