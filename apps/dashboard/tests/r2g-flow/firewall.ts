@@ -63,13 +63,15 @@ function main(): void {
       [
         "DEFAULT_LIVE_CALL_BUDGET",
         "LIVE_CALL_BUDGET_ENV_KEY",
+        /* B1-A adds the fixed window the count renews on: a constant, not a mutable handle. */
+        "LIVE_CALL_BUDGET_WINDOW_MS",
         "MAX_CONFIGURABLE_LIVE_CALL_BUDGET",
         "createLiveSpendBudget",
         "getProcessLiveSpendBudget",
         "liveBudgetExhaustedError",
         "resolveLiveCallBudget",
       ],
-      "the exported surface is four functions and three constants — no raw mutable counter",
+      "the exported surface is four functions and four constants — no raw mutable counter",
     );
   }
 

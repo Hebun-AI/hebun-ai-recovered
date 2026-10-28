@@ -30,9 +30,18 @@
  * That is the Director's decision for this phase — the alternative is a durable counter, which
  * is a table, a migration, and a question about who owns it. Recorded rather than implied.
  *
- * A consequence worth stating plainly: once an instance exhausts its budget it refuses every
- * further live call until that instance is recycled. Answers stay honest — the deterministic
- * path still produces one, with a truthful note — but they stop being model answers.
+ * ── B1-A — A FIXED WINDOW, NOT A LIFETIME ────────────────────────────────────
+ *
+ * As released, an instance that spent its budget refused every live call until it was recycled,
+ * which on a long-lived serverless instance meant "no model at all" for every tenant it served. The
+ * count now renews when a fixed, epoch-aligned window ends. That keeps what this module is FOR — a
+ * bound on a burst inside one instance — and drops what it never had to be: a lifetime allowance.
+ * The durable bound across instances and days is AP-3's per-tenant cap, unchanged.
+ *
+ * Stated ceilings: at most N grants per window, so at most 2N in any span shorter than one window
+ * (the end of one window plus the start of the next). Idle windows do not accumulate. The clock is
+ * read only when a spend is attempted — no timer — and a clock that moves backwards renews nothing.
+ * There is still no way for a caller to empty a running budget.
  */
 
 import { ModelConnectivityError } from "@/features/heby-model/model-error";
@@ -55,6 +64,9 @@ export const DEFAULT_LIVE_CALL_BUDGET = 8;
  * honoured. There is deliberately no "unlimited".
  */
 export const MAX_CONFIGURABLE_LIVE_CALL_BUDGET = 100;
+
+/** B1-A — the fixed window the budget renews on. Not configurable: the limit is the one knob. */
+export const LIVE_CALL_BUDGET_WINDOW_MS = 60_000;
 
 export interface LiveSpendBudget {
   /** The budget this instance was constructed with. Immutable. */
@@ -101,15 +113,32 @@ export function resolveLiveCallBudget(
 /**
  * Build a budget. Injectable so the limiter is provable without touching the process singleton
  * — which is also why there is no reset: a test builds its own, and production cannot be handed
- * a backdoor that clears the count.
+ * a backdoor that clears the count. The clock is injectable for the same reason; the only thing
+ * that renews the count is the window it reads, at the moment a spend is attempted.
  */
-export function createLiveSpendBudget(limit: number): LiveSpendBudget {
+export function createLiveSpendBudget(
+  limit: number,
+  clock: { readonly windowMs?: number; readonly now?: () => number } = {},
+): LiveSpendBudget {
   const bounded = Number.isSafeInteger(limit) && limit > 0 ? limit : 0;
+  const windowMs = clock.windowMs ?? LIVE_CALL_BUDGET_WINDOW_MS;
+  /* An unusable window never renews: fail closed to the released lifetime budget. */
+  const renews = Number.isSafeInteger(windowMs) && windowMs > 0;
+  const now = clock.now ?? Date.now;
+  let windowIndex = renews ? Math.floor(now() / windowMs) : 0;
   let granted = 0;
   return Object.freeze({
     limit: bounded,
     spent: () => granted,
     attempt(): boolean {
+      if (renews) {
+        const index = Math.floor(now() / windowMs);
+        /* Only a LATER window renews; an earlier or equal one (a clock moving back) changes nothing. */
+        if (index > windowIndex) {
+          windowIndex = index;
+          granted = 0;
+        }
+      }
       if (granted >= bounded) return false;
       granted += 1;
       return true;
