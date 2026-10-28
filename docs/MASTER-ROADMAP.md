@@ -5757,7 +5757,7 @@ re-graded here.
 | AOR-1b-ATTRIBUTIVE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-aor-1b-attributive-1-closure.md` |
 | OUTPUT-INTEGRITY-1 | DEPLOYED | `docs/product-vision/runtime/hebun-output-integrity-1-closure.md` |
 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
-| B2-REFUSAL-GUARD-1 | VERIFIED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
+| B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 
 ---
 
@@ -5902,7 +5902,7 @@ before §16.1 are not yet indexed (Phase B).
 | AE1-UNLINKED-SECOND-DRAFT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Duplicate prevention | DEFERRED | A Director decision if a deliberate second assignment before linking is observed to leave unwanted drafts |
 | AE1-NONMEMBER-TENANT-COMPAT-1 | AGENT-EXECUTION-1 | `docs/product-vision/runtime/hebun-agent-execution-1-closure.md` | Verification gap | DEFERRED | A read-only access path to tenants the Director is not a member of, if any exist |
 | AE2-RECOMMENDATION-WORDING-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Legibility | DEFERRED | Fixed in 14159026 and deployed; a read-only production render when Heby recommends a specialist organically |
-| AE2-DECLINED-DRAFT-FILED-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reliability | DEFERRED | A Director decision; no phrase filter is added, and the provider `stop_reason: "refusal"` is not read on the answer path |
+| AE2-DECLINED-DRAFT-FILED-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reliability | DEFERRED | A Director decision; no phrase filter is added, and the provider `stop_reason: "refusal"` is not read on the answer path; the preparation path refuses it since B2-REFUSAL-GUARD-1 (DEPLOYED), prose declines are still filed |
 | AE2-DECLINE-GROUNDING-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Grounding integrity | DEFERRED | A Director decision: retire the two production declines (a lifecycle act) or a grounding rule for earlier drafts |
 | AE2-VERCEL-GIT-TRIGGER-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Release reliability | DEFERRED | The e7770d59 push deployed automatically (dpl_F3mn4UuzQRAt3jcVTii8TNFw5Qoo); why 74a13247 created none is UNVERIFIED — a read of the Vercel GitHub App deliveries, or a Director decision to accept the miss |
 | AE2-DOMAIN-SPECIALTY-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reach | DEFERRED | A Director data-use decision (`assistance` × `organization`) before any agent or domain identity reaches the model |
@@ -5943,6 +5943,6 @@ before §16.1 are not yet indexed (Phase B).
 | GDER1-AUTH-ACTION-UNVERIFIED-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Verification gap | CLOSED | Production read of decision 9e4291a3 by the Governance authority, 2026-10-28 |
 | GDER1-ACTOR-LABEL-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Product reach | DEFERRED | A Director decision to grow the HLR-1 label census or keep the decider as an id |
 | GDER1-NONGOV-PROD-1 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` | Verification gap | DEFERRED | A production read by an authenticated member without Governance authority, when one exists; proved on the reader against PostgreSQL |
-| B2-NOT-RELEASED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Release | DEFERRED | A Director push gate for 95bd5874; until then production still files a provider refusal as a draft |
-| B2-SUITE-COVERAGE-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | The OUTPUT-INTEGRITY-1 48-suite seam census on baseline and candidate before release, or a Director acceptance of the 11 targeted suites |
+| B2-NOT-RELEASED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Release | CLOSED | Fast-forward 0cb525f9..1cca5302, dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx READY |
+| B2-SUITE-COVERAGE-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | 11 targeted suites accepted for release by the Director; the 48-suite seam census stays unrun and uncounted until a change touches the seam |
 | B2-PROD-UNVERIFIED-1 | B2-REFUSAL-GUARD-1 | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` | Verification gap | DEFERRED | An organic production refusal read back as `model-refused` after deployment; not provoked on purpose |

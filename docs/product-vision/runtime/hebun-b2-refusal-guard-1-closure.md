@@ -1,9 +1,10 @@
-# B2-REFUSAL-GUARD-1 · closure record · VERIFIED — a provider refusal is never filed as a prepared draft
+# B2-REFUSAL-GUARD-1 · closure record · DEPLOYED — a provider refusal is never filed as a prepared draft
 
 **Scope, stated first.** Authorized by the Director on 2026-10-28 ("AGENT AUDIT RECONCILIATION & FIRST FIX"), after
 the read-only Agent System Readiness Audit at `0cb525f9` listed it as B2. One refusal added to the preparation seam,
 beside OUTPUT-INTEGRITY-1's. No model or provider was called; no Work, Governance, mandate or artifact record changed;
-no new lifecycle, status, table or migration. Not pushed, not deployed.
+no new lifecycle, status, table or migration. Released by fast-forward `0cb525f9..1cca5302` on 2026-10-28 and
+deployed (§4); production behaviour not yet observed.
 
 ## 1 · Root cause
 
@@ -48,36 +49,59 @@ macOS Darwin 25.2.0, Node 24.16.0; PostgreSQL 18 initialised by this session (`i
 on 127.0.0.1:56471, `system_identifier` 7701707793223160617, via `HEBUN_TEST_ADMIN_DATABASE_URL`; model faked at the
 transport; no production database, no provider.
 
+## 4 · Release and deployment (2026-10-28)
+
+Preflight: remote `main` `0cb525f9`, candidate `1cca5302` (`95bd5874` fix + `1cca5302` record), fast-forward, clean
+tree, `CLAUDE.md` unchanged against remote, production on `0cb525f9` (`dpl_74pjRvpeKCBXkYAFdUwD5v1rsr4C`). Remote HEAD
+re-read immediately before the push and the candidate proven its descendant; plain push, no force. The
+Security Planning Agent provenance branch was not included.
+
+| Check | Observed |
+|---|---|
+| GitHub `main` after push | `1cca5302fdadb2f3e4e220d7bf229db63ead16f0` |
+| Deployment | `dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx`, target production, READY, `githubCommitSha` `1cca5302…`, ref `main` (`/v13/deployments`) |
+| Aliases | `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app` → `dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx` (`/v4/aliases`) |
+| Unauthenticated smoke | `/` 200, `/login` 200; `/operations`, `/heby`, `/agents` 307 → `/login`; apex 308 → `www` |
+
+**States, kept apart.**
+
+| State | Reached | Evidence |
+|---|---|---|
+| IMPLEMENTED | yes | `95bd5874` |
+| LOCALLY VERIFIED | yes | §3, 11 targeted suites, red→green, tsc, eslint, build |
+| DEPLOYED | yes | `dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx` READY, aliases above |
+| PRODUCTION BEHAVIOUR VERIFIED | **no** | no production preparation was refused as `model-refused`; none was provoked (B2-PROD-UNVERIFIED-1) |
+
 ## Closure Contract (v1)
 
 - Phase: B2-REFUSAL-GUARD-1
 - Owner: apps/dashboard/src/features/work-artifacts/prepare-work-artifact.server.ts (preparation seam); refusal wording in prepare-with-hebun.tsx
-- Reached state: VERIFIED
-- Implementation commit: 95bd5874b31619e8d2a1a470675c573117f7bf71 — on branch fix/refusal-guard-1, not on main
+- Reached state: DEPLOYED
+- Implementation commit: 95bd5874b31619e8d2a1a470675c573117f7bf71 — on main via fast-forward 0cb525f9..1cca5302
 - Verification level: V2 — shared preparation seam and both callers (assign, revise); targeted suites only, see B2-SUITE-COVERAGE-1
 - Verification evidence: 2026-10-28, baseline truncation-postgres T1–T10 PASS on 0cb525f9; T11 FAIL on 0cb525f9 (artifacts 1, expected 0); candidate 11/11 suites PASS; tsc, eslint, git diff --check, npm run build exit 0
 - Test environment: worktree .claude/worktrees/refusal-guard-1 (branch fix/refusal-guard-1, npm ci); macOS Darwin 25.2.0, Node 24.16.0; PostgreSQL 18 on 127.0.0.1:56471, system_identifier 7701707793223160617, via HEBUN_TEST_ADMIN_DATABASE_URL; model faked at the transport; no production database, no provider
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not released or deployed
-- Deferred risks: B2-NOT-RELEASED-1 (DEFERRED); B2-SUITE-COVERAGE-1 (DEFERRED); B2-PROD-UNVERIFIED-1 (DEFERRED)
-- Director approvals: read-only audit, 2026-10-28 ("AGENT CAPABILITY, ARCHITECTURE & FAILURE AUDIT"); fix, targeted tests and commit on an isolated branch, 2026-10-28 ("AGENT AUDIT RECONCILIATION & FIRST FIX"); release preparation and this record, no push or deploy, 2026-10-28 ("REFUSAL GUARD RELEASE PREPARATION")
+- Deployment evidence: 2026-10-28, dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx, githubCommitSha 1cca5302fdadb2f3e4e220d7bf229db63ead16f0 (main), target production, READY; www.hebuntech.com, hebuntech.com, hebun-ai-recovered.vercel.app aliased; smoke / 200, /login 200, /operations /heby /agents 307 → /login, apex 308 → www
+- Production acceptance evidence: N/A — not production-accepted; no production refusal observed, none provoked (B2-PROD-UNVERIFIED-1)
+- Deferred risks: B2-NOT-RELEASED-1 (CLOSED); B2-SUITE-COVERAGE-1 (DEFERRED); B2-PROD-UNVERIFIED-1 (DEFERRED)
+- Director approvals: read-only audit, 2026-10-28 ("AGENT CAPABILITY, ARCHITECTURE & FAILURE AUDIT"); fix, targeted tests and commit on an isolated branch, 2026-10-28 ("AGENT AUDIT RECONCILIATION & FIRST FIX"); release preparation and this record, no push or deploy, 2026-10-28 ("REFUSAL GUARD RELEASE PREPARATION"); the 11 targeted suites, red→green, tsc, eslint and build accepted as sufficient for release, the 48-suite census not rerun, release of 95bd5874 + 1cca5302 without the provenance branch, 2026-10-28 ("B2 CONTROLLED PRODUCTION RELEASE")
 
 ### Deferred risk detail
 
-- **B2-NOT-RELEASED-1 (DEFERRED).** `95bd5874` is on `fix/refusal-guard-1` only; production still files a refusal.
-  Acceptance dependency: a Director push gate (push to `main` is a production deploy), with the remote HEAD re-read
-  and the candidate proven its descendant.
+- **B2-NOT-RELEASED-1 (CLOSED).** Released by the Director-approved fast-forward `0cb525f9..1cca5302` and deployed as
+  `dpl_3TRWdcViPk2mJwn1eVpCSEFKDgHx` (§4).
 - **B2-SUITE-COVERAGE-1 (DEFERRED).** Eleven suites ran on the candidate; OUTPUT-INTEGRITY-1's 48-suite seam census
-  was not rerun on baseline and candidate. Acceptance dependency: that census, in a disposable copy, before release —
-  or a Director acceptance of the targeted set.
+  was not rerun on baseline and candidate, and the ten other targeted suites ran on the candidate only. The Director
+  accepted the targeted set as sufficient for release on 2026-10-28 ("B2 CONTROLLED PRODUCTION RELEASE"); the
+  unrun suites stay unrun and are not counted as passing. Acceptance dependency: that census, if a later change
+  touches the seam.
 - **B2-PROD-UNVERIFIED-1 (DEFERRED).** No production preparation has been refused as `model-refused`, and the wording
   has not rendered in production. Acceptance dependency: an organic refusal read back after deployment; it is not
   provoked on purpose.
 
 **Not resolved here.** AE2-DECLINED-DRAFT-FILED-1 stays DEFERRED with AGENT-EXECUTION-2: the declines it observed
-were ordinary prose ending `end_turn`, which this guard does not catch. When this phase is released, that row's
-dependency text ("`stop_reason: "refusal"` is not read on the answer path") becomes stale for the preparation path
-and is updated in the same documentation change.
+were ordinary prose ending `end_turn`, which this guard does not catch. Its §22 dependency text was updated in the
+release documentation: the preparation path now refuses `refusal`.
 
 **Weekly three.** *Learned:* AOR-1a recorded the provider's refusal and a test pinned "never blocking the filing" —
 a diagnosis that is only logged is a decision not to act, and its pin must change with the decision. *Turkish Rug
