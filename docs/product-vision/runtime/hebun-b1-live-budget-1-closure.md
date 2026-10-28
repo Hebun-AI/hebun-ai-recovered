@@ -1,9 +1,10 @@
-# B1-LIVE-BUDGET-1 · closure record · VERIFIED — the live-call budget renews per window and names its own refusal
+# B1-LIVE-BUDGET-1 · closure record · DEPLOYED — the live-call budget renews per window and names its own refusal
 
 **Scope, stated first.** Authorized by the Director on 2026-10-28 ("B1 LIVE MODEL BUDGET RELIABILITY"), after the
 read-only B1 audit confirmed that the per-process live-call budget never renewed. Approach A (fixed window) + C
 (own error code) on top of D (AP-3 unchanged). No persistence, service, quota authority, Governance mechanism,
-table or migration; no provider, model or production call. Not pushed, not deployed.
+table or migration; no provider, model or production call. Released by fast-forward `1306c85b..2f9e240e` on
+2026-10-28 and deployed (§5); production behaviour not observed.
 
 ## 1 · Root cause
 
@@ -82,42 +83,61 @@ no production database.
 |---|---|---|
 | IMPLEMENTED | yes | `0db689f9`, `943833e5` |
 | LOCALLY VERIFIED | yes | §4 |
-| DEPLOYED | no | not pushed |
-| PRODUCTION BEHAVIOUR VERIFIED | no | not deployed |
+| DEPLOYED | yes | `dpl_3TEhdDPcx9hnyxGGWYyUuLaZH1gX` READY, aliases in §5 |
+| PRODUCTION BEHAVIOUR VERIFIED | **no** | no live exhaustion or renewal observed; none provoked (B1-PROD-UNVERIFIED-1) |
+
+## 5 · Release and deployment (2026-10-28)
+
+Preflight: remote `main` `1306c85b` (the expected base); candidate `2f9e240e` = `0db689f9` + `943833e5` + `2f9e240e`,
+fast-forward, clean tree, `CLAUDE.md` unchanged against remote, diff limited to the 13 files of §3 and this record;
+test and build evidence belongs to `943833e5`, and `2f9e240e` changes documentation only. Production before release:
+`dpl_D928Y2DQLnwZ5x9mee5WdKeUJphX` on `1306c85b`, READY; `HEBUN_MODEL_LIVE_CALL_BUDGET` and the AP-3 cap variables
+absent in Production (names only, values not read), so the defaults apply. Remote HEAD re-read immediately before a
+plain push; no force.
+
+| Check | Observed |
+|---|---|
+| GitHub `main` after push | `2f9e240efc5b3c4349cd4b230dc892a65f06ca23` |
+| Deployment | `dpl_3TEhdDPcx9hnyxGGWYyUuLaZH1gX`, target production, READY, `githubCommitSha` `2f9e240e…`, ref `main` (`/v13/deployments`) |
+| Aliases | `www.hebuntech.com`, `hebuntech.com`, `hebun-ai-recovered.vercel.app` → `dpl_3TEhdDPcx9hnyxGGWYyUuLaZH1gX` (`/v4/aliases`) |
+| Unauthenticated smoke | `/` 200, `/login` 200; `/operations`, `/heby`, `/agents` 307 → `/login`; apex 308 → `www` |
+
+No model call, media generation or artifact was made in production.
 
 ## Closure Contract (v1)
 
 - Phase: B1-LIVE-BUDGET-1
 - Owner: apps/dashboard/src/features/heby-model-live/live-spend-budget.server.ts (per-process burst bound); model error contract in heby-model/model-error.ts; AP-3 unchanged
-- Reached state: VERIFIED
-- Implementation commit: 0db689f9758626b5c1e397cfb8c67706fd6aa71a, 943833e55917aa7159acbf8866fcc2a034c5d048 — on branch fix/live-budget-window-1, not on main
+- Reached state: DEPLOYED
+- Implementation commit: 0db689f9758626b5c1e397cfb8c67706fd6aa71a, 943833e55917aa7159acbf8866fcc2a034c5d048 — on main via fast-forward 1306c85b..2f9e240e
 - Verification level: V3 — provider spend boundary shared by Claude, image and video, and the model error contract; full suite run with its justification recorded first
 - Verification evidence: 2026-10-28, baseline 30/30 PASS on 1306c85b; C1 and W2 FAIL on the unchanged source; candidate 32/32 targeted PASS; full suite on 943833e5 1114/1116 with 0 REGRESSION, r3w ambient BLOCKED, HLR bite-proofs VOID then PASS on sequential rerun on baseline and candidate; tsc, eslint, git diff --check, npm run build exit 0
 - Test environment: worktree .claude/worktrees/live-budget-window-1 (npm ci); disposable detached copies for the full suite and reruns; macOS Darwin 25.2.0, Node 24.16.0; PostgreSQL 18 on 127.0.0.1:56471, system_identifier 7701707793223160617, via HEBUN_TEST_ADMIN_DATABASE_URL; no provider, no production database
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not released or deployed
-- Deferred risks: B1-NOT-RELEASED-1 (DEFERRED); B1-PROD-UNVERIFIED-1 (DEFERRED); B1-BOUNDARY-BURST-1 (DEFERRED); B1-EXHAUSTION-NOT-AUDITED-1 (DEFERRED); B1-PREPAY-UNIT-LOSS-1 (DEFERRED); B1-429-PREDISPATCH-1 (DEFERRED)
-- Director approvals: read-only B1 audit, 2026-10-28 ("B1 LIVE MODEL BUDGET AUDIT & RELIABILITY PLAN"); A + C on D, implementation, tests and commits on an isolated branch, no push or deploy, 2026-10-28 ("B1 LIVE MODEL BUDGET RELIABILITY")
+- Deployment evidence: 2026-10-28, dpl_3TEhdDPcx9hnyxGGWYyUuLaZH1gX, githubCommitSha 2f9e240efc5b3c4349cd4b230dc892a65f06ca23 (main), target production, READY; www.hebuntech.com, hebuntech.com, hebun-ai-recovered.vercel.app aliased; smoke / 200, /login 200, /operations /heby /agents 307 → /login, apex 308 → www
+- Production acceptance evidence: N/A — not production-accepted; no live budget exhaustion or renewal observed, none provoked (B1-PROD-UNVERIFIED-1)
+- Deferred risks: B1-NOT-RELEASED-1 (CLOSED); B1-PROD-UNVERIFIED-1 (DEFERRED); B1-BOUNDARY-BURST-1 (DEFERRED); B1-EXHAUSTION-NOT-AUDITED-1 (DEFERRED); B1-PREPAY-UNIT-LOSS-1 (DEFERRED); B1-429-PREDISPATCH-1 (DEFERRED)
+- Director approvals: read-only B1 audit, 2026-10-28 ("B1 LIVE MODEL BUDGET AUDIT & RELIABILITY PLAN"); A + C on D, implementation, tests and commits on an isolated branch, no push or deploy, 2026-10-28 ("B1 LIVE MODEL BUDGET RELIABILITY"); release of 0db689f9 + 943833e5 + 2f9e240e with the fixed 60 s window and its 2N boundary burst accepted, AP-3 kept, no new audit action, 429 origination classification deferred to a separate change, no full-suite rerun, 2026-10-28 ("B1 CONTROLLED PRODUCTION RELEASE")
 
 ### Deferred risk detail
 
-- **B1-NOT-RELEASED-1 (DEFERRED).** `0db689f9` and `943833e5` are on `fix/live-budget-window-1` only; production still
-  never renews and still reports `rate-limited`. Acceptance dependency: a Director push gate.
+- **B1-NOT-RELEASED-1 (CLOSED).** Released by the Director-approved fast-forward `1306c85b..2f9e240e` and deployed as
+  `dpl_3TEhdDPcx9hnyxGGWYyUuLaZH1gX` (§5).
 - **B1-PROD-UNVERIFIED-1 (DEFERRED).** No production exhaustion or renewal has been observed, and none will be provoked.
   Acceptance dependency: an organic `budget-exhausted` read back after deployment, or a Director-approved read.
 - **B1-BOUNDARY-BURST-1 (DEFERRED).** A fixed window admits up to 2N (16 at the default) within a span shorter than a
-  window across one boundary. Bounded per tenant per day by AP-3. Acceptance dependency: a Director decision to keep
-  it or move to a sliding window.
+  window across one boundary. Bounded per tenant per day by AP-3. Accepted as non-blocking by the Director on
+  2026-10-28 ("B1 CONTROLLED PRODUCTION RELEASE"); stays recorded.
 - **B1-EXHAUSTION-NOT-AUDITED-1 (DEFERRED).** A process-budget refusal writes no row (an AP-3 cap refusal does), so
-  exhaustion is visible only in the answer's note and origination's `failure_code`. Acceptance dependency: a Director
-  decision on a new audit action.
+  exhaustion is visible only in the answer's note and origination's `failure_code`. The Director decided on
+  2026-10-28 that no audit action is added in this release; stays recorded.
 - **B1-PREPAY-UNIT-LOSS-1 (DEFERRED).** If AP-3 admits and the process unit is prepaid but the evidence write then
   throws, the transaction rolls back and the in-memory unit is not returned. Now lost for one window, not for the
   process lifetime. Conservative direction; recorded, not fixed.
 - **B1-429-PREDISPATCH-1 (DEFERRED).** Origination lists `rate-limited` as pre-dispatch, so a provider 429 — which did
   reach the provider — is recorded `not-dispatched` (pinned by `agent-proposal-4b/provenance-postgres.ts`). The
   per-instance cap shares that code. Unchanged here by Director instruction to keep `rate-limited` for 429.
-  Acceptance dependency: a Director decision to give the instance cap its own code and move 429 to dispatched.
+  Deferred by the Director on 2026-10-28 to a separate change: give the instance cap its own code and move 429 to
+  dispatched.
 
 **Weekly three.** *Learned:* a safety limit with no renewal is an outage with a delay — and a limit that borrows the
 provider's error code hides which side refused. *Turkish Rug House:* a busy content day can no longer leave TRH's
