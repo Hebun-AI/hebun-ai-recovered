@@ -141,6 +141,26 @@ Eski closure kayıtlarındaki "L1–L3" bu test seviyeleridir; roadmap §10'daki
 8. **Release iddiası release kanıtı ister.** Yerel PASS, push veya deploy kanıtı değildir; durum
    §16.1 ve aşağıdaki Kritik Kurallar'ın istediği ölçümle yazılır.
 
+**Test hızı — aşamaya göre, güvenlikten ödün vermeden.** Aşağıdakiler V0–V3'ü ve yukarıdaki
+kararlılık kurallarını daraltmaz; bir çelişkide daha sıkı olan geçerlidir.
+
+1. **Geliştirme.** Her küçük değişiklikte yalnızca değişen modülün targeted testleri, dokunulan
+   güvenlik/yetki testleri ve gereken negatif kontroller koşar. `tsc` ve `eslint` entegrasyon
+   noktalarında koşar. Tam suite koşmaz.
+2. **Özellik sonu.** Etkilenen modüllerin regresyon suite'leri ve `npm run build` koşar; gerçek
+   regresyon düzeltilir.
+3. **Tam suite yalnızca gerektiğinde.** Seviye (V3) veya release kriteri gerektiriyorsa, ya da
+   değişikliğin risk kapsamı geniş mimari/entegrasyon etkisi taşıyorsa koşar. Gerekçe koşmadan
+   önce yazılır.
+4. **Geçerli kanıt tekrar üretilmez.** Aynı candidate için geçerli tam-suite sonucu yeniden
+   koşulmaz. Kod değişirse önce etki analizi yapılır: hangi kanıtın hâlâ geçerli olduğu ve neyin
+   yeniden koşacağı yazılır. Değişiklik kendisi V3 sınırına dokunuyorsa tam suite yeniden koşar.
+5. **Paralellik yalnızca kanıtlanmış izolasyonla.** Kaynağı yerinde değiştiren bite-proof'lar aynı
+   worktree'de paralel koşmaz; izolasyonu kanıtlanmamış testler paralelleştirilmez. Koşu sonrası
+   `git status`'u temiz olmayan bir ağaçtan alınan sonuç geçersizdir.
+6. **Rapor kısa ve kanıta dayalı.** Her aşamada koşan testler, sonuçları, kapsanmayan riskler ve
+   tam suite gerekip gerekmediği yazılır.
+
 **Kapanış:** Bir faz §16.1 sözleşmesini taşıyan closure kaydı olmadan "tamamlandı" diye
 raporlanmaz. Reached state kanıtın desteklediği en yüksek durumdur. Eksik kanıt `N/A` /
 `UNAVAILABLE` / `PENDING` yazılır ve asla PASS sayılmaz. Closure, §21 satırı, varsa §22 satırları
