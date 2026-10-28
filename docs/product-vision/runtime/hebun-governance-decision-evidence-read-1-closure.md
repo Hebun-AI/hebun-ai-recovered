@@ -1,11 +1,11 @@
-# GOVERNANCE-DECISION-EVIDENCE-READ-1 · closure record · VERIFIED — a Governance authority can read back a recorded review decision
+# GOVERNANCE-DECISION-EVIDENCE-READ-1 · closure record · PRODUCTION-ACCEPTED — a Governance authority can read back a recorded review decision
 
 **Scope, stated first.** Authorized by the Director on 2026-10-28 ("GOVERNANCE DECISION EVIDENCE READ
 IMPLEMENTATION"), after a read-only evidence audit of decision `9e4291a3-8601-4f2b-a94d-bd65436488c6` found that
 the stored justification, the decider's id, the decision's bound content digest and the audit event id had no
 production reader. No new table, writer, event type, migration or Governance decision. No model or provider call.
-Release (push to `main`) was approved on 2026-10-28 and **refused by the session's permission layer**; nothing was
-pushed or deployed, so this record stops at `VERIFIED`.
+Release (push to `main`) was approved on 2026-10-28. The session's push was refused by the Claude Code permission
+layer; the Director pushed `de654fd1..1aadb59f` manually, and production acceptance was read back the same day (§4).
 
 ## 1 · What was missing
 
@@ -58,36 +58,53 @@ mutations in source and produced about forty false reds.
 
 - Phase: GOVERNANCE-DECISION-EVIDENCE-READ-1
 - Owner: work-artifact-review (decision evidence reader) over the Governance decision ledger; governance-audit (history reader filter)
-- Reached state: VERIFIED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: da7f0302, 5c1e7005
 - Verification level: V3 — authorization, Governance authority and tenant isolation boundary of a new decision reader and server action
 - Verification evidence: 2026-10-28, evidence-postgres, surface-and-firewall and action-invocation PASS; bite-proofs 12/12 caught; full suite on da7f0302 1110 PASS / 3 FAIL / 1113 with 0 REGRESSION (heby-product-ux-1 PRE-EXISTING, plan-step-idempotency-1/bite-proofs PRE-EXISTING flaky, r3w-flow/ambient-database-safety BLOCKED not a pass); tsc, eslint, git diff --check, npm run build exit 0
 - Test environment: worktrees .claude/worktrees/governance-decision-evidence-read-1 and disposable detached copies (gder1-baseline-de654fd1, gder1-candidate-da7f0302); macOS Darwin 25.2.0, Node 24.16.0; session-created PostgreSQL 18.6 on 127.0.0.1:56431, system_identifier 7701466443679519186, via HEBUN_TEST_ADMIN_DATABASE_URL; no production database, no provider
-- Deployment evidence: N/A — not deployed; the push to main was refused by the session permission layer and origin/main stayed de654fd1
-- Production acceptance evidence: N/A — not deployed
-- Deferred risks: GDER1-NOT-RELEASED-1 (DEFERRED); GDER1-AUTH-ACTION-UNVERIFIED-1 (DEFERRED); GDER1-ACTOR-LABEL-1 (DEFERRED)
-- Director approvals: architecture assessment and implementation, 2026-10-28 ("GOVERNANCE DECISION EVIDENCE READ IMPLEMENTATION"); V3 validation, 2026-10-28; integration, release and closure, 2026-10-28 ("GOVERNANCE EVIDENCE & TEST POLICY RELEASE CLOSURE")
+- Deployment evidence: 2026-10-28, dpl_62c5GxNzJzSq4MDhM1Mtrska6L4h, githubCommitSha 1aadb59f9b88b5c5318e0d0e6b90c4b1ad9f3009 (main, Director push de654fd1..1aadb59f), target production, READY; www.hebuntech.com, hebuntech.com, hebun-ai-recovered.vercel.app aliased
+- Production acceptance evidence: 2026-10-28, Director's signed-in session on www.hebuntech.com/approvals: decision 9e4291a3 accepted, justification byte-equal to the approved text, bound digest 175db80c…a76a611c match, audit event 3c7af7a9 linked by entity id, artifact draft rev 3 unchanged (SHA-256 recomputed), Work ca82db41 planned, ledger still 187 after the read, unauthenticated /approvals → /login; non-Governance member not measured (GDER1-NONGOV-PROD-1)
+- Deferred risks: GDER1-NOT-RELEASED-1 (CLOSED); GDER1-AUTH-ACTION-UNVERIFIED-1 (CLOSED); GDER1-ACTOR-LABEL-1 (DEFERRED); GDER1-NONGOV-PROD-1 (DEFERRED)
+- Director approvals: architecture assessment and implementation, 2026-10-28 ("GOVERNANCE DECISION EVIDENCE READ IMPLEMENTATION"); V3 validation, 2026-10-28; integration, release and closure, 2026-10-28 ("GOVERNANCE EVIDENCE & TEST POLICY RELEASE CLOSURE"); manual Director push de654fd1..1aadb59f and production acceptance, 2026-10-28 ("FINAL PRODUCTION ACCEPTANCE")
 
 ### Deferred risk detail
 
-- **GDER1-NOT-RELEASED-1 (DEFERRED).** The approved push of `2f6b3ad3` (fast-forward `de654fd1..5c1e7005` plus the
-  `docs/test-validation-policy` merge) was refused by the permission layer; no alternative path was tried. Acceptance
-  dependency: a Director push (or a permission that allows it) after re-reading the remote HEAD, then the Vercel
-  deployment record, then the production acceptance in §4.
-- **GDER1-AUTH-ACTION-UNVERIFIED-1 (DEFERRED).** An authenticated invocation of `readReviewEvidenceAction` was not
-  executed in any test: no harness here provides a session cookie inside a Next request. The unauthenticated call is
-  proved directly; authority and tenant isolation are proved on the reader. Acceptance dependency: the production
-  read in §4 by the Governance authority.
+- **GDER1-NOT-RELEASED-1 (CLOSED).** The session's push was refused by the Claude Code auto-mode permission classifier
+  (not Git, GitHub or Hebun: `hebuntech` holds push/admin, `main` is unprotected, 0 rulesets); no alternative path was
+  tried. Closed by the Director's manual push `de654fd1..1aadb59f` and deployment `dpl_62c5GxNzJzSq4MDhM1Mtrska6L4h`.
+- **GDER1-AUTH-ACTION-UNVERIFIED-1 (CLOSED).** No test harness provides a session cookie inside a Next request; the
+  authenticated invocation was measured in production instead (§4), returning the decision for the Governance authority.
 - **GDER1-ACTOR-LABEL-1 (DEFERRED).** The decider is shown by type and id, not by name. Acceptance dependency: a
   Director decision to grow the HLR-1 label census, or to keep ids.
+- **GDER1-NONGOV-PROD-1 (DEFERRED).** An authenticated member without Governance authority was not observed in
+  production (the tenant has none). Proved on the reader (`evidence-postgres.ts`: refused before any record is
+  selected). Acceptance dependency: a read by such a member when one exists.
 
-## 4 · Production acceptance still to run
+## 4 · Production acceptance (2026-10-28)
 
-On `/approvals`, History tab of "Quarterly Access & Integration Review — Access Controls", "Read decision evidence":
-decision `9e4291a3-8601-4f2b-a94d-bd65436488c6` `accepted` on revision `c688dff3-c0d6-449e-a5fc-9122be5bf058`;
-justification readable; recorded digest `175db80cbcef821a2480b9eacd38b8156722e2a99398901fe1355bb5a76a611c` with
-comparison `match`; one `governance.decision.recorded` event linked by entity id; artifact still `draft`, revision 3,
-same digest; Work `ca82db41-7790-4bd5-9890-0ae3001fe2f1` still `planned`.
+Deployment `dpl_62c5GxNzJzSq4MDhM1Mtrska6L4h`, target production, READY, `githubCommitSha`
+`1aadb59f9b88b5c5318e0d0e6b90c4b1ad9f3009` (`main`), aliased to `www.hebuntech.com`, `hebuntech.com` and
+`hebun-ai-recovered.vercel.app` (Vercel CLI `inspect` and `/v13/deployments`).
+
+Read on `www.hebuntech.com` in the Director's signed-in session, read-only:
+
+| Check | Observed |
+|---|---|
+| Initial `/approvals` payload | no justification text, no audit action; the evidence section absent until requested |
+| Control shown | "Read decision evidence" present in the History tab — the server answered `authorized` |
+| Decision | `9e4291a3-8601-4f2b-a94d-bd65436488c6`, outcome `accepted` · `approve`, decided `2026-10-27T21:16:20.491Z`, by and under authority of human `d5b496df-588c-49c5-9cc2-17672b82dd10` |
+| Justification | rendered text equal, byte for byte, to the Director-approved text |
+| Bound evidence | artifact `311f1e25-4093-4d32-9cfd-d1bc2374e8f4`, revision number 3, digest `175db80cbcef821a2480b9eacd38b8156722e2a99398901fe1355bb5a76a611c`; comparison `match` |
+| Audit linkage | `linked`: one event `3c7af7a9-130e-41e8-bcdb-72f5e9f0bcac`, `governance.decision.recorded`, entity `9e4291a3…`, human `d5b496df…`, committed, `2026-10-27T21:16:20.491Z` |
+| Artifact | `draft`, current revision 3, revision `c688dff3…`; served bytes 3140, SHA-256 recomputed = stored digest |
+| Work | `ca82db41-7790-4bd5-9890-0ae3001fe2f1` `planned`, `active`; evidence reference `7d776902…` → artifact `311f1e25…` |
+| Read wrote nothing | Security Center: 187 recorded acts, the latest still the decision's own event |
+| Unauthenticated | `/approvals` without a session redirects to `/login`; no evidence markup |
+
+Not measured in production: an authenticated member WITHOUT Governance authority. The Hebun AI tenant has one
+member, the Governance authority, and creating an account is outside this release; the path is proved on the reader
+against PostgreSQL (GDER1-NONGOV-PROD-1).
 
 **Weekly three.** *Learned:* a ledger that records why is not auditable until someone with authority can read the why
 back, and parallel bite-proofs in one tree corrupt the very evidence they produce. *Turkish Rug House:* every review
