@@ -155,14 +155,16 @@ for (const field of ["fromState", "toState"]) {
 }
 assert.equal(AGENT_ORIGINABLE_REGISTRY_KIND[KIND], KIND);
 assert.ok((AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]).includes(KIND));
-assert.match(read("src/db/schema/agent-mandate.ts"), /array\['send','record-work','set-work-declared-state'\]::text\[\]/, "F7: the CHECK echoes the vocabulary");
+/* RA-AUTH-1: the echo now follows the whole mandate vocabulary — the originable kinds, then the preparation kind `prepare-research`. */
+assert.match(read("src/db/schema/agent-mandate.ts"), /array\['send','record-work','set-work-declared-state','prepare-research'\]::text\[\]/, "F7: the CHECK echoes the vocabulary");
 const migration = read("src/db/migrations/20261014042643_work_update_v1_mandate_scope.sql");
 assert.equal((migration.match(/ALTER TABLE/g) ?? []).length, 2, "F7: the migration is one DROP and one ADD");
 assert.ok(/DROP CONSTRAINT "agent_mandates_scope_subset_chk"/.test(migration) && /ADD CONSTRAINT "agent_mandates_scope_subset_chk"/.test(migration));
 assert.ok(!/UPDATE|DELETE|INSERT|DROP TABLE|DROP COLUMN/i.test(migration.replace(/DROP CONSTRAINT/g, "")), "F7: no row is touched");
 
 /* F8 */
-assert.deepEqual([...MANDATE_SCOPE_NEVER_PRESELECTED], [KIND], "F8: the mandate form never pre-selects the kind");
+/* RA-AUTH-1 added `prepare-research` beside it: a preparation kind is never pre-selected either. */
+assert.deepEqual([...MANDATE_SCOPE_NEVER_PRESELECTED], [KIND, "prepare-research"], "F8: the mandate form never pre-selects the kind");
 assert.ok(withoutComments(read("src/components/agents/agent-mandate-card.tsx")).includes("!MANDATE_SCOPE_NEVER_PRESELECTED.includes(kind)"), "F8: the form applies it");
 assert.ok((RESPONSIBILITY_SCOPED_ACTION_KINDS as readonly string[]).includes(KIND) && scopeRequiresResponsibility([KIND]), "F8: a scope naming it needs a responsibility");
 assert.equal(

@@ -58,6 +58,7 @@ import {
   AGENT_MANDATE_SUBJECT_TYPE,
   MANDATE_CAPABILITY_LADDER,
   MANDATE_DOES_NOT_MEAN,
+  AGENT_PREPARATION_KINDS,
   MANDATE_SCOPE_VOCABULARY,
   canonicaliseMandateScope,
   isMandateScopeKind,
@@ -327,10 +328,25 @@ function theCeilingCannotBeWidened(): void {
    *
    * `assert.ok` has no such special case: a false condition always prints the message it was given.
    */
-  assert.ok(
-    MANDATE_SCOPE_VOCABULARY === (AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]),
-    "the mandate vocabulary IS the released originable vocabulary — the same reference, not a copy",
+  /*
+   * RA-AUTH-1 (Director-approved) — the mandate vocabulary is no longer the originable array itself:
+   * it is that array followed by the released PREPARATION kinds, which name no registry act. The
+   * guarantee this assertion carried is kept, value for value: every action kind a mandate may admit
+   * is a released originable kind (no more, no fewer, in the same order), and the only other member
+   * is the closed preparation list. A widening of either list, or a literal added here, fails.
+   */
+  assert.deepEqual(
+    [...MANDATE_SCOPE_VOCABULARY],
+    [...AGENT_ORIGINABLE_ACTION_KINDS, ...AGENT_PREPARATION_KINDS],
+    "the mandate vocabulary is the released originable vocabulary followed by the released preparation kinds — nothing else",
   );
+  assert.deepEqual([...AGENT_PREPARATION_KINDS], ["prepare-research"], "the preparation vocabulary is what RA-AUTH-1 released");
+  for (const kind of AGENT_PREPARATION_KINDS) {
+    assert.ok(
+      !(AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]).includes(kind),
+      `${kind} is a preparation kind, never an originable action`,
+    );
+  }
 
   /* Membership, never repair. */
   for (const outside of ["grant-permission", "modify-governance-policy", "device-action", "SEND", "*", ""]) {
@@ -379,8 +395,8 @@ function theCeilingCannotBeWidened(): void {
     .sort();
   assert.deepEqual(
     sqlKinds,
-    [...AGENT_ORIGINABLE_ACTION_KINDS].sort(),
-    "the storage-layer CHECK admits exactly the released originable kinds — no more, no fewer",
+    [...MANDATE_SCOPE_VOCABULARY].sort() /* RA-AUTH-1: the echo follows the whole mandate vocabulary. */,
+    "the storage-layer CHECK admits exactly the mandate vocabulary — no more, no fewer",
   );
 }
 
@@ -528,6 +544,8 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
       /* AGENT-EXECUTION-1. The agent work seam applies the one shared ceiling before an agent performs work. */
       path.join("src", "features", "agent-work", "assign-work-draft.server.ts"),
+      /* RA-AUTH-1. The pure work-capability contract names the preparation kind its research capability needs; it reads and writes no mandate. */
+      path.join("src", "features", "agent-work", "capabilities.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
       /* APF-1. Machine delivery re-reads the effective mandate before it spends a permit. */
@@ -543,7 +561,7 @@ function noProposalEnforcementExists(): void {
       /* AGENT-EXECUTION-1. The preparation seam asks the same ceiling of every agent named as a draft's author. */
       path.join("src", "features", "work-artifacts", "prepare-work-artifact.server.ts"),
     ],
-    "sixteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the SIX enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam and the preparation seam that every agent-authored draft passes through), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
+    "seventeen modules know a mandate exists, and each is named (RA-AUTH-1 added the pure capability contract): the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the SIX enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam and the preparation seam that every agent-authored draft passes through), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
   );
 
   /*

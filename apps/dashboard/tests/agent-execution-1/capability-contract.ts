@@ -17,6 +17,8 @@ import path from "node:path";
 import { AGENT_WORK_CAPABILITIES } from "../../src/features/agent-work/capabilities";
 import { AGENT_ORIGINABLE_ACTION_KINDS, AGENT_ORIGINABLE_REGISTRY_KIND } from "../../src/features/agent-origination/contracts";
 import { RESPONSIBILITY_SCOPED_REGISTRY_KINDS } from "../../src/features/action-authorization/agent-mandate-ceiling";
+import { isAgentPreparationKind } from "../../src/features/agent-mandate/contracts";
+import { scopeRequiresResponsibility } from "../../src/features/agent-mandate/responsibility-contracts";
 import { decidePlatformDisclosure } from "../../src/features/external-ai-data-use/platform-disclosure-policy";
 import { EXECUTABLE_ACTION_KINDS } from "../../src/features/heby-actions/action-registry";
 import {
@@ -40,12 +42,28 @@ assert.equal(new Set(AGENT_WORK_CAPABILITIES.map((c) => c.id)).size, AGENT_WORK_
 for (const capability of AGENT_WORK_CAPABILITIES) {
   assert.ok(capability.mandateKindsAnyOf.length > 0, `${capability.id}: a capability needs a mandate condition`);
   for (const kind of capability.mandateKindsAnyOf) {
+    /*
+     * RA-AUTH-1 — a mandate kind is either a released origination alias (whose registry kind must carry
+     * responsibility) or a released preparation kind (responsibility-scoped by the mandate contract).
+     */
+    if (isAgentPreparationKind(kind)) {
+      assert.ok(scopeRequiresResponsibility([kind]), `${capability.id}: ${kind} carries responsibility`);
+      continue;
+    }
     assert.ok((AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]).includes(kind), `${capability.id}: ${kind} is a mandate kind`);
     assert.ok(RESPONSIBILITY_SCOPED_REGISTRY_KINDS.includes(AGENT_ORIGINABLE_REGISTRY_KIND[kind]), `${capability.id}: ${kind} carries responsibility`);
   }
-  for (const dataClass of capability.dataUse.dataClasses) {
-    const verdict = decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: capability.dataUse.purpose, dataClass } as never);
-    assert.equal(verdict.decision, "allowed", `${capability.id}: ${capability.dataUse.purpose} × ${dataClass} must be an allowed platform cell`);
+  /*
+   * RA-AUTH-1 — `dataUse: null` declares no disclosure. It is admitted only for a capability no seam
+   * performs yet; every declared class must still be an allowed platform cell.
+   */
+  if (capability.dataUse === null) {
+    assert.match(capability.performedBy, /^no seam yet/, `${capability.id}: a capability declaring no disclosure must be one nothing performs`);
+  } else {
+    for (const dataClass of capability.dataUse.dataClasses) {
+      const verdict = decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: capability.dataUse.purpose, dataClass } as never);
+      assert.equal(verdict.decision, "allowed", `${capability.id}: ${capability.dataUse.purpose} × ${dataClass} must be an allowed platform cell`);
+    }
   }
   assert.equal(capability.sideEffect, "PREPARATION_ONLY");
   assert.equal(capability.authorizationRequired, false);

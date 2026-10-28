@@ -27,6 +27,8 @@ export const RESPONSIBILITY_SCOPED_ACTION_KIND = "record-work" as const satisfie
 export const RESPONSIBILITY_SCOPED_ACTION_KINDS: readonly MandateScopeKind[] = Object.freeze([
   RESPONSIBILITY_SCOPED_ACTION_KIND,
   "set-work-declared-state",
+  /* RA-AUTH-1 — a preparation kind, not an action: the agent prepares research only for work it is responsible for. */
+  "prepare-research",
 ]);
 
 /** Whether a scope requires a stated responsibility. */

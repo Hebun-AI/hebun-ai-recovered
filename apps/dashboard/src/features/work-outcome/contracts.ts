@@ -41,7 +41,7 @@
  */
 import type { ArtifactRowReviewStatus } from "@/features/work-artifact-review/contracts";
 import type { WorkDeclaredState } from "@/features/organizational-work/work-contracts";
-import type { ContentDestination, WorkArtifactType } from "@/features/work-artifacts/contracts";
+import type { ContentDestination, StoredWorkArtifactType } from "@/features/work-artifacts/contracts";
 import type { ContentPublicationState } from "@/features/action-authorization/content-publication-state";
 
 /**
@@ -60,7 +60,7 @@ export interface WorkOutcomeEvidence {
   readonly artifactId: string;
   /** `null` when the artifact authority could not name it; its review is then `unknown`. */
   readonly title: string | null;
-  readonly artifactType: WorkArtifactType | null;
+  readonly artifactType: StoredWorkArtifactType | null;
   readonly revisionNo: number | null;
   readonly retired: boolean;
   readonly review: ArtifactRowReviewStatus;

@@ -203,7 +203,8 @@ function main(): void {
   proof(
     "the ceiling compares the alias vocabulary against the registry vocabulary",
     CEILING,
-    `    (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,`,
+    /* RA-AUTH-1 re-anchored: the comparison now also requires own-property membership of the map; the injected defect (string identity instead of the map) is unchanged. */
+    `    (alias) => isOriginationAlias(alias) && AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,`,
     `    (alias) => (alias as string) === (actionKind as string),`,
     "an in-scope act proceeds through the released path",
     "tests/ama2-mandate-enforcement/enforcement-postgres.ts",

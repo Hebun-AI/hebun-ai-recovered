@@ -101,7 +101,7 @@ function migrationProof(): void {
     "20261008143657_l1b_agent_lifecycle_domain",
     "20261013113340_eai_work_planning_purpose",
     "20261014042643_work_update_v1_mandate_scope",
-    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership", /* RA-AUTH-1 — the `prepare-research` preparation kind joins the mandate scope CHECK and `research-report` joins `work_artifact_type`; additive. A declared later phase. */ "20261028183456_ra_auth_1_research_preparation",
   ];
   assert.deepEqual(journal.entries.slice(67).map((e) => e.tag), LATER_MIGRATIONS, "and only the named later phases follow it");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${TAG}.sql`), "utf8");

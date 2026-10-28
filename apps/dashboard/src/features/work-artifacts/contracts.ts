@@ -40,6 +40,23 @@ export function isWorkArtifactType(value: unknown): value is WorkArtifactType {
 }
 
 /**
+ * RA-AUTH-1 — the research report. A STORED type, deliberately NOT in `WORK_ARTIFACT_TYPES`: the
+ * general preparation path (`prepare-work-draft`, the draft forms, `validateCreateWorkArtifact`)
+ * keeps offering and accepting exactly the three types above, so a general draft can never be filed
+ * as research. Only the `prepare-research-report` capability writes it (RA-PREP-1). Readers see every
+ * stored type.
+ */
+export const RESEARCH_REPORT_ARTIFACT_TYPE = "research-report" as const;
+
+/** Every type a stored artifact may carry — the database enum, one for one. */
+export type StoredWorkArtifactType = WorkArtifactType | typeof RESEARCH_REPORT_ARTIFACT_TYPE;
+
+export const STORED_WORK_ARTIFACT_TYPES: readonly StoredWorkArtifactType[] = Object.freeze([
+  ...WORK_ARTIFACT_TYPES,
+  RESEARCH_REPORT_ARTIFACT_TYPE,
+]);
+
+/**
  * CGO-1 — the CLOSED destination vocabulary. Where a content draft was prepared to GO.
  *
  * A value here is a DECLARATION MADE AT PREPARATION TIME and nothing else. It is not a provider,
@@ -287,7 +304,7 @@ export interface WorkArtifactRevisionView {
 export interface WorkArtifactView {
   readonly id: string;
   readonly tenantId: string;
-  readonly artifactType: WorkArtifactType;
+  readonly artifactType: StoredWorkArtifactType;
   readonly title: string;
   readonly lifecycleStatus: WorkArtifactLifecycleStatus;
   readonly ownerWorkspace: string;

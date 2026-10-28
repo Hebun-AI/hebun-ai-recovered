@@ -24,6 +24,7 @@ import {
   CONTENT_DESTINATIONS,
   WORK_ARTIFACT_TYPES,
   type ContentDestination,
+  type StoredWorkArtifactType,
   type WorkArtifactType,
 } from "@/features/work-artifacts/contracts";
 import {
@@ -45,10 +46,11 @@ import {
  */
 const CAPABILITY = agentWorkCapability("prepare-work-draft");
 
-export const ARTIFACT_TYPE_LABELS: Readonly<Record<WorkArtifactType, string>> = {
+export const ARTIFACT_TYPE_LABELS: Readonly<Record<StoredWorkArtifactType, string>> = {
   "operational-plan": "Plan",
   "message-draft": "Message",
   "content-draft": "Content",
+  "research-report": "Research report",
 };
 
 export const ASSIGN_REFUSAL_WORDING: Readonly<Record<AssignWorkDraftRefusal, string>> = {

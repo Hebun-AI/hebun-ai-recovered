@@ -92,8 +92,9 @@ const MUTATIONS: Mutation[] = [
   {
     label: "B9 the mandate form pre-selects the kind",
     file: "src/features/agent-mandate/contracts.ts",
-    find: "export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([\n  SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,\n]);",
-    replace: "export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([]);\nvoid SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS;",
+    /* RA-AUTH-1 re-anchored: the list now also holds `prepare-research`; the injected defect (the kind is pre-selected) is unchanged. */
+    find: "export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([\n  SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,\n  PREPARE_RESEARCH_PREPARATION_KIND,\n]);",
+    replace: "export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([\n  PREPARE_RESEARCH_PREPARATION_KIND,\n]);\nvoid SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS;",
     suite: FIREWALL,
     because: "F8: the mandate form never pre-selects the kind",
   },

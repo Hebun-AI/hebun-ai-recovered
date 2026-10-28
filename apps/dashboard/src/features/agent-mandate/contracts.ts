@@ -42,19 +42,43 @@ import {
  * ═════════════════════════════════════════════════════════════════════════ */
 
 /**
- * The action kinds a mandate may admit.
+ * RA-AUTH-1 — the PREPARATION kinds a mandate may admit (Director-approved). A preparation kind is
+ * NOT an action: it names no registry kind, so no proposal, permit, Governance decision or machine
+ * act can ever be admitted by it. It only lets one preparation capability write one kind of draft,
+ * for work the agent is responsible for, for a person to review.
  *
- * THIS IS NOT A COPY. It is the released `AGENT_ORIGINABLE_ACTION_KINDS` itself, re-exported under
- * the name this feature uses. A mandate scope is therefore typed `AgentOriginableActionKind[]`,
- * which makes a superset a COMPILE ERROR rather than a runtime refusal — and it makes it
- * impossible for this feature to drift into offering a kind the origination path never admitted.
+ * `prepare-research` — prepare a research report (`prepare-research-report`). It does not let the
+ * agent originate anything, change any work item's state, or draft any other kind of work.
  *
- * A mandate may name FEWER kinds. It may never name more, and it may never name a different one.
+ * Kept apart from `AGENT_ORIGINABLE_ACTION_KINDS` on purpose: the origination vocabulary, its
+ * registry map and every action ceiling stay exactly as released, and a preparation kind can never
+ * be read as one of them.
  */
-export const MANDATE_SCOPE_VOCABULARY: readonly AgentOriginableActionKind[] =
-  AGENT_ORIGINABLE_ACTION_KINDS;
+export const AGENT_PREPARATION_KINDS = ["prepare-research"] as const;
 
-export type MandateScopeKind = AgentOriginableActionKind;
+export type AgentPreparationKind = (typeof AGENT_PREPARATION_KINDS)[number];
+
+export const PREPARE_RESEARCH_PREPARATION_KIND = "prepare-research" as const satisfies AgentPreparationKind;
+
+/** Whether a value is a released preparation kind. Membership, never repair. */
+export function isAgentPreparationKind(value: unknown): value is AgentPreparationKind {
+  return typeof value === "string" && (AGENT_PREPARATION_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * The kinds a mandate may admit: the released originable action kinds, then the released
+ * preparation kinds.
+ *
+ * NOT A COPY OF EITHER. It is built from the two released constants and nothing else, so a mandate
+ * can never admit an action kind the origination path does not, and adding a kind to either list is
+ * the only way to widen it. A mandate may name FEWER kinds; it may never name a different one.
+ */
+export const MANDATE_SCOPE_VOCABULARY: readonly MandateScopeKind[] = Object.freeze([
+  ...AGENT_ORIGINABLE_ACTION_KINDS,
+  ...AGENT_PREPARATION_KINDS,
+]);
+
+export type MandateScopeKind = AgentOriginableActionKind | AgentPreparationKind;
 
 /**
  * WORK-UPDATE V1 — kinds a mandate form must never pre-select. Admitting a kind to the vocabulary
@@ -63,6 +87,7 @@ export type MandateScopeKind = AgentOriginableActionKind;
  */
 export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([
   SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,
+  PREPARE_RESEARCH_PREPARATION_KIND,
 ]);
 
 /** Whether a value is an admissible scope member. Membership, never repair. */

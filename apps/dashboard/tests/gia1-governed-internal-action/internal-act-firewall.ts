@@ -43,6 +43,7 @@ import {
   AGENT_ORIGINABLE_REGISTRY_KIND,
   RECORD_WORK_ORIGINATION_ALIAS,
 } from "../../src/features/agent-origination/contracts";
+import { AGENT_PREPARATION_KINDS } from "../../src/features/agent-mandate/contracts";
 import { parseAgentActionSelection } from "../../src/features/agent-origination/structured-output";
 import {
   RECORD_WORK_ACTION_KIND,
@@ -627,10 +628,14 @@ function theVocabularyGrewByExactlyOne(): void {
   const schema = read("src/db/schema/agent-mandate.ts");
   const sqlList = /array\[([^\]]*)\]::text\[\]/.exec(schema);
   assert.ok(sqlList, "the schema states the vocabulary in SQL");
+  /*
+   * RA-AUTH-1: the CHECK echoes the whole mandate vocabulary — the released originable kinds plus the
+   * released preparation kinds, which name no act. Exactness is unchanged: no more, no fewer.
+   */
   assert.deepEqual(
     sqlList![1]!.split(",").map((s) => s.trim().replace(/^'|'$/g, "")).filter(Boolean).sort(),
-    [...AGENT_ORIGINABLE_ACTION_KINDS].sort(),
-    "the storage-layer CHECK admits exactly the released originable kinds",
+    [...AGENT_ORIGINABLE_ACTION_KINDS, ...AGENT_PREPARATION_KINDS].sort(),
+    "the storage-layer CHECK admits exactly the released originable kinds and the released preparation kinds",
   );
 
   /*

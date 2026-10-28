@@ -81,7 +81,8 @@ import {
   readEffectiveAgentMandate,
   type AgentMandateRevision,
 } from "./read-agent-mandate.server";
-import { MANDATE_DOES_NOT_MEAN, MANDATE_SCOPE_VOCABULARY } from "./contracts";
+import { AGENT_ORIGINABLE_ACTION_KINDS } from "@/features/agent-origination/contracts";
+import { MANDATE_DOES_NOT_MEAN, isAgentPreparationKind } from "./contracts";
 
 /**
  * Named for what it is, and for what it is not.
@@ -164,12 +165,27 @@ const plural = (n: number, one: string, many = `${one}s`): string => (n === 1 ? 
 /** The scope, as prose that cannot be read as a grant. */
 function scopeSentence(scope: readonly string[]): string {
   if (scope.length === 0) return AGENT_MANDATE_WITHDRAWN_STATEMENT;
-  return (
-    `May propose: ${scope.join(", ")} — ${scope.length} of ` +
-    `${MANDATE_SCOPE_VOCABULARY.length} ${plural(MANDATE_SCOPE_VOCABULARY.length, "action kind")} ` +
-    "this runtime admits for agent origination. Anything outside this list is refused before a " +
-    "proposal is written."
-  );
+  /* RA-AUTH-1 — a preparation kind is not a proposal, so it is never counted or worded as one. */
+  const proposable = scope.filter((kind) => !isAgentPreparationKind(kind));
+  const preparable = scope.filter(isAgentPreparationKind);
+  const sentences: string[] = [];
+  if (proposable.length > 0) {
+    sentences.push(
+      `May propose: ${proposable.join(", ")} — ${proposable.length} of ` +
+        `${AGENT_ORIGINABLE_ACTION_KINDS.length} ${plural(AGENT_ORIGINABLE_ACTION_KINDS.length, "action kind")} ` +
+        "this runtime admits for agent origination. Anything outside this list is refused before a " +
+        "proposal is written.",
+    );
+  } else {
+    sentences.push("May propose nothing.");
+  }
+  if (preparable.length > 0) {
+    sentences.push(
+      `May prepare: ${preparable.join(", ")} — a draft for a person to review, only for work this agent ` +
+        "is responsible for. Preparing is not an action and is never proposed.",
+    );
+  }
+  return sentences.join(" ");
 }
 
 /**

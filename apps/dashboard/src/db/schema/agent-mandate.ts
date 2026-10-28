@@ -122,8 +122,16 @@ import { decisionRecords, governanceSessions } from "./governance";
  * `set-work-declared-state` joined the released vocabulary (Director-approved 2026-10-14), so the
  * echo moved with it. Every row stored before the change is a subset of the wider list, so the
  * constraint validates without touching any row. Widening still grants nothing.
+ *
+ * RA-AUTH-1 WIDENED IT A THIRD TIME, BY ONE VALUE THAT IS NOT AN ACTION: `prepare-research`
+ * (Director-approved). The mandate vocabulary is now the released originable kinds followed by the
+ * released PREPARATION kinds (`AGENT_PREPARATION_KINDS` in `features/agent-mandate/contracts.ts`),
+ * and this echo follows that whole vocabulary. A preparation kind names no registry action, so no
+ * proposal, permit or machine act can ever be admitted by it; it only lets one capability prepare
+ * one kind of draft for work the agent is responsible for. Every stored row is a subset of the wider
+ * list, so the constraint validates without touching any row.
  */
-const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state']::text[]`;
+const MANDATE_SCOPE_VOCABULARY_SQL = sql`array['send','record-work','set-work-declared-state','prepare-research']::text[]`;
 
 export const agentMandates = pgTable(
   "agent_mandates",
@@ -289,8 +297,8 @@ export const agentMandates = pgTable(
      */
     check(
       "agent_mandates_scope_subset_chk",
-      sql`${t.proposalScope} <@ ${ORIGINABLE_ACTION_KINDS_SQL}
-          and cardinality(${t.proposalScope}) <= cardinality(${ORIGINABLE_ACTION_KINDS_SQL})`,
+      sql`${t.proposalScope} <@ ${MANDATE_SCOPE_VOCABULARY_SQL}
+          and cardinality(${t.proposalScope}) <= cardinality(${MANDATE_SCOPE_VOCABULARY_SQL})`,
     ),
 
     /**

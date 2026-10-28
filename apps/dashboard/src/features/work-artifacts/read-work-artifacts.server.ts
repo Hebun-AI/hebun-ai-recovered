@@ -31,7 +31,6 @@ import type {
   WorkArtifactLifecycleStatus,
   WorkArtifactReferenceResolution,
   WorkArtifactRevisionView,
-  WorkArtifactType,
   WorkArtifactView,
   ContentDestination,
 } from "./contracts";
@@ -67,7 +66,7 @@ function toArtifactView(
     currentRevisionAuthoredByActorType,
     id: row.id,
     tenantId: row.tenantId,
-    artifactType: row.artifactType as WorkArtifactType,
+    artifactType: row.artifactType,
     title: row.title,
     lifecycleStatus: row.artifactLifecycleStatus as WorkArtifactLifecycleStatus,
     ownerWorkspace: row.ownerWorkspace,

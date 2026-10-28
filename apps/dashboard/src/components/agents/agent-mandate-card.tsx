@@ -70,6 +70,7 @@ import {
   MANDATE_SCOPE_VOCABULARY,
   MAX_MANDATE_PURPOSE_CHARACTERS,
   MIN_MANDATE_PURPOSE_CHARACTERS,
+  isAgentPreparationKind,
 } from "@/features/agent-mandate/contracts";
 import type { AgentMandateRevision } from "@/features/agent-mandate/read-agent-mandate.server";
 import {
@@ -163,6 +164,10 @@ const W = {
   scopeHeading: "May propose",
   scopeCaveat:
     "Inside this list a proposal may be FILED. It is not approved, not permitted and not executed by being inside it — a human still decides every one.",
+  /* RA-AUTH-1 — a preparation kind is shown apart from what an agent may propose. */
+  prepareHeading: "May prepare",
+  prepareCaveat:
+    "Preparing writes a draft for a person to review, only for work this agent is responsible for. It is not an action, is never proposed and authorizes nothing.",
   establishHeading: "Record a mandate",
   reviseHeading: "Revise this mandate",
   establishedNotice:
@@ -205,6 +210,14 @@ const REFUSAL_TEXT: Record<MandateResponsibilityRefusal, string> = {
 
 const FALLBACK_REFUSAL = "The mandate was refused, and nothing was written.";
 
+/** RA-AUTH-1 — a superseded revision's scope, with preparation kinds never worded as proposals. */
+function revisionScopeText(scope: readonly string[]): string {
+  const proposable = scope.filter((kind) => !isAgentPreparationKind(kind));
+  const preparable = scope.filter(isAgentPreparationKind);
+  const propose = proposable.length === 0 ? "May propose nothing" : `May propose: ${proposable.join(", ")}`;
+  return preparable.length === 0 ? propose : `${propose} · may prepare: ${preparable.join(", ")}`;
+}
+
 function ScopeList({ scope }: { scope: readonly string[] }) {
   if (scope.length === 0) {
     return (
@@ -214,19 +227,35 @@ function ScopeList({ scope }: { scope: readonly string[] }) {
       </div>
     );
   }
+  const proposable = scope.filter((kind) => !isAgentPreparationKind(kind));
+  const preparable = scope.filter(isAgentPreparationKind);
   return (
     <div className="rounded-md border border-border bg-surface-sunken p-3">
       <p className="text-xs font-medium uppercase tracking-wider text-fg-secondary">
         {W.scopeHeading}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {scope.map((kind) => (
+        {proposable.length === 0 ? <span className="text-xs text-fg-muted">nothing</span> : null}
+        {proposable.map((kind) => (
           <Badge key={kind} variant="success">
             {kind}
           </Badge>
         ))}
       </div>
       <p className="mt-2 text-xs leading-5 text-fg-secondary">{W.scopeCaveat}</p>
+      {preparable.length > 0 ? (
+        <>
+          <p className="mt-3 text-xs font-medium uppercase tracking-wider text-fg-secondary">{W.prepareHeading}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {preparable.map((kind) => (
+              <Badge key={kind} variant="neutral">
+                {kind}
+              </Badge>
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-5 text-fg-secondary">{W.prepareCaveat}</p>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -291,7 +320,7 @@ function History({
             <p className="mt-1 text-[0.7rem] text-fg-muted">
               {revision.proposalScope.length === 0
                 ? "May propose nothing"
-                : `May propose: ${revision.proposalScope.join(", ")}`}{" "}
+                : revisionScopeText(revision.proposalScope)}{" "}
               · effective from {revision.effectiveFrom}
             </p>
             <p className="mt-1 text-[0.7rem] text-fg-muted">{responsibilityText(revision, domains)}</p>
@@ -423,8 +452,8 @@ function MandateForm({
             The most it may propose
           </legend>
           <p className="text-[0.65rem] leading-4 text-fg-muted">
-            Only the action kinds an agent may originate are offered. Selecting none records a
-            withdrawal: this agent may then propose nothing.
+            Only the action kinds an agent may originate, and the preparation kinds it may perform, are
+            offered. Selecting none records a withdrawal: this agent may then propose nothing.
           </p>
           <div className="mt-1 flex flex-wrap gap-3">
             {MANDATE_SCOPE_VOCABULARY.map((kind) => (

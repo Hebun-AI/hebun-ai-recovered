@@ -90,7 +90,7 @@ import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
 } from "./agent-authorship.server";
-import { CONTENT_DRAFT_TYPE } from "./contracts";
+import { CONTENT_DRAFT_TYPE, isWorkArtifactType } from "./contracts";
 import type {
   ContentDestination,
   WorkArtifactType,
@@ -408,6 +408,11 @@ export async function prepareWorkArtifact(
     const target = listing.artifacts.find((artifact) => artifact.id === input.artifactId);
     if (!target) return { status: "refused", reason: "artifact-not-found" };
     if (target.lifecycleStatus === "retired") return { status: "refused", reason: "artifact-retired" };
+    /*
+     * RA-AUTH-1 — this seam revises only the general preparation types. A research report is written
+     * and revised by its own research capability, never by a general draft request.
+     */
+    if (!isWorkArtifactType(target.artifactType)) return { status: "refused", reason: "invalid-input", problems: [] };
 
     const history = await readWorkArtifactHistory(tenant, target.id, readDeps);
     const current = history.find((revision) => revision.current);

@@ -118,13 +118,13 @@ function main(): void {
    * The invariant of the whole program: a mandate may only SUBTRACT. A vocabulary of its own —
    * even one that happens to be a superset today — is the first step to a mandate that grants.
    * ────────────────────────────────────────────────────────────────────── */
+  /* RA-AUTH-1: the vocabulary is now built from the originable and preparation constants; the defect injected is unchanged in kind — a member neither released list holds. */
   proof(
     "the mandate vocabulary stops being the released origination vocabulary",
     CONTRACTS,
-    "export const MANDATE_SCOPE_VOCABULARY: readonly AgentOriginableActionKind[] =\n  AGENT_ORIGINABLE_ACTION_KINDS;",
-    "export const MANDATE_SCOPE_VOCABULARY: readonly AgentOriginableActionKind[] = [\n" +
-      "  ...AGENT_ORIGINABLE_ACTION_KINDS,\n];",
-    "the same reference, not a copy",
+    "export const MANDATE_SCOPE_VOCABULARY: readonly MandateScopeKind[] = Object.freeze([\n  ...AGENT_ORIGINABLE_ACTION_KINDS,\n  ...AGENT_PREPARATION_KINDS,\n]);",
+    "export const MANDATE_SCOPE_VOCABULARY: readonly MandateScopeKind[] = Object.freeze([\n  ...AGENT_ORIGINABLE_ACTION_KINDS,\n  ...AGENT_PREPARATION_KINDS,\n  \"grant-permission\" as MandateScopeKind,\n]);",
+    "followed by the released preparation kinds",
   );
 
   /* ── 5. AN INADMISSIBLE SCOPE IS SILENTLY NARROWED INSTEAD OF REFUSED ──
@@ -148,9 +148,9 @@ function main(): void {
   proof(
     "the storage-layer ceiling admits a kind the released vocabulary does not",
     SCHEMA,
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state']::text[]`;",
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state','grant-permission']::text[]`;",
-    "admits exactly the released originable kinds",
+    "const MANDATE_SCOPE_VOCABULARY_SQL = sql`array['send','record-work','set-work-declared-state','prepare-research']::text[]`;",
+    "const MANDATE_SCOPE_VOCABULARY_SQL = sql`array['send','record-work','set-work-declared-state','prepare-research','grant-permission']::text[]`;",
+    "admits exactly the mandate vocabulary" /* RA-AUTH-1: the echo follows the whole mandate vocabulary. */,
   );
 
   /* ── 7. GOVERNANCE ACQUIRES A MANDATE-STATE WRITER ─────────────────────

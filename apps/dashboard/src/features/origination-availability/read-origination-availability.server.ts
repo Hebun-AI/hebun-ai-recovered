@@ -22,6 +22,7 @@ import { refuseOutsideAgentMandate } from "@/features/action-authorization/agent
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { AgentSelection } from "@/features/agent-identity/contracts";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
+import { isAgentPreparationKind } from "@/features/agent-mandate/contracts";
 import {
   AGENT_ORIGINABLE_REGISTRY_KIND,
   RECORD_WORK_ORIGINATION_ALIAS,
@@ -169,7 +170,8 @@ export async function readOriginationAvailability(
       mandate: {
         revision: mandate.mandate.mandateRevision,
         purpose: mandate.mandate.purpose,
-        proposalScope: [...mandate.mandate.proposalScope],
+        /* RA-AUTH-1 — origination's view of a mandate is what it may PROPOSE; preparation kinds are not proposals. */
+        proposalScope: mandate.mandate.proposalScope.filter((kind) => !isAgentPreparationKind(kind)),
       },
       originable: RECORD_WORK_ORIGINATION_ALIAS,
       workScopes,

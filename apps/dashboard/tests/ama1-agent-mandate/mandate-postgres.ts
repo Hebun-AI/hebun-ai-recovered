@@ -34,7 +34,7 @@ import {
   AGENT_MANDATE_ENTITY_TYPE,
   AGENT_MANDATE_SUBJECT_TYPE,
 } from "../../src/features/agent-mandate/contracts";
-import { AGENT_ORIGINABLE_ACTION_KINDS } from "../../src/features/agent-origination/contracts";
+import { MANDATE_SCOPE_VOCABULARY } from "../../src/features/agent-mandate/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -789,13 +789,13 @@ async function main(): Promise<void> {
      * other, this is where it is caught — and the safe direction is that the database is narrower.
      */
     const admitted = await setup.query<{ ok: boolean }>(
-      `select ($1::text[] <@ array['send','record-work','set-work-declared-state']::text[]) as ok` /* WORK-UPDATE V1: the CHECK's echo gained the third kind. */,
-      [[...AGENT_ORIGINABLE_ACTION_KINDS]],
+      `select ($1::text[] <@ array['send','record-work','set-work-declared-state','prepare-research']::text[]) as ok` /* WORK-UPDATE V1: the CHECK's echo gained the third kind. RA-AUTH-1: and the preparation kind. */,
+      [[...MANDATE_SCOPE_VOCABULARY]],
     );
     assert.equal(
       admitted.rows[0]!.ok,
       true,
-      "every released originable kind is admissible by the table's own CHECK",
+      "every kind of the mandate vocabulary — originable and preparation — is admissible by the table's own CHECK",
     );
 
     console.log("ama1-agent-mandate/mandate-postgres: OK");

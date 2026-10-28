@@ -34,8 +34,17 @@ export type MandateReadForCeiling =
   | { readonly status: "unavailable" }
   | {
       readonly status: "known";
-      readonly mandate: { readonly proposalScope: readonly AgentOriginableActionKind[] } | null;
+      /*
+       * RA-AUTH-1 — the stored scope may also hold PREPARATION kinds (`prepare-research`). They are
+       * not aliases, map to no registry kind, and therefore admit no act below.
+       */
+      readonly mandate: { readonly proposalScope: readonly string[] } | null;
     };
+
+/** Whether a stored scope member is an origination alias — own property of the declared map only. */
+function isOriginationAlias(member: string): member is AgentOriginableActionKind {
+  return Object.prototype.hasOwnProperty.call(AGENT_ORIGINABLE_REGISTRY_KIND, member);
+}
 
 export function refuseOutsideAgentMandate(
   read: MandateReadForCeiling,
@@ -52,7 +61,7 @@ export function refuseOutsideAgentMandate(
    * string equality. An EMPTY scope — withdrawal — admits nothing, which is what withdrawal means.
    */
   const admitted = read.mandate.proposalScope.some(
-    (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,
+    (alias) => isOriginationAlias(alias) && AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,
   );
   return admitted ? null : "action-outside-agent-mandate";
 }
@@ -114,12 +123,56 @@ export function refuseOutsideAgentResponsibility(
   if (!RESPONSIBILITY_SCOPED_REGISTRY_KINDS.includes(actionKind)) return null;
   if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
   if (!read.mandate) return "no-agent-mandate";
+  return refuseOutsideResponsibilityGrants(read.mandate.responsibility, workScope);
+}
+
+type ResponsibilityGrants = NonNullable<Extract<MandateReadForResponsibility, { status: "known" }>["mandate"]>["responsibility"];
+
+/** The responsibility test both ceilings share: the work scope must be covered by a stated grant. */
+function refuseOutsideResponsibilityGrants(
+  grants: ResponsibilityGrants,
+  workScope: WorkScope | null,
+): "work-scope-required" | "work-outside-agent-responsibility" | null {
   const scope = parseWorkScope(workScope);
   if (!scope) return "work-scope-required";
-  const admitted = read.mandate.responsibility.some((grant) =>
+  const admitted = grants.some((grant) =>
     scope.kind === "organization"
       ? grant.kind === "organization"
       : grant.kind === "domain" && grant.inService && grant.workDomainId === scope.workDomainId,
   );
   return admitted ? null : "work-outside-agent-responsibility";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * RA-AUTH-1 — THE PREPARATION CEILING, BESIDE THE ACTION CEILING.
+ *
+ * "Does this agent's recorded mandate admit this PREPARATION for this work?" A preparation kind is
+ * not an action, so it is never answered by `refuseOutsideAgentMandate` (whose map it is not in);
+ * it is answered here, by the same two dimensions, in the same order, with the same refusals:
+ *
+ *   unreadable mandate                 → agent-mandate-authority-unavailable
+ *   no mandate                         → no-agent-mandate
+ *   kind not in the scope (withdrawn)  → action-outside-agent-mandate
+ *   no work scope                      → work-scope-required
+ *   scope not covered by a grant       → work-outside-agent-responsibility
+ *
+ * Every preparation kind is responsibility-scoped. The read is the tenant-scoped effective mandate
+ * the caller just took, so another tenant's agent, a superseded revision and a withdrawal all arrive
+ * here as "no mandate" or "not in scope". An origination alias handed in as a preparation kind is
+ * refused: this function can never admit an action.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export type AgentPreparationRefusal = AgentMandateCeilingRefusal | AgentResponsibilityRefusal;
+
+export function refuseOutsideAgentPreparation(
+  read: MandateReadForCeiling & MandateReadForResponsibility,
+  /* A released preparation kind (`AGENT_PREPARATION_KINDS`); typed structurally, like the reads, so this module imports nothing from the mandate authority. */
+  preparationKind: string,
+  workScope: WorkScope | null,
+): AgentPreparationRefusal | null {
+  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
+  if (!read.mandate) return "no-agent-mandate";
+  if (isOriginationAlias(preparationKind)) return "action-outside-agent-mandate";
+  if (!read.mandate.proposalScope.includes(preparationKind)) return "action-outside-agent-mandate";
+  return refuseOutsideResponsibilityGrants(read.mandate.responsibility, workScope);
 }

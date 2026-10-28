@@ -63,7 +63,7 @@ import {
   WORK_ARTIFACT_OWNER_WORKSPACE,
   type PreparationRefusal,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
-import type { ContentDestination, WorkArtifactType } from "@/features/work-artifacts/contracts";
+import { isWorkArtifactType, type ContentDestination, type StoredWorkArtifactType, type WorkArtifactType } from "@/features/work-artifacts/contracts";
 import { listWorkArtifacts, readWorkArtifactHistory } from "@/features/work-artifacts/read-work-artifacts.server";
 import { readCurrentRevisionReviewStates } from "@/features/work-artifact-review/review-revision.server";
 import { artifactRowReviewStatus, type ArtifactRowReviewStatus } from "@/features/work-artifact-review/contracts";
@@ -158,7 +158,7 @@ async function eligibleAgents(
 export interface WorkDraftView {
   readonly artifactId: string;
   readonly title: string;
-  readonly artifactType: WorkArtifactType;
+  readonly artifactType: StoredWorkArtifactType;
   readonly revisionNo: number;
   readonly retired: boolean;
   /** Who wrote the current revision, from the revision row itself. */
@@ -529,6 +529,8 @@ export async function reviseWorkDraft(input: ReviseWorkDraftInput, deps: AssignW
     const draft = linked.drafts.find((candidate) => candidate.artifactId === artifactId);
     if (!draft) return { status: "refused", reason: "draft-not-on-this-work" };
     if (draft.retired || draft.review !== "changes-requested") return { status: "refused", reason: "no-change-request" };
+    /* RA-AUTH-1 — a general draft capability never revises a research report; only its own capability may. */
+    if (!isWorkArtifactType(draft.artifactType)) return { status: "refused", reason: "agent-not-eligible" };
 
     const prepared = await (deps.prepare ?? prepareWorkArtifact)(
       {

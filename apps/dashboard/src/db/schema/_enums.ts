@@ -1176,6 +1176,13 @@ export const workArtifactTypeEnum = pgEnum("work_artifact_type", [
   "operational-plan",
   "message-draft",
   "content-draft",
+  /*
+   * RA-AUTH-1 — a sourced research report, prepared by an agent under the `prepare-research`
+   * preparation kind. Like `content-draft` it serves a preparation surface, not an action tool. It
+   * is written ONLY through the `prepare-research-report` capability (RA-PREP-1); the general
+   * preparation vocabulary (`WORK_ARTIFACT_TYPES`) does not offer it.
+   */
+  "research-report",
 ]);
 
 /*

@@ -17,18 +17,20 @@
  * pins every entry to the mandate vocabulary and the platform data-use policy, so an entry cannot
  * claim a kind or a data class those authorities do not hold.
  */
-import { AGENT_ORIGINABLE_REGISTRY_KIND, type AgentOriginableActionKind } from "@/features/agent-origination/contracts";
+import { AGENT_ORIGINABLE_REGISTRY_KIND } from "@/features/agent-origination/contracts";
 import {
   refuseOutsideAgentMandate,
+  refuseOutsideAgentPreparation,
   refuseOutsideAgentResponsibility,
   type AgentMandateCeilingRefusal,
   type AgentResponsibilityRefusal,
   type MandateReadForCeiling,
   type MandateReadForResponsibility,
 } from "@/features/action-authorization/agent-mandate-ceiling";
+import { isAgentPreparationKind, type MandateScopeKind } from "@/features/agent-mandate/contracts";
 import type { WorkScope } from "@/features/work-domain/work-scope";
 
-export type AgentWorkCapabilityId = "prepare-work-draft";
+export type AgentWorkCapabilityId = "prepare-work-draft" | "prepare-research-report";
 
 export interface AgentWorkCapability {
   readonly id: AgentWorkCapabilityId;
@@ -42,11 +44,16 @@ export interface AgentWorkCapability {
   /**
    * The mandate condition: the agent's in-force mandate must admit at least one of these responsibility-
    * scoped kinds AND grant responsibility for the work item's recorded scope. An agent drafts only for
-   * work it is already responsible for.
+   * work it is already responsible for. RA-AUTH-1: a kind is either an origination alias (answered by
+   * the action ceiling) or a preparation kind (answered by the preparation ceiling) — never both.
    */
-  readonly mandateKindsAnyOf: readonly AgentOriginableActionKind[];
-  /** The External-AI Data Use purpose and classes the model call declares. The gate enforces them. */
-  readonly dataUse: { readonly purpose: "assistance"; readonly dataClasses: readonly ("conversation" | "work-artifact")[] };
+  readonly mandateKindsAnyOf: readonly MandateScopeKind[];
+  /**
+   * The External-AI Data Use purpose and classes the model call declares. The gate enforces them.
+   * RA-AUTH-1: `null` declares no disclosure at all — the capability has no performing seam yet and
+   * cannot reach a model until its purpose and classes exist in the platform policy.
+   */
+  readonly dataUse: { readonly purpose: "assistance"; readonly dataClasses: readonly ("conversation" | "work-artifact")[] } | null;
   /** What the agent is given. Nothing else reaches the model. */
   readonly input: readonly string[];
   readonly output: string;
@@ -82,6 +89,38 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
     ]),
     authorizationRequired: false as const,
   }),
+  /*
+   * RA-AUTH-1 — the Research Agent's only capability (Director-approved). DECLARED, NOT PERFORMABLE:
+   * no seam performs it and it declares no External-AI disclosure (`dataUse: null`). RA-EAI-1 adds the
+   * `research` purpose to the platform policy and RA-PREP-1 adds the seam; until both land, nothing can
+   * prepare a research report. Its mandate condition is the PREPARATION kind `prepare-research` alone,
+   * so a research mandate grants no general draft and a general draft mandate grants no research.
+   */
+  Object.freeze({
+    id: "prepare-research-report" as const,
+    performedBy: "no seam yet — RA-PREP-1 adds it; until then nothing performs this capability",
+    label: "Prepare a research report for this work",
+    objective:
+      "Write one sourced research report — market, customer or opportunity research — for a work item the agent is responsible for.",
+    sideEffect: "PREPARATION_ONLY" as const,
+    mandateKindsAnyOf: Object.freeze(["prepare-research"] as const),
+    dataUse: null,
+    input: Object.freeze([
+      "your research question, in your words",
+      "public web sources found during the research",
+      "your organization's ratified, publicly usable statements of what it offers",
+    ]),
+    output: "One research report authored by the agent, which you then link to this work item as its evidence.",
+    completion: "Done when a person with Governance authority accepts the report in Operations.",
+    cannot: Object.freeze([
+      "contact anyone, send, publish or change anything outside Hebun — a report is text for review",
+      "propose actions, receive permits or start machine execution",
+      "propose or change the work item's state",
+      "prepare any draft other than a research report",
+      "approve its own report or widen its own mandate",
+    ]),
+    authorizationRequired: false as const,
+  }),
 ]);
 
 export function agentWorkCapability(id: AgentWorkCapabilityId): AgentWorkCapability {
@@ -103,8 +142,10 @@ export function refuseOutsideAgentWorkCapability(
 ): AgentWorkCeilingRefusal | null {
   let refusal: AgentWorkCeilingRefusal | null = null;
   for (const alias of capability.mandateKindsAnyOf) {
-    const kind = AGENT_ORIGINABLE_REGISTRY_KIND[alias];
-    const refused = refuseOutsideAgentMandate(read, kind) ?? refuseOutsideAgentResponsibility(read, kind, workScope);
+    const refused = isAgentPreparationKind(alias)
+      ? refuseOutsideAgentPreparation(read, alias, workScope)
+      : refuseOutsideAgentMandate(read, AGENT_ORIGINABLE_REGISTRY_KIND[alias]) ??
+        refuseOutsideAgentResponsibility(read, AGENT_ORIGINABLE_REGISTRY_KIND[alias], workScope);
     if (!refused) return null;
     if (refusal === null || refusal === "action-outside-agent-mandate") refusal = refused;
   }
