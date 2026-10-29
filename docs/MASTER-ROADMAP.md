@@ -3175,6 +3175,7 @@ PRODUCTION-ACCEPTED      != COMPLETE (no such phase state exists here)
 | **FC-C** | **Hebun Social Commerce** | The morning/evening product-posting system built earlier for Turkish Rug House | A sellable content automation package for stores |
 | **FC-D** | **Hebun Business Automations** | None — ideas only | Small-business automation and agent packages |
 | **FC-E** | **Hebun Marketplace — commercial scope** | The existing enterprise AI Marketplace (`docs/architecture-backlog/20-marketplace.md`, `docs/product-vision/marketplace-ecosystem.md`) | The same marketplace also offering Hebun-built commercial software, automations, agent packages and digital products |
+| **FC-F** | **Hebun Security Cloud** (recorded 2026-10-29) | Hebun's own security capabilities, offered per tenant | Subscription application-security product — see **§13.4**, which also records Hebun Internal Security |
 
 **FC-A — planned capabilities.** General product and stock management · multiple warehouses · barcode / QR · stock movements · Excel / CSV import and export · iOS and Android apps · mobile stock counting · stock queries over WhatsApp and Telegram · add, remove and update items by message · voice-message inventory operations · product drafts from a photo · critical-stock notifications · AI stock analysis · demand forecasting · supply and purchasing suggestions · e-commerce stock sync · Heby integration.
 
@@ -3204,6 +3205,53 @@ NAMED SOURCE      != VERIFIED SOURCE
 EXISTING SYSTEM   != SALE-READY PRODUCT
 CHANNEL           != AUTHORITY
 AI SUGGESTION     != AUTHORIZATION
+```
+
+### 13.4 Hebun Security — Internal Security and Security Cloud · **PLANNED · NOT IMPLEMENTED** · recorded by Director instruction, 2026-10-29
+
+**This section opens nothing**, exactly as §13.3. It records two planned product areas so they are not
+lost; it starts no phase, creates no product line (§5, §18 rule 12), creates no Security authority (§7,
+§20.4) and authorizes no code, schema, provider connection, tenant authorization, subscription or payment.
+Strategy, catalog, packages and phase detail live in **one** document:
+[`product-vision/security/hebun-security-product-strategy.md`](product-vision/security/hebun-security-product-strategy.md).
+This section is its roadmap pointer and does not restate it.
+
+| Product area | What | Placement | Status |
+|---|---|---|---|
+| **Hebun Internal Security** | Security expertise protecting Hebun's own platform and development: application, backend/API, database, cloud, AI/agent, identity, secrets, supply chain, DevSecOps, monitoring | A capability set in a planned **Software Engineering** department (§20.4 model: department → mandate-bounded agents → capabilities); a security agent, if any, has the SECURITY-AGENT-D1 shape — configuration, not authority | Planned · not implemented |
+| **Hebun Security Cloud** | The same capabilities for customers, per tenant, by monthly subscription; first paid MVP proposed: *Continuous Application Security* on a customer-authorized repository | Future commercial product (FC-F, §13.3) | Planned · not implemented · not connected · not commercially available |
+| **Shared security capabilities** | One capability set, two tenant contexts — never two engines; Internal Security is the product running in Hebun's own tenant | Reuses tenant context, Governance, Agent Identity/Mandate, Work, Work Artifacts and review, model gateway + External-AI Data Use, Integrations, audit | Planned |
+| **Subscription strategy** | Startup $99 · Growth $299 · Business $799 · Enterprise custom — **price hypotheses**, limited by repositories, scan frequency, AI usage, retention, integrations, support | No billing, entitlement or subscription system exists | Proposed; not offered |
+| **Development phases** | SEC-FOUNDATION-1 → SEC-CLOUD-MVP-1 → SEC-CONTINUOUS-1 → SEC-AI-ENGINEER-1 → SEC-ENTERPRISE-1 (strategy §13); recommended: build FOUNDATION and CLOUD-MVP as one tenant-scoped capability | — | Each Planned · not selected |
+
+**Governance and tenant isolation requirements (binding on every phase).** Trusted tenant identity only
+from authentication. Separate findings, reports, provider permissions, authorization scope and audit
+provenance per tenant, Hebun's included. A security capability reads what the tenant authorized and
+prepares; it never decides, deploys or writes to a customer system. Findings need an owner that extends
+existing authority (§7.3) — a Director design decision. A model's judgment is never the only control.
+
+**Measured gaps (at `03817c82`) — each a Director decision before any phase.**
+
+- The GitHub App deliberately requests no `contents:read` (`provider-github/contracts.ts`): no source read exists.
+- External-AI Data Use has no source-code data class and no security purpose.
+- No findings record or owner, no vulnerability-data source, no cloud / IdP / CI connection.
+- No billing, entitlement or subscription system.
+- Production Anthropic readiness is BLOCKED (GATE-D-PROVIDER-RECONCILIATION-1).
+
+**Commercial validation gates.** Demand from named prospects · measured cost per scan and plan-month ·
+tenant-isolation proof · data-use decision for source code · legal terms and DPA · one manually invoiced
+pilot · only then billing. Never presented as included: 24/7 SOC, incident response, compliance
+certification, guaranteed detection, unlimited usage.
+
+**Priority unchanged.** §13.3's order (Hebun Enterprise AI → Heby → AI Agents) and every active program,
+including RA-PREP-1 and the Research Agent, keep their state; selecting any SEC phase is a Director decision.
+
+```
+PRODUCT AREA      != PRODUCT LINE
+SHARED CAPABILITY != SHARED TENANT DATA
+SECURITY FINDING  != SECURITY AUTHORITY
+PRICE HYPOTHESIS  != PRICE
+PLANNED           != AVAILABLE
 ```
 
 ---
@@ -5579,6 +5627,10 @@ any future agent platform: an agent gains no trust in content because it can ret
 > from the person's instruction and ratified Knowledge, under human review and Governance. It holds no
 > security truth, scans nothing, touches no system, reads no audit log and no unconnected security
 > data. Nothing is created by this note. Record: `hebun-security-agent-d1-decision.md`.
+
+> **SECURITY PRODUCT STRATEGY (Director, 2026-10-29).** Hebun Internal Security and Hebun Security Cloud are
+> recorded as planned product areas in §13.4. They change nothing above: no Security Agent or Sentinel
+> authority; a security specialist keeps the SECURITY-AGENT-D1 shape; nothing is created by this note.
 
 **Autonomous evolution.** **Do not create another Observe → Learn runtime.** The chain already has
 owners: provider observation, derived intelligence, origination, proposal, human Governance
