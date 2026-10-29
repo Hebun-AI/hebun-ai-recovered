@@ -60,8 +60,9 @@ assert.deepEqual(
 );
 assert.deepEqual(
   SRC.filter((f) => /refuseOutsideAgentWorkCapability\(/.test(code(f))).sort(),
-  [WORK_CAPABILITY, AGENT_WORK, PREPARATION].sort(),
-  "F1: the work capability's condition is asked by exactly the agent work seam and the preparation seam",
+  /* RA-PREP-1 — the research seam asks it again before filing. */
+  [WORK_CAPABILITY, AGENT_WORK, PREPARATION, "src/features/agent-work/assign-research-report.server.ts"].sort(),
+  "F1: the work capability's condition is asked by exactly the agent work seam, the preparation seam and the research seam",
 );
 assert.match(code(AGENT_WORK), /readWorkStateTarget\(/, "F1: the agent work seam reads the scope from the Work Authority, never from the client");
 assert.match(code(WRITER), /work-scope-required/, "F1: the one writer refuses unscoped record-work");

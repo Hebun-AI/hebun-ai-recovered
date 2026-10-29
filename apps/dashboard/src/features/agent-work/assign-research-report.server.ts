@@ -66,11 +66,7 @@ import type { HebyModelFallback } from "@/features/heby-runtime/contracts";
 import { hebunInstruction } from "@/features/heby-runtime/instruction-channel";
 import { resolveAgentAuthorship, type AgentAuthorshipRefusal } from "@/features/work-artifacts/agent-authorship.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
-import {
-  unfileableModelAnswer,
-  WORK_ARTIFACT_OWNER_WORKSPACE,
-  WORK_ARTIFACT_PREPARATION_INTENT,
-} from "@/features/work-artifacts/prepare-work-artifact.server";
+import { WORK_ARTIFACT_OWNER_WORKSPACE, WORK_ARTIFACT_PREPARATION_INTENT } from "@/features/work-artifacts/prepare-work-artifact.server";
 import { createResearchReportFromResearchPreparation, type WorkArtifactWriteDeps } from "@/features/work-artifacts/write-work-artifacts.server";
 
 const CAPABILITY = agentWorkCapability("prepare-research-report");
@@ -95,7 +91,8 @@ export const RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
   "Never state or imply that anything has been sent, approved, decided or done. This draft is not acted on.",
 ] as const;
 
-const RESEARCH_BRIEF = { instruction: hebunInstruction(RESEARCH_REPORT_PREPARATION_BRIEF.join(" ")), material: [] as const };
+const lines = RESEARCH_REPORT_PREPARATION_BRIEF;
+const RESEARCH_BRIEF = { instruction: hebunInstruction(lines.join(" ")), material: [] as const };
 
 /* A reply that names a web address would read as sourced. Refused, never trimmed: no parser edits model text. */
 const LINK = /\bhttps?:\/\/|\bwww\.[a-z0-9-]+\.[a-z]/i;
@@ -219,9 +216,16 @@ export async function assignResearchReport(
     reason,
     ...(fallback ? { modelFallback: fallback } : {}),
   });
-  const unfileable = unfileableModelAnswer(answer);
-  if (unfileable) return notPrepared(unfileable);
+  /*
+   * The same four filing rules `prepareWorkArtifact` applies, by the same reason codes: only served model
+   * text (`origin` is the answer flow's fact), durably recorded, complete (OUTPUT-INTEGRITY-1) and not the
+   * provider's own refusal (B2-REFUSAL-GUARD-1) becomes a report. Restated rather than shared so the work
+   * preparation seam stays byte-identical.
+   */
+  if (answer.outcome.response.origin !== "model") return notPrepared("no-model-answer");
   if (!answer.persistence.durable) return notPrepared("not-durable");
+  if (answer.modelStopReason === "max_tokens") return notPrepared("output-truncated");
+  if (answer.modelStopReason === "refusal") return notPrepared("model-refused");
 
   const content = answer.outcome.response.body.join("\n");
   if (LINK.test(content)) return notPrepared("unsourced-link-in-output");
