@@ -5760,6 +5760,7 @@ re-graded here.
 | B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
 | RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
+| RA-EAI-1 | VERIFIED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
 
 ---
 
@@ -5956,3 +5957,4 @@ before §16.1 are not yet indexed (Phase B).
 | B1-429-PREDISPATCH-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Provenance | DEFERRED | Origination records a provider 429 as `not-dispatched` because the instance cap shares `rate-limited`; deferred by the Director to a separate change |
 | RA-AUTH-1-HUMAN-REVISE-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Authority boundary | DEFERRED | Human Operations revise does not check artifact type; unreachable while no research-report exists; closes in RA-PREP-1 before any research artifact can be created |
 | RA-AUTH-1-AUTH-RUNTIME-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED of RA-AUTH-1: Director signed-in read-only check of /agents (May propose / May prepare), /approvals and /operations at 5b1bb853 |
+| RA-EAI-1-WEB-SEARCH-1 | RA-EAI-1 | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` | Data-use scope | DEFERRED | Anthropic web-search transfers search queries and third-party results; not covered by the research × conversation cell; needs its own Director decision (P4) before any web-search transport |
