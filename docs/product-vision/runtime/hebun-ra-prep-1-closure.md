@@ -12,15 +12,73 @@ binding is unverified (GATE-D). Prepared ≠ authorized ≠ executed ≠ success
 | # | Question | Decision |
 |---|---|---|
 | 1 | Authoritative entrypoint | `assignResearchReport` in `features/agent-work/assign-research-report.server.ts`, beside `assignWorkDraft`. It owns nothing: no table, no state, no lifecycle. |
-| 2 | Mandate and responsibility | The ONE shared ceiling: `eligibleAgents(…, CAPABILITY)` → `refuseOutsideAgentWorkCapability` → `refuseOutsideAgentPreparation` (`prepare-research` + responsibility for the work item's recorded scope). The agent id is a lookup key; authorship is minted by `resolveAgentAuthorship`. Asked again after the model, before filing. |
+| 2 | Mandate and responsibility | The ONE shared ceiling: `eligibleAgents(…, CAPABILITY)` → `refuseOutsideAgentWorkCapability` → `refuseOutsideAgentPreparation` (`prepare-research` + responsibility for the work item's recorded scope). The agent id is a lookup key; authorship is minted by `resolveAgentAuthorship`. The authorizing mandate REVISION is read once before the model and re-read inside the filing transaction (see Mandate provenance). |
 | 3 | Tenant research authorization | Twice, by the released authority, never restated: preflight `authorizeExternalAiDisclosure({purpose: research, dataClasses: [conversation]}, operator, modelId)` before the model (no message row, no dispatch); the gateway asks it again at dispatch with budget and cap. Assistance never stands in: the composer matches purpose and class exactly; no fallback exists. |
 | 4 | Gateway contract | `answerHebyModelRequest`'s server-only options gain `dataUsePurpose?: "research"`. Set only by the research seam from the capability's declaration. Under it the request resolves no workspace source (no grounding read, cited, sent or persisted) and declares `purpose: research`; every other caller is byte-identical (`?? "assistance"`). Budget, dispatch cap, attestation, model identity, instruction channel and disclosure audit stay in `generateHebyModelAnswer`, unchanged. |
 | 5 | Writer | `createResearchReportFromResearchPreparation` in the released writer module. Its input has no type field; the type is its constant and it chooses its own validator. Requires the branded agent authorship and a source message. Imported and called by the research seam alone (firewall F1). |
-| 6 | Provenance | Existing columns, no migration: tenant and requesting person (`work_artifacts.tenant_id`, `created_by`), agent (`authored_by_actor_*`), capability (the type — one writer), provider/model/transport/correlation (the `messages` row via `source_message_id`), purpose and classes, tenant authorization and attestation revisions (the APF-5 disclosure audit row, joined by correlation id), time, `draft` status. The mandate revision in force is not stored on the row (RA-PREP-1-MANDATE-PROVENANCE-1). |
+| 6 | Provenance | Existing columns, no migration: tenant and requesting person (`work_artifacts.tenant_id`, `created_by`), agent (`authored_by_actor_*`), capability (the type — one writer), provider/model/transport/correlation (the `messages` row via `source_message_id`), purpose and classes, tenant authorization and attestation revisions (the APF-5 disclosure audit row, joined by correlation id), time, `draft` status. The mandate revision: one `work-artifact.research-report.filed` row in the existing append-only `audit_log`, written on the report's own filing transaction (no migration). |
 | 7 | Human revise | Closed at the writer: `appendRevision` reads the stored type under the artifact lock and refuses `artifact-type-not-revisable` for anything not a general type. Every reviser — human Operations, agent preparation, Heby workflow — goes through it. |
 | 8 | Provider unavailable | Director control off → `refused / model-connectivity-disabled` before the model. Transport not configured, budget exhausted, cap reached, gateway data-use refusal → the answer flow's honest fallback → `not-prepared / no-model-answer` with its closed `modelFallback` code; nothing filed. |
 | 9 | Not consequential | `PREPARATION_ONLY`: the seam imports no proposal, permit, decision, execution, evidence-link, transport or web-search module (firewall F3). The reply is untrusted data, filed verbatim, read by nothing that acts. Linking it to the work is the person's WEV-1 act; accepting it is Governance review. |
 | 10 | Work preparation preserved | `prepareWorkArtifact` is byte-identical to 03817c82: the research seam restates its four filing rules (served model text, durable, not `max_tokens`, not `refusal`) by the same reason codes. A first cut shared them through a helper; five source-pinned suites (aor-1a, ca2, cgo9, output-integrity-1) went red, and that refactor was reverted rather than the pins moved. `eligibleAgents` defaults to the work-draft capability. Assistance callers unchanged (b2 boundary pin). |
+
+## Mandate provenance (release-readiness review, 2026-10-29)
+
+**Finding: a real gap, fixed without a migration (decision B).** Mandate identity ≠ mandate revision
+identity. Before the fix the report named its agent but not the revision. Reconstruction "by time" compared
+two application clocks (`agent_mandates.effective_from` — `establish-agent-mandate.server.ts`, `new Date()`;
+`work_artifact_revisions.created_at` — the writer's `new Date()`), possibly on different server instances,
+and the final mandate check ran outside the filing transaction, so a revision could land between check and
+insert. That is a guess, not a record.
+
+| Question | Answer (code) |
+|---|---|
+| Owner | Agent Mandate Authority (`agent-mandate/establish-agent-mandate.server.ts`, read seam `read-agent-mandate.server.ts`) |
+| Append-only, immutable id | Yes: one row per revision, `id` uuid, `(tenant_id, agent_id, mandate_revision)` unique, effective = max revision (`db/schema/agent-mandate.ts`); withdrawal is a new revision |
+| Timestamps | `effective_from` and the revision's `created_at` are application clocks — not a join key |
+| Re-validated during preparation | Now inside the filing transaction (below) |
+
+**The fix.** The seam reads the effective revision once, before the model, and asks the ceiling of that
+read (`mandateId`, `mandateRevision`). The research writer now REQUIRES a filing condition, which it runs on
+its creating transaction: the seam re-reads the effective mandate on that transaction, files only if it is
+still the same revision and its ceiling still admits the work, and appends
+`work-artifact.research-report.filed` (tenant, person, artifact, revision 1, agent, `mandateId`,
+`mandateRevision`, capability, purpose, source message, correlation id, `sourcing: unsourced`) through a new
+audit sibling `governance-audit/research-report-audit.server.ts` on the same transaction. The row is not
+best-effort: a failure rolls the report back. A new revision landing mid-call — even one that still admits
+research — files nothing (`agent-mandate-changed-while-preparing`). Reconstruction is a join:
+`audit_log.metadata->>'mandateId'` → one immutable `agent_mandates` row → its Governance decision (R8b).
+Remaining window: READ COMMITTED — a revision committed between the in-transaction read and COMMIT is not
+seen; the row still states exactly which revision the filing transaction read.
+
+## Time of check / time of use
+
+| Change | Stops a new dispatch? | Stops filing? | Evidence |
+|---|---|---|---|
+| Mandate withdrawn before preparation | Yes — refused before the model | — | R8e |
+| Mandate withdrawn or revised during the call | — (already sent) | Yes — revision re-read in the filing transaction | R7, R8c |
+| Mandate changed after filing | Next request | Report and its row unchanged | R8a, R8d |
+| Governance authority lost during the call | — | Yes — asked again before filing (`governance-authority-changed-while-preparing`) | R9a |
+| Tenant research scope withdrawn during the call | Next request (R3 last) | No — disclosure is decided at dispatch; filing discloses nothing new | R9d |
+| Provider control off / transport gone | Yes — preflight and gateway | Nothing to file | R3 |
+| Two simultaneous requests, one revision | Each admitted by the cap separately | Each files under the same revision | R9b, R9c |
+
+A call that happened but was not filed stays visible: its message row and its
+`external-ai.disclosure.authorized` row remain; no `research-report.filed` row exists (R7, R8c, R9a).
+Dispatch is not filing authority.
+
+## Concurrent dispatch (RA-PREP-1-CONCURRENT-DISPATCH-1)
+
+| | |
+|---|---|
+| Severity | Low — cost/duplication only |
+| Exploitability | Needs a caller with Governance authority and an eligible research agent; no such caller exists (no surface) |
+| Current exposure | None: no route, action or component imports the seam (F6); no production research grant or mandate |
+| Existing controls | Each request passes every gate itself; the persistent per-tenant dispatch cap admits in a locked transaction (R9c: one of two racing requests); the process budget; each report files under its own checked revision (R9b) |
+| Authorization bypass / tenant isolation | None found |
+| Idempotency | A resubmitted request is a second request: a second dispatch and a second report |
+| Same in work preparation? | No — `assignWorkDraft` holds a per-(work, agent) advisory lock and an open-draft rule |
+| Required before activation | Decide whether a surface needs the same per-(work, agent) lock or an open-report rule; until a surface exists nothing can trigger it |
 
 ## Unsourced
 
@@ -41,14 +99,19 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 |---|---|
 | Baseline at 03817c82 (unchanged tree) | ra-auth-1, ra-eai-1, agent-execution-1, external-ai-data-use-b2, heby-workflow-1, content-agent-2, r3w-flow, rev2 PASS; r3w-flow/ambient-database-safety BLOCKED (canonical 55432 not running) |
 | `tests/ra-prep-1/research-preparation-postgres.ts` | PASS — R1 authorized (1 dispatch, 1 report, agent author, message provenance live/model id, audit research × [conversation] under the tenant grant, wire carries the question and no earlier draft, work title or agent name) · R2 linked + Governance-accepted; human reviser `artifact-type-not-revisable`; general preparation seam, general writers refuse; a general draft still revises · R3 17 refusals, zero dispatch and zero writes · R4 client purpose/tenant/class ignored; research grant does not stand in for assistance · R5 injection grants nothing; link refused; fake citation filed as unsourced · R6 tenant isolation · R7 mandate withdrawn mid-call files nothing |
-| `tests/ra-prep-1/research-firewall.ts` | PASS — F1 writer authority · F2 revise guard under lock · F3 reach · F4 purpose source · F5 order · F6 no surface · F7 unsourced |
+| `tests/ra-prep-1/research-firewall.ts` | PASS — F1 writer authority · F2 revise guard under lock · F3 reach · F4 purpose source · F5 order (authorizing revision before the model; Governance after; mandate re-read and provenance row inside the filing transaction) · F6 no surface · F7 unsourced · F8 writer runs the condition on its transaction, research writer requires one, row not best-effort |
+| Release-readiness additions to the postgres suite | PASS — R1 provenance row (exact metadata, correlation = the dispatch's) · R8a–e mandate provenance · R9a–d time of check / use and concurrency |
 | `tests/ra-prep-1/bite-proofs.ts` (disposable detached copy, restored and clean after) | 8/8 bite, 0 void — B1 revise guard removed · B2 research grounds on workspace sources · B3 gateway declares assistance · B4 preflight asks assistance · B5 preflight skipped · B6 link filed · B7 capability not re-asked · B8 general validator admits research-report |
 | Pins moved (each names RA-PREP-1) | a12f770f: ra-auth-1 P5/P6 and ra-eai-1 E8/E10 (`no seam yet` → the seam); agent-execution-1 C4 (ceiling asked for the seam's capability); external-ai-data-use-b2 (purpose `options.dataUsePurpose ?? "assistance"`, option admits research only). THIS COMMIT, censuses the new seam legitimately joins, each widened by name: agent-runtime-0 (authorship resolver callers, and its M6 bite message), ama1 (mandate importers, 17 → 18), ama2 (mandate readers, 9 → 10), aor-1b (internal-draft mode setters), ap4b F1 (work-capability askers), external-ai-data-use-1a (authority importers), sci1 (instruction minters; the seam mints from `lines.join`) |
 | Full suite run 1, `npm run test:run` at a12f770f, disposable detached copy, en_US.UTF-8 cluster | 1104/1124. 20 red: 15 REGRESSION of this phase, all test-side — 9 census/pin files (+ the bite-proofs whose baseline is that firewall) and 5 source pins broken by the shared-helper refactor; fixed in THIS COMMIT (refactor reverted, censuses widened). 3 PRE-EXISTING environmental (hlr legibility-postgres, hlr bite-proofs, work2-provider-disclosure bite-proofs: collation; base 03817c82 fails the same on the en_US cluster, and base and candidate both PASS on a C-locale cluster). r3w ambient BLOCKED. apf5 bite B5 missed only because eai-1a's census was red; PASS once fixed |
 | Full suite run 2, at a12f770f + THIS COMMIT's src/tests, same copy, C-locale cluster | 1122/1124, tree unchanged after. 2 red: agent-runtime-0/bite-proofs — M6 bit but matched the old firewall message, message updated in THIS COMMIT, then PASS (7 bit, 2 tolerated, 0 void); r3w-flow/ambient-database-safety BLOCKED (canonical 55432 not running; not a pass). **0 REGRESSION** |
+| Full suite run 3, ccb2c35f + the provenance change (first cut), C-locale cluster | 1115/1124, tree unchanged. REGRESSION, test-side, fixed before run 4: g1/g2/k2 audit-sink censuses (new sibling named), eai-1a (the audit module imported the EAI `Purpose` type — replaced by the capability's own type), agent-runtime-0 M1 anchor (the filing condition moved before the revision insert so the anchor stays contiguous), apf5 B5 (downstream of eai-1a). VOID by timeout, PASS in run 4: instagram-analytics and instagram-approval-preview-1 bite-proofs. PRE-EXISTING: plan-step-idempotency-1 bite-proofs. BLOCKED: r3w |
+| Full suite run 4, final candidate (ccb2c35f + THIS COMMIT's src/tests), C-locale cluster | **1121/1124 — not a full PASS.** Tree unchanged after. 3 red: k2-flow/create-and-read-postgres "exactly one creation won" — intermittent race, touches no RA-PREP-1 file, 5/5 PASS at base and 5/5 at candidate re-run (flake, not reproduced); plan-step-idempotency-1/bite-proofs — PRE-EXISTING, base 03817c82 F P P, candidate P P P; r3w-flow/ambient-database-safety — BLOCKED (canonical 55432 not running; not run, not a pass). 0 REGRESSION. ra-prep-1 bite-proofs 11/11 bit, 0 void |
+| agent-runtime-0/bite-proofs after its message fix (run 2 era) | targeted PASS, 7 bit, 2 tolerated, 0 void — recorded separately from the suite count |
+| Collation | Repository evidence: `governance-decision/authority-delegation.server.ts` sorts in SQL (`order by label`); `hlr-human-legibility/legibility-postgres.ts` expects code-point order. The suite therefore needs a C (byte-order) collation cluster; runs 2–4 used `initdb -E UTF8 --locale=C` |
 | `tsc --noEmit` | 0 |
 | `eslint` on every changed source and test file | 0 errors; 1 pre-existing warning (sci1 unused `hebunInstruction` import, untouched line) |
-| `next build` (disposable detached copy, real node_modules directory) | exit 0 |
+| `next build` (disposable detached copy, real node_modules directory) | exit 0 at a12f770f and exit 0 at the final candidate |
 | `git diff --check` | clean |
 
 ## Closure Contract (v1)
@@ -56,13 +119,13 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 - Phase: RA-PREP-1
 - Owner: features/agent-work (research seam) + features/work-artifacts (research writer, revise guard) + features/heby-answer (research purpose option)
 - Reached state: VERIFIED
-- Implementation commit: a12f770f, THIS COMMIT (closure record, roadmap rows, learning)
+- Implementation commit: a12f770f, ccb2c35f, THIS COMMIT (mandate provenance row and filing-transaction checks)
 - Verification level: V3 — data-use purpose through the shared gateway, shared artifact writer, writer and revise authority boundary
-- Verification evidence: 2026-10-29; ra-prep-1 research-preparation-postgres (R1–R7) and research-firewall (F1–F7) PASS; bite-proofs 8/8, 0 void; full suite run 2 1122/1124 with 0 REGRESSION (agent-runtime-0 bite message fixed and PASS; r3w ambient BLOCKED); 3 collation reds PRE-EXISTING and PASS on a C-locale cluster at base and candidate; tsc 0; eslint 0 errors; next build exit 0 at a12f770f; git diff --check clean; continuity closure-contract PASS
+- Verification evidence: 2026-10-29; final candidate: ra-prep-1 research-preparation-postgres (R1–R9) and research-firewall (F1–F8) PASS; bite-proofs 11/11, 0 void; full suite run 4 1121/1124 with 0 REGRESSION (k2 create-and-read intermittent, 5/5 PASS at base and candidate; plan-step-idempotency-1 bite-proofs PRE-EXISTING; r3w ambient BLOCKED, not run); C-locale cluster per repository evidence; tsc 0; eslint 0 errors; next build exit 0; git diff --check clean; continuity closure-contract PASS
 - Test environment: worktree .claude/worktrees/ra-prep-1 and disposable detached worktree full-a12f770f (scratchpad, real node_modules via APFS clone); session-created PostgreSQL 18 clusters on 127.0.0.1:55494 (en_US.UTF-8, system_identifier 7702077506908358914) and 127.0.0.1:55495 (C locale, system_identifier 7702091228980822985); baseline disposable detached copy base-03817c82; macOS Darwin 25.2.0, Node 24.16.0
 - Deployment evidence: N/A
 - Production acceptance evidence: N/A
-- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-PREP-1-NO-SURFACE-1 (DEFERRED); RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED); RA-PREP-1-MANDATE-PROVENANCE-1 (DEFERRED); RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED); RA-EAI-1-WEB-SEARCH-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
+- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-PREP-1-NO-SURFACE-1 (DEFERRED); RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED); RA-PREP-1-MANDATE-PROVENANCE-1 (CLOSED); RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED); RA-EAI-1-WEB-SEARCH-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
 - Director approvals: implementation, local verification and local implementation commit on feat/ra-prep-1, 2026-10-29 ("RA-PREP-1 — SECURE RESEARCH PREPARATION SEAM IMPLEMENTATION"); no push, migration, deployment, provider call, tenant authorization or Governance approval was authorized or made
 
 ### Deferred risk detail
@@ -76,14 +139,29 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 - **RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED).** A research report takes no revision from anyone. A Governance
   change request on one can be answered only by a new report. A research reviser (agent, under
   `prepare-research`) is a separate decision.
-- **RA-PREP-1-MANDATE-PROVENANCE-1 (DEFERRED).** The mandate revision in force when the report was filed is
-  not stored on the revision. It is reconstructable from the append-only mandate history by time; storing it
-  needs a migration, not made here.
+- **RA-PREP-1-MANDATE-PROVENANCE-1 (CLOSED).** Closed without a migration: the filing transaction re-reads
+  the effective mandate, files only under the revision the dispatch rested on, and appends
+  `work-artifact.research-report.filed` naming `mandateId` and `mandateRevision` (R1, R8; bite B7, B9, B11).
 - **RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED).** Unlike `assignWorkDraft`, the research seam takes no
-  per-(work, agent) advisory lock: two simultaneous requests both dispatch and both file. Bounded by the
-  persistent dispatch cap and the process budget.
+  per-(work, agent) advisory lock: two simultaneous requests both dispatch and both file. No bypass: the
+  persistent dispatch cap holds under the race (R9c) and each filing names its checked revision (R9b).
+  Exposure none until a surface exists; decide a lock or open-report rule with the surface.
 - **RA-EAI-1-WEB-SEARCH-1 (DEFERRED)**, **RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED)**, **GATE-D-PROVIDER-RECONCILIATION-1
   (BLOCKED)** — owned by their phases, unchanged here. GATE-D blocks any production research execution.
+
+## Release readiness review (2026-10-29)
+
+| Area | Result |
+|---|---|
+| Architecture | Owners preserved; no duplicate system; one research writer, one caller (F1); `prepareWorkArtifact` byte-identical to 03817c82; new code: one seam, one audit sibling, one writer entry, one gateway option |
+| Security | Mandate (preflight, filing transaction), Governance (preflight, before filing), research data use (preflight, gateway), provider control, budget, persistent cap (also under race), human revise refused, injection grants nothing — all by test (R1–R9) and bite (B1–B11) |
+| Provenance | Mandate revision recorded on the filing transaction and joinable to its Governance decision; provider/model via the message; purpose/classes/tenant grant via the disclosure audit; unsourced by type and label |
+| Runtime exposure | No route, server action or component imports the seam (F6). Production (read-only measurement in the RA-EAI-1 release, unchanged since: no deployment of this branch): 0 research scopes, 0 `prepare-research` mandates, 0 `research-report` artifacts. Not re-measured in this review (no production read was authorized here) |
+| Tests | Targeted PASS; regressions classified; 1121/1124 is not a full PASS; r3w BLOCKED |
+
+**Recommendation: READY FOR DORMANT PRODUCTION DEPLOYMENT** — the code only, inert: nothing can reach the
+seam, no tenant holds research, no mandate admits it, and GATE-D blocks any provider execution. Deploying
+it activates nothing. No migration (ledger 83).
 
 ## Production release needs (Director gates)
 

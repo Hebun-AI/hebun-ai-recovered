@@ -11,6 +11,8 @@
  *      the gateway's purpose option, which admits research alone and grounds research on nothing
  *   F5 order: every authority is asked before the model
  *   F6 no route, action or component reaches the seam — nothing in production can call it yet
+ *   F8 provenance: the writer asks the filing condition on its own transaction; the research writer cannot be
+ *      called without one; the provenance row is never best-effort
  *   F7 unsourced: the brief forbids citations and links; the label and the classification say so;
  *      the capability declares only the question as input
  */
@@ -60,6 +62,7 @@ assert.deepEqual(
     "@/features/agent-mandate/read-agent-mandate.server",
     "@/features/auth/tenant/tenant-context",
     "@/features/external-ai-data-use/authorize-external-ai-disclosure.server",
+    "@/features/governance-audit/research-report-audit.server",
     "@/features/governance-decision/authority-read.server",
     "@/features/heby-answer/model-answer.server",
     "@/features/heby-model/model-connectivity-environment.server",
@@ -100,7 +103,19 @@ const model = at("(deps.answer ?? answerHebyModelRequest)(");
 for (const step of ["readTarget(tenant", "resolveGovernanceAuthority)(tenant)", "eligibleAgents(tenant, workScope, deps, CAPABILITY)", "resolveAgentAuthorship(tenant", "resolveClaudeDirectorEnabled)()", "authorizeExternalAiDisclosure(d, o, m)"]) {
   assert.ok(at(step) < model, `F5: ${step} is asked before the model`);
 }
-assert.ok(at("refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)") > model, "F5: the capability is asked again after the model");
+assert.ok(at("readEffectiveAgentMandate(tenant, agent.agentId, { getDb: deps.getDb })") < model, "F5: the authorizing mandate revision is read before the model");
+assert.ok(seam.lastIndexOf("resolveGovernanceAuthority)(tenant)") > model, "F5: Governance authority is asked again after the model");
+const filing = at("async (tx, created) => {");
+assert.ok(filing > model, "F5: the filing condition runs after the model");
+assert.ok(at("readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx })") > filing, "F5: the mandate is re-read INSIDE the filing transaction");
+assert.match(seam, /now\.mandate\?\.mandateId !== mandateRevision\.mandateId\) return false;/, "F5: only under the revision the dispatch rested on");
+assert.ok(at("refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)") > filing, "F5: and the ceiling is asked of it there");
+assert.ok(at("recordResearchReportFiled(tx,") > filing, "F5: the provenance row is appended on the filing transaction");
+/* F8 — the writer runs the condition inside its transaction, and the research writer cannot be called without one. */
+assert.match(writer, /filingCondition && !\(await filingCondition\(tx as unknown as ControlPlaneDatabase, \{ artifactId, revisionNo: 1 \}\)\)\)/, "F8: asked on the creating transaction, inside it");
+assert.match(writer, /deps: WorkArtifactWriteDeps,\s*\/\*[^*]*\*\/\s*filingCondition: ResearchFilingCondition,/, "F8: the research writer requires a filing condition");
+const audit = read("src/features/governance-audit/research-report-audit.server.ts");
+assert.doesNotMatch(audit, /catch/, "F8: the provenance row is not best-effort — a failure rolls the report back");
 assert.ok(at("LINK.test(content)") < at("createResearchReportFromResearchPreparation("), "F5: a linked reply is refused before filing");
 
 /* ── F6 ── */
@@ -124,4 +139,4 @@ assert.ok(capability.cannot.some((line) => /search the web/.test(line) && /unsou
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
 
-console.log("ra-prep-1/research-firewall: F1–F7 PASS");
+console.log("ra-prep-1/research-firewall: F1–F8 PASS");

@@ -20,7 +20,14 @@
  *   R5  prompt injection: instructions in the question or the reply grant nothing; a reply with a link is
  *       refused, never filed; a fake citation without one is filed as what it is — an unsourced draft
  *   R6  tenant isolation: another tenant neither sees nor revises the report
- *   R7  mandate withdrawn while the model writes → nothing filed
+ *   R7  mandate withdrawn while the model writes → nothing filed; the call stays recorded
+ *   R8  mandate provenance: the filing row names the mandate revision (id + number) in the report's own
+ *       transaction; a later revision or withdrawal rewrites nothing; the row joins to one immutable
+ *       revision and its Governance decision; a revision landing mid-call (even one that still admits
+ *       research) files nothing; withdrawn before preparation refuses before the model
+ *   R9  time of check / time of use: Governance lost mid-call files nothing; two simultaneous requests
+ *       under one revision each file under it; the persistent cap admits one of two racing requests; a
+ *       research scope withdrawn mid-call stops the next request, not the one already authorized
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -280,7 +287,14 @@ async function main(): Promise<void> {
       decisions: await n("select count(*)::int n from decision_records"),
       requests: await n("select count(*)::int n from heby_action_requests"),
       authorizedDisclosures: await n(`select count(*)::int n from audit_log where action = 'external-ai.disclosure.authorized'`),
+      filed: await n(`select count(*)::int n from audit_log where action = 'work-artifact.research-report.filed'`),
     });
+    const effectiveMandate = async (agentId: string) =>
+      (await q<{ id: string; mandate_revision: number }>(`select id, mandate_revision from agent_mandates where agent_id = $1 order by mandate_revision desc limit 1`, [agentId]))[0]!;
+    const filedRow = async (artifactId: string) =>
+      (await q<{ tenant_id: string; actor_id: string; correlation_id: string; metadata: Record<string, unknown> }>(
+        `select tenant_id, actor_id, correlation_id, metadata from audit_log where action = 'work-artifact.research-report.filed' and entity_id = $1`, [artifactId],
+      ));
     const refusedBeforeModel = async (label: string, run: () => Promise<{ status: string; reason?: string }>, expected: string) => {
       const before = await world();
       const messagesBefore = await n("select count(*)::int n from messages");
@@ -342,6 +356,19 @@ async function main(): Promise<void> {
     assert.deepEqual(audit.authorizedDataClasses, ["conversation"]);
     assert.ok(audit.tenantAuthorizationId, "R1: under this tenant's own grant");
     const sent = wire.at(-1)!;
+    /* R1 provenance: the filing row, written in the report's own transaction, names the mandate REVISION. */
+    const r1Mandate = await effectiveMandate(researcher);
+    const r1Rows = await filedRow(r1.artifactId);
+    assert.equal(r1Rows.length, 1, "R1: exactly one filing row");
+    const r1Filed = r1Rows[0];
+    assert.deepEqual(
+      [r1Filed!.tenant_id, r1Filed!.actor_id, r1Filed!.correlation_id, r1Filed!.metadata],
+      [acmeSeed.tenantId, acmeSeed.userId, message.correlation_id, {
+        revisionNo: 1, agentId: researcher, mandateId: r1Mandate.id, mandateRevision: r1Mandate.mandate_revision,
+        capability: "prepare-research-report", purpose: "research", sourceMessageId: revision!.sourceMessageId, sourcing: "unsourced",
+      }],
+      "R1: tenant, person, agent, mandate revision id and number, capability, purpose, source message and the dispatch's correlation",
+    );
     assert.ok(sent.includes(QUESTION), "R1: the question reaches the model");
     assert.ok(sent.includes("UNSOURCED RESEARCH DRAFT"), "R1: the model is told what it is writing");
     for (const absent of [SECRET_DRAFT, WORK_TITLE, "Warehouse move", "Researcher", "Drafter"]) {
@@ -449,17 +476,83 @@ async function main(): Promise<void> {
     duringSend = async () => mandate(acme, researcher, [], []);
     const r7 = await ask(acme, work, researcher);
     assert.equal(r7.status === "not-prepared" ? r7.reason : JSON.stringify(r7), "agent-mandate-changed-while-preparing", "R7");
-    assert.equal((await world()).research, before7.research, "R7: nothing filed");
+    const after7 = await world();
+    assert.deepEqual([after7.research, after7.filed], [before7.research, before7.filed], "R7: nothing filed, no filing row");
+    assert.equal(after7.authorizedDisclosures, before7.authorizedDisclosures + 1, "R7: the call that happened stays recorded — dispatch is not filing");
     await mandate(acme, researcher, ["prepare-research"], [{ kind: "domain", workDomainId: research }]);
 
+    /* ── R8 · mandate provenance is a record, not a reconstruction ── */
+    /* a) a report under revision A; then revision B (still admitting research): the report still names A. */
+    const revA = await effectiveMandate(researcher);
+    const r8a = await ask(acme, work, researcher);
+    assert.equal(r8a.status, "prepared", JSON.stringify(r8a));
+    await mandate(acme, researcher, ["prepare-research"], [{ kind: "domain", workDomainId: research }, { kind: "organization" }]);
+    const revB = await effectiveMandate(researcher);
+    assert.notEqual(revB.id, revA.id);
+    const reportUnderA = r8a.status === "prepared" ? r8a.artifactId : "";
+    assert.deepEqual([(await filedRow(reportUnderA))[0]!.metadata.mandateId, (await filedRow(reportUnderA))[0]!.metadata.mandateRevision], [revA.id, revA.mandate_revision], "R8a: filed under A, recorded as A after B exists");
+    /* b) a report under B; the join to the immutable mandate row is deterministic. */
+    const r8b = await ask(acme, work, researcher);
+    assert.equal(r8b.status, "prepared", JSON.stringify(r8b));
+    const joined = await q<{ id: string; mandate_revision: number; governance_decision_id: string }>(
+      `select m.id, m.mandate_revision, m.governance_decision_id from audit_log a join agent_mandates m on m.id = (a.metadata->>'mandateId')::uuid
+        where a.action = 'work-artifact.research-report.filed' and a.entity_id = $1`, [r8b.status === "prepared" ? r8b.artifactId : ""],
+    );
+    assert.deepEqual([joined.length, joined[0]!.id, joined[0]!.mandate_revision], [1, revB.id, revB.mandate_revision], "R8b: the row joins to exactly one immutable mandate revision and its Governance decision");
+    assert.ok(joined[0]!.governance_decision_id, "R8b: …and through it to the decision that authorized it");
+    /* c) a benign new revision lands while the model writes: the dispatch rested on B, B is no longer in force → not filed. */
+    const before8c = await world();
+    duringSend = async () => mandate(acme, researcher, ["prepare-research"], [{ kind: "domain", workDomainId: research }]);
+    const r8c = await ask(acme, work, researcher);
+    assert.equal(r8c.status === "not-prepared" ? r8c.reason : JSON.stringify(r8c), "agent-mandate-changed-while-preparing", "R8c: a report is filed only under the revision its dispatch rested on");
+    const after8c = await world();
+    assert.deepEqual([after8c.research, after8c.filed, after8c.authorizedDisclosures], [before8c.research, before8c.filed, before8c.authorizedDisclosures + 1], "R8c: nothing filed; the call stays recorded");
+    /* d) withdrawal after creation changes no filed record. */
+    const beforeWithdrawal = JSON.stringify(await filedRow(reportUnderA));
+    await mandate(acme, researcher, [], []);
+    assert.equal(JSON.stringify(await filedRow(reportUnderA)), beforeWithdrawal, "R8d: a withdrawal rewrites no provenance");
+    await mandate(acme, researcher, ["prepare-research"], [{ kind: "domain", workDomainId: research }]);
+    /* e) withdrawn BEFORE preparation: refused before the model. */
+    await mandate(acme, researcher, [], []);
+    await refusedBeforeModel("mandate withdrawn before preparation", () => ask(acme, work, researcher), "agent-not-eligible");
+    await mandate(acme, researcher, ["prepare-research"], [{ kind: "domain", workDomainId: research }]);
+
+    /* ── R9 · time of check, time of use ── */
+    /* a) Governance authority lost while the model writes: the call happened, nothing is filed. */
+    let authorityAsks = 0;
+    const before9a = await world();
+    const r9a = await ask(acme, work, researcher, { resolveAuthority: async () => ({ authorized: ++authorityAsks === 1 }) });
+    assert.equal(r9a.status === "not-prepared" ? r9a.reason : JSON.stringify(r9a), "governance-authority-changed-while-preparing", "R9a");
+    const after9a = await world();
+    assert.deepEqual([after9a.research, after9a.filed, after9a.fetches], [before9a.research, before9a.filed, before9a.fetches + 1], "R9a: dispatched once, filed nothing");
+    /* b) two simultaneous preparations under one revision: each its own dispatch, report and filing row, same revision. */
+    const revNow = await effectiveMandate(researcher);
+    const pair = await Promise.all([ask(acme, work, researcher), ask(acme, work, researcher)]);
+    assert.deepEqual(pair.map((r) => r.status), ["prepared", "prepared"], JSON.stringify(pair));
+    const pairRows = await Promise.all(pair.map(async (r) => (await filedRow(r.status === "prepared" ? r.artifactId : ""))[0]!.metadata.mandateId));
+    assert.deepEqual(pairRows, [revNow.id, revNow.id], "R9b: both filings name the one revision they rested on");
+    /* c) the persistent dispatch cap holds under concurrency: with room for ONE more, two simultaneous requests dispatch once. */
+    const spent = await n(`select count(*)::int n from audit_log where tenant_id = $1 and action = 'external-ai.disclosure.authorized'`, [acmeSeed.tenantId]);
+    const capEnv = { ...ENV, HEBUN_AI_DISPATCH_CAP_MODEL_PER_TENANT_DAY: String(spent + 1) };
+    const before9c = await world();
+    const raced = await Promise.all([ask(acme, work, researcher, {}, QUESTION, capEnv), ask(acme, work, researcher, {}, QUESTION, capEnv)]);
+    const after9c = await world();
+    assert.deepEqual(raced.map((r) => r.status).sort(), ["not-prepared", "prepared"], `R9c: ${JSON.stringify(raced)}`);
+    assert.deepEqual([after9c.fetches - before9c.fetches, after9c.research - before9c.research], [1, 1], "R9c: the cap admits exactly one dispatch");
+    /* d) the tenant's research scope is withdrawn while the model writes: the disclosure was decided before the call, so the report is filed. */
+    duringSend = async () => {
+      const w = await withdrawTenantExternalAiDataUse(acme, { serviceScope: "anthropic/messages", accountRef: RECORD.accountRef, justification: WITHDRAW, observedRevision: 1 }, dbDeps);
+      assert.equal(w.status, "written", JSON.stringify(w));
+    };
+    const r9d = await ask(acme, work, researcher);
+    assert.equal(r9d.status, "prepared", "R9d: disclosure is decided at dispatch; withdrawal stops the NEXT request");
+
     /* ── R3 (last) · withdrawal ends it ── */
-    const withdrawn = await withdrawTenantExternalAiDataUse(acme, { serviceScope: "anthropic/messages", accountRef: RECORD.accountRef, justification: WITHDRAW, observedRevision: 1 }, dbDeps);
-    assert.equal(withdrawn.status, "written", JSON.stringify(withdrawn));
     await refusedBeforeModel("research scope withdrawn", () => ask(acme, work, researcher), "research-data-use-not-authorized");
 
     assert.equal(networkCalls, 0, "the real network was never reached");
     finished = true;
-    console.log("ra-prep-1/research-preparation-postgres: R1–R7 PASS");
+    console.log("ra-prep-1/research-preparation-postgres: R1–R9 PASS");
   } finally {
     await setup.end().catch(() => {});
     await (handle as { dispose?: () => Promise<void> }).dispose?.().catch?.(() => {});

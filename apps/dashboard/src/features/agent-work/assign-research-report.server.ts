@@ -43,8 +43,10 @@
  * scope) → the agent as author → the Director's Claude control → this tenant's research data-use
  * decision, asked of the released External-AI Data Use authority with the purpose and classes the
  * capability declares. The model gateway asks that decision AGAIN at dispatch, with the budget and the
- * dispatch cap, so a withdrawal in between still stops the call. After the model, the agent's
- * capability is asked again before filing.
+ * dispatch cap, so a withdrawal in between still stops the call. After the model, the person's Governance
+ * authority is asked again, and the filing transaction re-reads the effective mandate: it files only
+ * under the same mandate revision the dispatch rested on, and appends that revision's id to the audit
+ * sink in the same transaction (`work-artifact.research-report.filed`).
  *
  * The client supplies ids and words only. The purpose is the capability's; no input field names one.
  *
@@ -68,6 +70,7 @@ import { resolveAgentAuthorship, type AgentAuthorshipRefusal } from "@/features/
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { WORK_ARTIFACT_OWNER_WORKSPACE, WORK_ARTIFACT_PREPARATION_INTENT } from "@/features/work-artifacts/prepare-work-artifact.server";
 import { createResearchReportFromResearchPreparation, type WorkArtifactWriteDeps } from "@/features/work-artifacts/write-work-artifacts.server";
+import { recordResearchReportFiled } from "@/features/governance-audit/research-report-audit.server";
 
 const CAPABILITY = agentWorkCapability("prepare-research-report");
 
@@ -144,7 +147,10 @@ export type AssignResearchReportResult =
         | "model-refused"
         /** The reply carried a web address; an unsourced draft must not read as sourced. */
         | "unsourced-link-in-output"
+        /** The mandate revision the dispatch rested on is no longer the one in force, read in the filing transaction. */
         | "agent-mandate-changed-while-preparing"
+        /** The requesting person lost this organization's Governance authority while the model was writing. */
+        | "governance-authority-changed-while-preparing"
         | "write-refused";
       readonly modelFallback?: HebyModelFallback;
     }
@@ -171,6 +177,17 @@ export async function assignResearchReport(
   if (eligible.status !== "read") return { status: "refused", reason: "eligibility-unavailable" };
   const agent = eligible.agents.find((candidate) => candidate.agentId === agentId);
   if (!agent) return { status: "refused", reason: "agent-not-eligible" };
+  /*
+   * THE MANDATE REVISION THIS PREPARATION RESTS ON. Read once, asked of the same ceiling, and kept: the
+   * dispatch happens under it, the filing transaction re-reads the effective revision and files only if
+   * it is still this one, and the audit row names it. A new revision — even one that still admits
+   * research — means the report was not prepared under the mandate now in force, so it is not filed.
+   */
+  const authorizing = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: deps.getDb });
+  if (authorizing.status !== "known" || !authorizing.mandate || refuseOutsideAgentWorkCapability(CAPABILITY, authorizing, workScope)) {
+    return { status: "refused", reason: "agent-not-eligible" };
+  }
+  const mandateRevision = { mandateId: authorizing.mandate.mandateId, mandateRevision: authorizing.mandate.mandateRevision };
 
   const question = typeof input?.question === "string" ? input.question : "";
   const title = typeof input?.title === "string" ? input.title.trim() : "";
@@ -230,17 +247,48 @@ export async function assignResearchReport(
   const content = answer.outcome.response.body.join("\n");
   if (LINK.test(content)) return notPrepared("unsourced-link-in-output");
 
-  /* A mandate or responsibility withdrawn while the model was writing stops the filing. */
-  const mandate = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: deps.getDb });
-  if (refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)) return notPrepared("agent-mandate-changed-while-preparing");
+  /*
+   * DISPATCH IS NOT FILING AUTHORITY. The person's Governance authority is asked again: one revoked while
+   * the model was writing files nothing (the message and disclosure records of the call stay, as they
+   * must — the call happened).
+   */
+  if (!(await (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant)).authorized) {
+    return notPrepared("governance-authority-changed-while-preparing");
+  }
 
+  const sourceMessageId = answer.persistence.assistantMessageId;
   const written = await createResearchReportFromResearchPreparation(
     tenant,
-    { title, content, sourceMessageId: answer.persistence.assistantMessageId },
+    { title, content, sourceMessageId },
     WORK_ARTIFACT_OWNER_WORKSPACE,
     authorship.authorship,
     deps.write ?? { getDb: deps.getDb },
+    /*
+     * INSIDE THE FILING TRANSACTION: the effective mandate is still the revision the dispatch rested on,
+     * and its ceiling still admits this work; then the provenance row is appended on the same
+     * transaction. Anything else rolls the report back.
+     */
+    async (tx, created) => {
+      const now = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx });
+      if (now.status !== "known" || now.mandate?.mandateId !== mandateRevision.mandateId) return false;
+      if (refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)) return false;
+      await recordResearchReportFiled(tx, {
+        tenantId: tenant.tenantId,
+        actorUserId: tenant.userId,
+        artifactId: created.artifactId,
+        revisionNo: created.revisionNo,
+        agentId: agent.agentId,
+        ...mandateRevision,
+        capability: CAPABILITY.id,
+        purpose: DATA_USE.purpose,
+        sourceMessageId,
+        correlationId: answer.outcome.response.modelAttribution?.correlationId ?? null,
+        occurredAt: new Date(),
+      });
+      return true;
+    },
   );
+  if (written.status === "refused" && written.reason === "filing-condition-failed") return notPrepared("agent-mandate-changed-while-preparing");
   if (written.status !== "created") return notPrepared("write-refused");
   return { status: "prepared", workItemId: target.target.workItemId, artifactId: written.artifactId, revisionNo: written.revisionNo, agentName: agent.name };
 }

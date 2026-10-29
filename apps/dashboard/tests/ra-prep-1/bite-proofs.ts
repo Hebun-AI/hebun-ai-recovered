@@ -8,7 +8,10 @@
  *   B4 the preflight asks the assistance purpose                        (R3: assistance does not stand in)
  *   B5 the research data-use preflight is skipped                       (R3: refused before the model)
  *   B6 a reply carrying a link is filed                                 (R5)
- *   B7 the capability is not asked again before filing                  (R7)
+ *   B7 the filing transaction no longer pins the dispatch's mandate revision (R8c)
+ *   B9 the filing condition asks nothing and records nothing            (R1 provenance)
+ *   B10 Governance authority is not asked again before filing           (R9a)
+ *   B11 the writer ignores the filing condition                         (R1 provenance)
  *   B8 the general validator admits research-report                     (R2)
  *
  * SOURCE-MUTATING: run only in a disposable copy of the tree, never in a worktree someone works in, and
@@ -110,11 +113,32 @@ const MUTATIONS: readonly Mutation[] = [
     because: "R5: a reply carrying a link is not filed",
   },
   {
-    label: "B7 the capability is not asked again before filing",
+    label: "B7 the filing transaction no longer pins the dispatch's mandate revision",
     file: SEAM,
     suite: PG_SUITE,
-    edits: [{ find: "  if (refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)) return", replace: "  if (mandate === null) return" }],
-    because: "agent-mandate-changed-while-preparing",
+    edits: [{ find: "      if (now.status !== \"known\" || now.mandate?.mandateId !== mandateRevision.mandateId) return false;\n", replace: "" }],
+    because: "R8c: a report is filed only under the revision its dispatch rested on",
+  },
+  {
+    label: "B9 the filing condition asks nothing and records nothing",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: "    async (tx, created) => {\n", replace: "    async (tx, created) => {\n      if (tx !== null) return Boolean(created);\n" }],
+    because: "R1: exactly one filing row",
+  },
+  {
+    label: "B10 Governance authority is not asked again before filing",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: "  if (!(await (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant)).authorized) {", replace: "  if (tenant === null) {" }],
+    because: "governance-authority-changed-while-preparing",
+  },
+  {
+    label: "B11 the writer ignores the filing condition",
+    file: WRITER,
+    suite: PG_SUITE,
+    edits: [{ find: "      if (filingCondition && !(await filingCondition(", replace: "      if (filingCondition && false && !(await filingCondition(" }],
+    because: "R1: exactly one filing row",
   },
   {
     label: "B8 the general validator admits research-report",

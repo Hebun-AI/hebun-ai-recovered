@@ -299,7 +299,12 @@ export type WorkArtifactRefusal =
    * written once by its own capability; no human or general-draft reviser appends to it. Read under
    * the artifact lock, from the row — never from the caller.
    */
-  | "artifact-type-not-revisable";
+  | "artifact-type-not-revisable"
+  /**
+   * RA-PREP-1. The research writer's caller re-asked its filing condition inside the creating
+   * transaction and it no longer held (the mandate revision changed). Nothing was written.
+   */
+  | "filing-condition-failed";
 
 export interface WorkArtifactRevisionView {
   readonly id: string;

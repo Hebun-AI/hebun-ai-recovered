@@ -156,6 +156,8 @@ async function insertArtifactWithFirstRevision(
    * refuses `research-report` even when a caller casts it past the compiler.
    */
   validate: typeof validateWorkArtifactInput = validateWorkArtifactInput,
+  /* RA-PREP-1 — the research writer's filing condition, asked inside the creating transaction. */
+  filingCondition?: ResearchFilingCondition,
 ): Promise<CreateWorkArtifactResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
@@ -207,6 +209,10 @@ async function insertArtifactWithFirstRevision(
 
       const artifactId = artifactRows[0]?.id;
       if (!artifactId) throw new Error("work artifact insert returned no id");
+      /* RA-PREP-1 — the research writer's condition, on this transaction; `false` rolls the artifact back. */
+      if (filingCondition && !(await filingCondition(tx as unknown as ControlPlaneDatabase, { artifactId, revisionNo: 1 }))) {
+        throw new FilingConditionFailed();
+      }
 
       await tx.insert(workArtifactRevisions).values({
         tenantId: tenant.tenantId,
@@ -234,10 +240,24 @@ async function insertArtifactWithFirstRevision(
       contentDigest,
       ref: formatWorkArtifactRef(created.artifactId, 1),
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof FilingConditionFailed) return refused("filing-condition-failed");
     return refused("persistence-unavailable");
   }
 }
+
+class FilingConditionFailed extends Error {}
+
+/**
+ * RA-PREP-1 — asked with the creating transaction after the artifact and revision rows are inserted and
+ * before they commit. `false` rolls everything back (`filing-condition-failed`); a throw rolls back as a
+ * persistence failure. It may read and append evidence on `tx`; it decides on the caller's authority, not
+ * this writer's.
+ */
+export type ResearchFilingCondition = (
+  tx: ControlPlaneDatabase,
+  created: { readonly artifactId: string; readonly revisionNo: 1 },
+) => Promise<boolean>;
 
 /** A human authoring prepared work directly, with no model in the loop. */
 export function createWorkArtifact(
@@ -290,10 +310,13 @@ export function createResearchReportFromResearchPreparation(
   input: CreateResearchReportInput | null,
   ownerWorkspace: string,
   authorship: AgentAuthorship,
-  deps: WorkArtifactWriteDeps = {},
+  deps: WorkArtifactWriteDeps,
+  /* Required: a research report is filed only under a condition its seam re-asks in this transaction. */
+  filingCondition: ResearchFilingCondition,
 ): Promise<CreateWorkArtifactResult> {
   const author = agentAuthorOrNull(authorship);
   if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  if (!filingCondition) return Promise.resolve(refused("invalid-input"));
   if (!input?.sourceMessageId?.trim()) return Promise.resolve(refused("invalid-input"));
   return insertArtifactWithFirstRevision(
     tenant,
@@ -302,6 +325,7 @@ export function createResearchReportFromResearchPreparation(
     author,
     deps,
     validateResearchReportInput,
+    filingCondition,
   );
 }
 
