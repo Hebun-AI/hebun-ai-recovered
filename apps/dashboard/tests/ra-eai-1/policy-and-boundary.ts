@@ -66,7 +66,8 @@ const capability = agentWorkCapability("prepare-research-report");
 assert.deepEqual(capability.dataUse, { purpose: "research", dataClasses: ["conversation"] });
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
-assert.match(capability.performedBy, /^no seam yet/);
+/* RA-PREP-1 moved this pin (was /^no seam yet/): its one seam now performs the capability. */
+assert.match(capability.performedBy, /assignResearchReport/);
 assert.deepEqual([...capability.mandateKindsAnyOf], ["prepare-research"]);
 assert.deepEqual([...AGENT_PREPARATION_KINDS], ["prepare-research"], "no new mandate kind");
 
@@ -93,8 +94,9 @@ assert.deepEqual(naming(/purpose: "research"|"work-planning", "research"\]/), [
 /* The contracts that name it in prose (P1's enum, mandate and artifact-type comments) are not seams. */
 assert.deepEqual(
   naming(/prepare-research-report/),
-  ["db/schema/_enums.ts", "features/agent-mandate/contracts.ts", "features/agent-work/capabilities.ts", "features/work-artifacts/contracts.ts"],
-  "no seam names the capability",
+  /* RA-PREP-1 — plus exactly its one performing seam. */
+  ["db/schema/_enums.ts", "features/agent-mandate/contracts.ts", "features/agent-work/assign-research-report.server.ts", "features/agent-work/capabilities.ts", "features/work-artifacts/contracts.ts"],
+  "only the research seam names the capability",
 );
 assert.deepEqual(naming(/web_search|web-search_|webSearch/), [], "no web-search transport exists");
 

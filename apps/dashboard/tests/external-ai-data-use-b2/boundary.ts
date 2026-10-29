@@ -71,7 +71,9 @@ assert.match(aiPlan, /purpose, dataClasses: \["operational-record"\]/, "work-pla
 assert.ok(!/purpose: "assistance"/.test(aiPlan), "the AI planning runtime never declares assistance");
 const origination = codeOf(read("src/features/agent-origination/originate-action.server.ts"));
 assert.match(origination, /disclosure: \{\s*tenantId: tenant\.tenantId,\s*actorUserId: tenant\.userId,\s*purpose: "agent-origination",/, "origination declares agent-origination, never assistance");
-assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /purpose: "assistance",/);
+/* RA-PREP-1 — assistance unless a server seam declared its capability's purpose; the option admits research only. */
+assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /purpose: options\.dataUsePurpose \?\? "assistance",/);
+assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /readonly dataUsePurpose\?: "research";/);
 assert.match(
   codeOf(read("src/features/work-artifacts/prepare-work-artifact.server.ts")),
   /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/,

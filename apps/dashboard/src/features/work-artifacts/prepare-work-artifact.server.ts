@@ -331,6 +331,30 @@ export function toPreparationClientResult(result: PrepareWorkArtifactResult): Pr
 }
 
 /**
+ * Why an answered model request cannot be filed as prepared work, or `null` when it can. Shared by
+ * every preparation seam (RA-PREP-1 reuses it), so "what counts as a model draft" has one owner.
+ */
+export function unfileableModelAnswer(
+  answer: Extract<HebyModelAnswerResult, { status: "answered" }>,
+): "no-model-answer" | "not-durable" | "output-truncated" | "model-refused" | null {
+  /*
+   * ONLY MODEL-ORIGIN TEXT BECOMES PREPARED WORK. `origin` is set by the answer flow from what
+   * actually happened, never by this module, so this cannot be talked into storing a fallback.
+   */
+  if (answer.outcome.response.origin !== "model") return "no-model-answer";
+  if (!answer.persistence.durable) return "not-durable";
+  /*
+   * OUTPUT-INTEGRITY-1 — RECEIVED != COMPLETE. The validator judges what the text says, not whether it
+   * ended; a reply cut at the output limit passes it and would be filed as if finished. Only the
+   * provider's explicit `max_tokens` refuses: an unreported stop reason is not evidence of a cut.
+   */
+  if (answer.modelStopReason === "max_tokens") return "output-truncated";
+  /* B2-REFUSAL-GUARD-1 — the provider's own refusal is not a draft, whatever text came with it. */
+  if (answer.modelStopReason === "refusal") return "model-refused";
+  return null;
+}
+
+/**
  * Ask Heby to prepare work, and durably keep what it produced.
  *
  * WHY A DETERMINISTIC FALLBACK IS NOT STORED. When the transport fails, validation withholds the
@@ -532,28 +556,9 @@ export async function prepareWorkArtifact(
   const diagnosis = preparationDiagnosisLine(answer);
   if (diagnosis) (deps.log ?? ((line: string) => console.info(line)))(diagnosis);
 
-  /*
-   * ONLY MODEL-ORIGIN TEXT BECOMES PREPARED WORK. `origin` is set by the answer flow from what
-   * actually happened, never by this module, so this cannot be talked into storing a fallback.
-   */
-  if (answer.outcome.response.origin !== "model") {
-    return { status: "refused", reason: "no-model-answer", answer };
-  }
-  if (!answer.persistence.durable) {
-    return { status: "refused", reason: "not-durable", answer };
-  }
-  /*
-   * OUTPUT-INTEGRITY-1 — RECEIVED != COMPLETE. The validator judges what the text says, not whether it
-   * ended; a reply cut at the output limit passes it and would be filed as if finished. Only the
-   * provider's explicit `max_tokens` refuses: an unreported stop reason is not evidence of a cut.
-   */
-  if (answer.modelStopReason === "max_tokens") {
-    return { status: "refused", reason: "output-truncated", answer };
-  }
-  /* B2-REFUSAL-GUARD-1 — the provider's own refusal is not a draft, whatever text came with it. */
-  if (answer.modelStopReason === "refusal") {
-    return { status: "refused", reason: "model-refused", answer };
-  }
+  const unfileable = unfileableModelAnswer(answer);
+  if (unfileable) return { status: "refused", reason: unfileable, answer };
+  if (!answer.persistence.durable) return { status: "refused", reason: "not-durable", answer };
 
   /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */
   if (await askCeiling()) return { status: "refused", reason: "agent-mandate-changed-while-preparing", answer };
