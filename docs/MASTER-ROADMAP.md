@@ -3241,7 +3241,7 @@ existing authority (§7.3) — a Director design decision. A model's judgment is
 **Commercial validation gates.** Demand from named prospects · measured cost per scan and plan-month ·
 tenant-isolation proof · data-use decision for source code · legal terms and DPA · one manually invoiced
 pilot · only then billing. Never presented as included: 24/7 SOC, incident response, compliance
-certification, guaranteed detection, unlimited usage.
+certification, guaranteed detection, autonomous remediation, unlimited usage, a production-ready Security Cloud.
 
 **Priority unchanged.** §13.3's order (Hebun Enterprise AI → Heby → AI Agents) and every active program,
 including RA-PREP-1 and the Research Agent, keep their state; selecting any SEC phase is a Director decision.

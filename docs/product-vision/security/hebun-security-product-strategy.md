@@ -168,7 +168,7 @@ Shared catalog. "Internal" / "Cloud" mark which area plans it; status is Planned
 |---|---|---|
 | Tenant identity | Authenticated `TenantContext` | — |
 | Repository access | Customer-installed GitHub App, per tenant (Integrations) | `contents:read` absent; adding it is a provider-permission decision |
-| Code to an AI model | External-AI Data Use: platform cell + tenant Governance authorization | No source-code data class and no security purpose exist; adding them is a Director decision like RA-EAI-1 |
+| Code to an AI model | External-AI Data Use: platform cell + tenant Governance authorization | No source-code data class and no security purpose exist; adding them is a Director decision like RA-EAI-1. The `research` cell (RA-EAI-1, `research × conversation`) and any tenant's research authorization do **not** transfer: the composer matches purpose and class exactly |
 | Findings | **None** | A findings record needs an owner — a Director design decision (§7.3: extend an owner, no central Security authority) |
 | Remediation | Work + Work Artifacts + Governance review | — |
 | Any write to customer systems | Governance decision → permit → authorized executor | No security action kind exists; not planned for the MVP |
@@ -213,7 +213,7 @@ limit (model calls, tokens) · data retention · integration limit · support le
 cost pass-through.
 
 **Never presented as included:** 24/7 SOC · incident response · compliance certification · guaranteed
-detection · unlimited scans or AI usage. "Compliance evidence" means exportable evidence, not a
+detection · autonomous remediation · unlimited scans or AI usage · a production-ready Security Cloud. "Compliance evidence" means exportable evidence, not a
 certification or an auditor's opinion.
 
 ## 10. Pricing Hypotheses
