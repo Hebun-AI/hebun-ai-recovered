@@ -5760,7 +5760,7 @@ re-graded here.
 | B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
 | RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
-| RA-EAI-1 | VERIFIED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
+| RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
 
 ---
 

@@ -66,5 +66,11 @@ called, no research mandate is granted and no research report exists.
   view's "May propose" / "May prepare" split and the existing Heby, Governance and Work read paths at
   `5b1bb853`. Closes, and moves this record to PRODUCTION-ACCEPTED, on a Director signed-in read-only
   check of `/agents` (mandate scope sentence), `/approvals` and `/operations` with no mutation.
+  - 2026-10-29, DIRECTOR STATEMENT (not an automated measurement): signed in to production, `/agents`,
+    `/approvals` and `/operations` open without error. Read-only production measurement the same day:
+    0 `prepare-research` mandates, so the "May prepare" heading (rendered only for such a mandate) is
+    correctly absent and cannot be observed without a grant, which is not made for acceptance.
+  - Still open: the Director's explicit confirmation that existing mandates on `/agents` are listed under
+    "May propose" and none shows "May prepare". The agent has no signed-in session and cannot supply it.
 - **GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED).** Owned by HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1.
   Production Anthropic credential binding is unverified; any research execution package depends on it.
