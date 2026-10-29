@@ -5759,6 +5759,7 @@ re-graded here.
 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
 | B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
+| RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
 
 ---
 
@@ -5953,3 +5954,5 @@ before §16.1 are not yet indexed (Phase B).
 | B1-EXHAUSTION-NOT-AUDITED-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Observability | DEFERRED | A process-budget refusal writes no audit row; no audit action added by Director decision 2026-10-28 |
 | B1-PREPAY-UNIT-LOSS-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Cost control | DEFERRED | A prepaid unit is not returned when the AP-3 evidence write throws; lost for one window; recorded, not fixed |
 | B1-429-PREDISPATCH-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Provenance | DEFERRED | Origination records a provider 429 as `not-dispatched` because the instance cap shares `rate-limited`; deferred by the Director to a separate change |
+| RA-AUTH-1-HUMAN-REVISE-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Authority boundary | DEFERRED | Human Operations revise does not check artifact type; unreachable while no research-report exists; closes in RA-PREP-1 before any research artifact can be created |
+| RA-AUTH-1-AUTH-RUNTIME-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED of RA-AUTH-1: Director signed-in read-only check of /agents (May propose / May prepare), /approvals and /operations at 5b1bb853 |
