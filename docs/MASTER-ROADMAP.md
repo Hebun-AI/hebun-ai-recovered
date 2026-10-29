@@ -5813,6 +5813,7 @@ re-graded here.
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
 | RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
 | RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
+| RA-PREP-1 | VERIFIED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
 
 ---
 
@@ -6007,6 +6008,10 @@ before §16.1 are not yet indexed (Phase B).
 | B1-EXHAUSTION-NOT-AUDITED-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Observability | DEFERRED | A process-budget refusal writes no audit row; no audit action added by Director decision 2026-10-28 |
 | B1-PREPAY-UNIT-LOSS-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Cost control | DEFERRED | A prepaid unit is not returned when the AP-3 evidence write throws; lost for one window; recorded, not fixed |
 | B1-429-PREDISPATCH-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Provenance | DEFERRED | Origination records a provider 429 as `not-dispatched` because the instance cap shares `rate-limited`; deferred by the Director to a separate change |
-| RA-AUTH-1-HUMAN-REVISE-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Authority boundary | DEFERRED | Human Operations revise does not check artifact type; unreachable while no research-report exists; closes in RA-PREP-1 before any research artifact can be created |
+| RA-AUTH-1-HUMAN-REVISE-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Authority boundary | CLOSED | Opened by RA-AUTH-1; closed in code by RA-PREP-1 a12f770f: every reviser refuses research-report from the type read under the artifact lock (postgres R2, bite B1); ships with the research writer |
 | RA-AUTH-1-AUTH-RUNTIME-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED of RA-AUTH-1: Director signed-in read-only check of /agents (May propose / May prepare), /approvals and /operations at 5b1bb853 |
 | RA-EAI-1-WEB-SEARCH-1 | RA-EAI-1 | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` | Data-use scope | DEFERRED | Anthropic web-search transfers search queries and third-party results; not covered by the research × conversation cell; needs its own Director decision (P4) before any web-search transport |
+| RA-PREP-1-NO-SURFACE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Product reach | DEFERRED | No route, action or component calls assignResearchReport; a research surface needs its own Director decision |
+| RA-PREP-1-RESEARCH-REVISE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Lifecycle | DEFERRED | A research report takes no revision from anyone; a change request is answered only by a new report until a research reviser is decided |
+| RA-PREP-1-MANDATE-PROVENANCE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Provenance | CLOSED | Filing transaction re-reads the effective mandate, files only under the dispatch's revision and appends work-artifact.research-report.filed with mandateId and mandateRevision; no migration |
+| RA-PREP-1-CONCURRENT-DISPATCH-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Cost control | DEFERRED | Low severity, no exposure (no surface): simultaneous requests each dispatch and file under their checked revision; persistent dispatch cap holds under the race; decide a lock or open-report rule with the surface |

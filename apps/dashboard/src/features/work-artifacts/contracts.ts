@@ -48,6 +48,14 @@ export function isWorkArtifactType(value: unknown): value is WorkArtifactType {
  */
 export const RESEARCH_REPORT_ARTIFACT_TYPE = "research-report" as const;
 
+/**
+ * RA-PREP-1 — what every research report is, today. No source transport exists (web search is
+ * RA-EAI-1-WEB-SEARCH-1, undecided) and nothing verifies a citation, so a stored research report is
+ * the model's own writing on the person's question and nothing more. The classification follows from
+ * the type: there is no "sourced" research report to distinguish it from, so no column records it.
+ */
+export const RESEARCH_REPORT_SOURCING = "UNSOURCED RESEARCH DRAFT" as const;
+
 /** Every type a stored artifact may carry — the database enum, one for one. */
 export type StoredWorkArtifactType = WorkArtifactType | typeof RESEARCH_REPORT_ARTIFACT_TYPE;
 
@@ -285,7 +293,18 @@ export type WorkArtifactRefusal =
    * against a forged `AgentAuthorship`, and a refusal rather than a thrown error so a future caller
    * gets an answer in the same vocabulary as every other failure here.
    */
-  | "unverified-agent-authorship";
+  | "unverified-agent-authorship"
+  /**
+   * RA-PREP-1. The artifact's stored type takes no revision from this writer. A research report is
+   * written once by its own capability; no human or general-draft reviser appends to it. Read under
+   * the artifact lock, from the row — never from the caller.
+   */
+  | "artifact-type-not-revisable"
+  /**
+   * RA-PREP-1. The research writer's caller re-asked its filing condition inside the creating
+   * transaction and it no longer held (the mandate revision changed). Nothing was written.
+   */
+  | "filing-condition-failed";
 
 export interface WorkArtifactRevisionView {
   readonly id: string;

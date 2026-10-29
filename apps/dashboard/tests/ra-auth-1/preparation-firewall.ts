@@ -130,7 +130,8 @@ assert.equal(research.sideEffect, "PREPARATION_ONLY");
 assert.equal(research.authorizationRequired, false);
 /* RA-EAI-1 — it now declares its one disclosure, and is still performed by nothing. */
 assert.deepEqual(research.dataUse, { purpose: "research", dataClasses: ["conversation"] }, "P5: research × conversation, nothing else");
-assert.match(research.performedBy, /^no seam yet/, "P5: declared, not performable");
+/* RA-PREP-1 — now performed by its one seam (was: /^no seam yet/). Pin moved by RA-PREP-1, see its closure. */
+assert.match(research.performedBy, /assignResearchReport/, "P5: performed by the research seam alone");
 assert.ok(research.cannot.some((line) => /send|publish/.test(line)) && research.cannot.some((line) => /state/.test(line)), "P5: says it cannot send, publish or change state");
 assert.deepEqual([...draft.mandateKindsAnyOf], ["record-work", "set-work-declared-state"], "P5: the general draft condition is unchanged");
 assert.equal(refuseOutsideAgentWorkCapability(research, researchOnly, D(ENG)), null, "P5: a research mandate admits research for its work");
@@ -148,8 +149,9 @@ function sourceFiles(dir: string): string[] {
   });
 }
 const src = sourceFiles("src");
-for (const file of src.filter((f) => f.endsWith(".server.ts"))) {
-  assert.doesNotMatch(read(file), /prepare-research-report/, `P6: ${file} performs no research capability yet`);
+/* RA-PREP-1 — exactly one server module performs it (was: none). */
+for (const file of src.filter((f) => f.endsWith(".server.ts") && f !== path.join("src", "features", "agent-work", "assign-research-report.server.ts"))) {
+  assert.doesNotMatch(read(file), /prepare-research-report/, `P6: ${file} performs no research capability`);
 }
 for (const file of src.filter((f) =>
   /features\/(agent-origination|heby-actions|heby-action-inlet|governed-machine-execution|standing-mutation-authority|governance-decision|tenant-machine-execution-authority)\//.test(f),

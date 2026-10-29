@@ -117,7 +117,9 @@ assert.deepEqual(
   "the seam reaches only these authorities (a new reach is a deliberate edit here)",
 );
 assert.doesNotMatch(seam, /declareWorkEvidenceReference|write-work\.server|list-eligible-agents/, "the seam never links evidence and never uses the read-only eligibility projection as a gate");
-assert.match(seam, /refuseOutsideAgentWorkCapability\(CAPABILITY, mandate, workScope\)/, "the shared ceiling decides, through the capability's one condition");
+/* RA-PREP-1 — the ceiling is asked for the capability the seam performs; the draft seams default to work drafting. */
+assert.match(seam, /refuseOutsideAgentWorkCapability\(capability, mandate, workScope\)/, "the shared ceiling decides, through the capability's one condition");
+assert.match(seam, /capability: AgentWorkCapability = CAPABILITY,/, "and the draft seams' capability is still work drafting");
 assert.match(seam, /workScope: target\.target\.workScope/, "the preparation seam is handed the work item's recorded scope, server-side");
 assert.match(seam, /agentId: agent\.agentId/, "the agent handed to the preparation seam is the one the eligibility read listed");
 assert.ok(seam.indexOf("resolveGovernanceAuthority") < seam.indexOf("deps.prepare ?? prepareWorkArtifact"), "authority is asked before the model");

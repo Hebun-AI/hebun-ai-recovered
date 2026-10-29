@@ -43,6 +43,8 @@ import { isAgentAuthorship, type AgentAuthorship } from "./agent-authorship.serv
 import { formatWorkArtifactRef } from "./artifact-ref";
 import { digestArtifactContent } from "./content-digest";
 import {
+  isWorkArtifactType,
+  RESEARCH_REPORT_ARTIFACT_TYPE,
   type CreateWorkArtifactInput,
   type CreateWorkArtifactResult,
   type ReviseWorkArtifactInput,
@@ -50,7 +52,7 @@ import {
   type RetireWorkArtifactResult,
   type WorkArtifactRefusal,
 } from "./contracts";
-import { validateRevisionContent, validateWorkArtifactInput } from "./validation";
+import { validateResearchReportInput, validateRevisionContent, validateWorkArtifactInput } from "./validation";
 
 export interface WorkArtifactWriteDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -127,6 +129,13 @@ async function sourceMessageBelongsToTenant(
   return rows.length > 0;
 }
 
+/** RA-PREP-1 — the research writer's input. No type field: the writer fixes it. */
+export interface CreateResearchReportInput {
+  readonly title: string;
+  readonly content: string;
+  readonly sourceMessageId: string;
+}
+
 /**
  * Create one artifact and its first revision.
  *
@@ -137,10 +146,18 @@ async function sourceMessageBelongsToTenant(
  */
 async function insertArtifactWithFirstRevision(
   tenant: TenantContext | null,
-  input: CreateWorkArtifactInput | null,
+  input: CreateWorkArtifactInput | (CreateResearchReportInput & { readonly artifactType: typeof RESEARCH_REPORT_ARTIFACT_TYPE; readonly intendedDestination?: undefined }) | null,
   ownerWorkspace: string,
   author: ArtifactAuthor,
   deps: WorkArtifactWriteDeps,
+  /*
+   * RA-PREP-1 — chosen by WHICH entry point was called, never by a string in the input. Only the
+   * research writer passes the research validator; every other caller meets the general one, which
+   * refuses `research-report` even when a caller casts it past the compiler.
+   */
+  validate: typeof validateWorkArtifactInput = validateWorkArtifactInput,
+  /* RA-PREP-1 — the research writer's filing condition, asked inside the creating transaction. */
+  filingCondition?: ResearchFilingCondition,
 ): Promise<CreateWorkArtifactResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
@@ -149,7 +166,7 @@ async function insertArtifactWithFirstRevision(
     return refused("invalid-input");
   }
 
-  const problems = validateWorkArtifactInput(input);
+  const problems = validate(input);
   if (problems.length > 0) return { status: "invalid", problems };
 
   const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
@@ -192,6 +209,10 @@ async function insertArtifactWithFirstRevision(
 
       const artifactId = artifactRows[0]?.id;
       if (!artifactId) throw new Error("work artifact insert returned no id");
+      /* RA-PREP-1 — the research writer's condition, on this transaction; `false` rolls the artifact back. */
+      if (filingCondition && !(await filingCondition(tx as unknown as ControlPlaneDatabase, { artifactId, revisionNo: 1 }))) {
+        throw new FilingConditionFailed();
+      }
 
       await tx.insert(workArtifactRevisions).values({
         tenantId: tenant.tenantId,
@@ -219,10 +240,24 @@ async function insertArtifactWithFirstRevision(
       contentDigest,
       ref: formatWorkArtifactRef(created.artifactId, 1),
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof FilingConditionFailed) return refused("filing-condition-failed");
     return refused("persistence-unavailable");
   }
 }
+
+class FilingConditionFailed extends Error {}
+
+/**
+ * RA-PREP-1 — asked with the creating transaction after the artifact and revision rows are inserted and
+ * before they commit. `false` rolls everything back (`filing-condition-failed`); a throw rolls back as a
+ * persistence failure. It may read and append evidence on `tx`; it decides on the caller's authority, not
+ * this writer's.
+ */
+export type ResearchFilingCondition = (
+  tx: ControlPlaneDatabase,
+  created: { readonly artifactId: string; readonly revisionNo: 1 },
+) => Promise<boolean>;
 
 /** A human authoring prepared work directly, with no model in the loop. */
 export function createWorkArtifact(
@@ -260,6 +295,38 @@ export function createWorkArtifactFromHebyPreparation(
   const author = agentAuthorOrNull(authorship);
   if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
   return insertArtifactWithFirstRevision(tenant, input, ownerWorkspace, author, deps);
+}
+
+/**
+ * RA-PREP-1 — the research preparation seam's writer, and the ONLY way a `research-report` exists.
+ *
+ * Its input has no type field: the type is this function's constant. It requires a verified agent
+ * authorship (the brand `resolveAgentAuthorship` mints) and a source message, because a research
+ * report is model output and its provenance is that invocation's message row. Only
+ * `agent-work/assign-research-report.server.ts` imports it — a firewall test holds that.
+ */
+export function createResearchReportFromResearchPreparation(
+  tenant: TenantContext | null,
+  input: CreateResearchReportInput | null,
+  ownerWorkspace: string,
+  authorship: AgentAuthorship,
+  deps: WorkArtifactWriteDeps,
+  /* Required: a research report is filed only under a condition its seam re-asks in this transaction. */
+  filingCondition: ResearchFilingCondition,
+): Promise<CreateWorkArtifactResult> {
+  const author = agentAuthorOrNull(authorship);
+  if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  if (!filingCondition) return Promise.resolve(refused("invalid-input"));
+  if (!input?.sourceMessageId?.trim()) return Promise.resolve(refused("invalid-input"));
+  return insertArtifactWithFirstRevision(
+    tenant,
+    { title: input.title, content: input.content, sourceMessageId: input.sourceMessageId, artifactType: RESEARCH_REPORT_ARTIFACT_TYPE },
+    ownerWorkspace,
+    author,
+    deps,
+    validateResearchReportInput,
+    filingCondition,
+  );
 }
 
 /**
@@ -318,6 +385,7 @@ async function appendRevision(
           id: workArtifacts.id,
           currentRevision: workArtifacts.currentRevision,
           lifecycle: workArtifacts.artifactLifecycleStatus,
+          artifactType: workArtifacts.artifactType,
         })
         .from(workArtifacts)
         .where(
@@ -333,6 +401,12 @@ async function appendRevision(
       /* A foreign artifact is "not found", never "not yours" — the refusal confirms nothing. */
       if (!artifact) return refused("artifact-not-found");
       if (artifact.lifecycle === "retired") return refused("artifact-retired");
+      /*
+       * RA-PREP-1 (closes RA-AUTH-1-HUMAN-REVISE-1) — every reviser here, human and agent, appends only
+       * to the general preparation types. A research report takes no revision through this writer: the
+       * stored type is read under the lock, so no caller-supplied type and no earlier read decides it.
+       */
+      if (!isWorkArtifactType(artifact.artifactType)) return refused("artifact-type-not-revisable");
       /* CONTENT-AGENT-2 — both stale-state questions are answered under the lock, never before it. */
       if (input.expectedRevisionNo !== undefined && artifact.currentRevision !== input.expectedRevisionNo) {
         return refused("revision-stale");

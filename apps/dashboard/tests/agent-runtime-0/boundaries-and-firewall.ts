@@ -136,8 +136,9 @@ function oneAgentLookupAuthority(): void {
   );
   assert.deepEqual(
     resolvers.sort(),
-    [SEAM, "src/features/media-assets/request-media-generation.server.ts", "src/features/media-assets/async-generation-lifecycle.server.ts"].sort(),
-    "the preparation seam and media generation are the only callers of the resolver",
+    /* RA-PREP-1 — the research seam names its report's author through the same one seam; same use, census stays exact. */
+    [SEAM, "src/features/media-assets/request-media-generation.server.ts", "src/features/media-assets/async-generation-lifecycle.server.ts", "src/features/agent-work/assign-research-report.server.ts"].sort(),
+    "the preparation seam, the research seam and media generation are the only callers of the resolver",
   );
 }
 

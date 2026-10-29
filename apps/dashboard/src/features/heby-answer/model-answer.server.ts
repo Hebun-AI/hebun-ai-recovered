@@ -318,6 +318,17 @@ export interface HebyModelAnswerOptions {
    * brief is, so every other answer is judged as Heby's own words.
    */
   readonly actionClaimMode?: ActionClaimMode;
+  /*
+   * RA-PREP-1 — THE DATA-USE PURPOSE, when it is not assistance. Set by a server seam from its
+   * capability's declaration (`AGENT_WORK_CAPABILITIES[...].dataUse.purpose`), never by a client: no
+   * action passes options from its input. Absent, the request is assistance exactly as before.
+   *
+   * `research` discloses ONLY the conversation (RA-EAI-1's one research cell): the request reads no
+   * workspace source, so no organizational record is resolved, cited, sent or persisted as evidence;
+   * the purpose is declared to the External-AI Data Use gate, which asks this tenant's research
+   * authorization. Assistance authorization never stands in for it, and nothing here falls back to it.
+   */
+  readonly dataUsePurpose?: "research";
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -1314,7 +1325,8 @@ export async function answerHebyModelRequest(
   // question travels only as a search term: it selects rows and cannot grant, widen, or authorize
   // anything, and the tenant it is searched within remains the server-resolved one.
   const { resolutions: knowledgeResolutions, knowledgeEvidence, blocked: publicKnowledgeBlocked } = await withKnowledge(
-    resolveSources(workspaceSourceClasses(context), overview),
+    /* RA-PREP-1 — research grounds on nothing: its one platform cell covers the conversation alone. */
+    resolveSources(options.dataUsePurpose === "research" ? [] : workspaceSourceClasses(context), overview),
     tenant,
     validation.prompt,
     deps,
@@ -1411,7 +1423,8 @@ export async function answerHebyModelRequest(
     /*
      * B2 — WHAT THIS REQUEST DISCLOSES, by owning authority: the conversation (the prompt and its
      * bounded history), the grounding classes the model-facing projection did not withhold, and
-     * whatever the preparation brief declared. Purpose is assistance; nothing here can relabel it.
+     * whatever the preparation brief declared. Purpose is assistance unless a server seam declared its
+     * capability's purpose (RA-PREP-1); nothing a client sends can relabel it.
      */
     const briefApplied = Boolean(options.preparationBrief) && HEBY_INTENT_DESCRIPTORS[intent].prepares;
     /*
@@ -1428,7 +1441,7 @@ export async function answerHebyModelRequest(
         : {
             tenantId: tenant.tenantId,
             actorUserId: tenant.userId,
-            purpose: "assistance",
+            purpose: options.dataUsePurpose ?? "assistance",
             dataClasses: [
               ...new Set<DataClass>([
                 "conversation",

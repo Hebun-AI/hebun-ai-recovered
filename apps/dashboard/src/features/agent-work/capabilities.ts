@@ -92,33 +92,32 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
     authorizationRequired: false as const,
   }),
   /*
-   * RA-AUTH-1 — the Research Agent's only capability (Director-approved). DECLARED, NOT PERFORMABLE:
-   * no seam performs it. RA-EAI-1 declares its disclosure — `research` × `conversation`, the one
-   * platform cell for that purpose — and RA-PREP-1 adds the seam; until then nothing can prepare a
-   * research report. Its mandate condition is the PREPARATION kind `prepare-research` alone,
-   * so a research mandate grants no general draft and a general draft mandate grants no research.
+   * RA-AUTH-1 — the Research Agent's only capability (Director-approved). RA-EAI-1 declares its
+   * disclosure — `research` × `conversation`, the one platform cell for that purpose — and RA-PREP-1
+   * adds the seam that performs it (`assignResearchReport`). Its mandate condition is the PREPARATION
+   * kind `prepare-research` alone, so a research mandate grants no general draft and a general draft
+   * mandate grants no research. No source transport exists, so every report is an UNSOURCED
+   * RESEARCH DRAFT: the model's own writing on the question, never verified research.
    */
   Object.freeze({
     id: "prepare-research-report" as const,
-    performedBy: "no seam yet — RA-PREP-1 adds it; until then nothing performs this capability",
+    performedBy: "agent-work (assignResearchReport) through work-artifacts (createResearchReportFromResearchPreparation); the person links the result through organizational-work's own action",
     label: "Prepare a research report for this work",
     objective:
-      "Write one sourced research report — market, customer or opportunity research — for a work item the agent is responsible for.",
+      "Write one unsourced research draft — market, customer or opportunity research from the model's own knowledge — for a work item the agent is responsible for.",
     sideEffect: "PREPARATION_ONLY" as const,
     mandateKindsAnyOf: Object.freeze(["prepare-research"] as const),
     dataUse: Object.freeze({ purpose: "research" as const, dataClasses: Object.freeze(["conversation"] as const) }),
-    input: Object.freeze([
-      "your research question, in your words",
-      "public web sources found during the research",
-      "your organization's ratified, publicly usable statements of what it offers",
-    ]),
-    output: "One research report authored by the agent, which you then link to this work item as its evidence.",
+    /* RA-PREP-1 — only what the one research cell discloses. Web sources and Knowledge are not sent. */
+    input: Object.freeze(["your research question, in your words"]),
+    output: "One unsourced research draft authored by the agent, which you then link to this work item as its evidence.",
     completion: "Done when a person with Governance authority accepts the report in Operations.",
     cannot: Object.freeze([
       "contact anyone, send, publish or change anything outside Hebun — a report is text for review",
       "propose actions, receive permits or start machine execution",
       "propose or change the work item's state",
       "prepare any draft other than a research report",
+      "search the web, read your organization's records, or cite verified sources — the report is an unsourced draft",
       "approve its own report or widen its own mandate",
     ]),
     authorizationRequired: false as const,

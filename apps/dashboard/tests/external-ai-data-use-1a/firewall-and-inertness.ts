@@ -82,6 +82,8 @@ assert.deepEqual(
     "src/app/(dashboard)/governance/authority/page.tsx",
     /* ORGANIZATION-READINESS-2 — the decision card imports two TYPES only (pinned below). */
     "src/components/governance-authority/ai-assistance-decision-card.tsx",
+    /* RA-PREP-1 — the research seam asks the released gate before the model; it writes nothing here. */
+    "src/features/agent-work/assign-research-report.server.ts",
     "src/features/governance-audit/external-ai-disclosure-audit.server.ts",
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
@@ -94,7 +96,7 @@ assert.deepEqual(
     "src/features/organization-readiness/read-organization-readiness.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the readiness card's read-only composition, the operational planning projection and plan-candidate contract checks, and the AI planning runtime's declaration reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the readiness card's read-only composition, the operational planning projection and plan-candidate contract checks, the AI planning runtime's declaration and the research seam's preflight reach the authority",
 );
 /*
  * CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime DECLARES what it would disclose

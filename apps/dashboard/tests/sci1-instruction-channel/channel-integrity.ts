@@ -158,6 +158,8 @@ async function main(): Promise<void> {
     "src/features/agent-origination/originate-action.server.ts",
     /* WORK-UPDATE V1 — the declared-state origination mints its one fixed instruction from Hebun's own lines; no tenant data and no user text enter it. */
     "src/features/agent-origination/originate-work-state.server.ts",
+    /* RA-PREP-1 — the research seam mints its fixed brief from Hebun's own lines; no tenant data and no user text enter it. */
+    "src/features/agent-work/assign-research-report.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
     /* CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime mints its one fixed instruction from the plan contract's own constants; no tenant data and no user text enter it. */
     "src/features/heby-commands/ai-operational-plan.server.ts",
