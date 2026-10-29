@@ -159,6 +159,14 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 | Runtime exposure | No route, server action or component imports the seam (F6). Production (read-only measurement in the RA-EAI-1 release, unchanged since: no deployment of this branch): 0 research scopes, 0 `prepare-research` mandates, 0 `research-report` artifacts. Not re-measured in this review (no production read was authorized here) |
 | Tests | Targeted PASS; regressions classified; 1121/1124 is not a full PASS; r3w BLOCKED |
 
+**Cleanup (2026-10-29).** Removed only this session's disposables, after ownership and idle checks: the
+detached worktrees `full-a12f770f` and `base-03817c82` (`git worktree remove --force`; their node_modules were
+APFS clones, not the shared directory), and the stopped clusters `pg` (system_identifier
+7702077506908358914) and `pgc` (7702091228980822985). Kept: the suite and build logs in the session
+scratchpad, every other worktree (including another session's three scratchpad worktrees), the shared
+node_modules, and every PostgreSQL instance not created here. After: no cluster of this session running;
+`feat/ra-prep-1` intact; remote main 03817c82; remote has no `feat/ra-prep-1`.
+
 **Recommendation: READY FOR DORMANT PRODUCTION DEPLOYMENT** — the code only, inert: nothing can reach the
 seam, no tenant holds research, no mandate admits it, and GATE-D blocks any provider execution. Deploying
 it activates nothing. No migration (ledger 83).
