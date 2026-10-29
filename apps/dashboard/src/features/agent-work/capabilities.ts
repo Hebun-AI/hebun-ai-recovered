@@ -50,10 +50,12 @@ export interface AgentWorkCapability {
   readonly mandateKindsAnyOf: readonly MandateScopeKind[];
   /**
    * The External-AI Data Use purpose and classes the model call declares. The gate enforces them.
-   * RA-AUTH-1: `null` declares no disclosure at all — the capability has no performing seam yet and
-   * cannot reach a model until its purpose and classes exist in the platform policy.
+   * RA-EAI-1: a declaration is not permission — the tenant's own authorization still decides, and a
+   * capability with no performing seam reaches no model whatever it declares.
    */
-  readonly dataUse: { readonly purpose: "assistance"; readonly dataClasses: readonly ("conversation" | "work-artifact")[] } | null;
+  readonly dataUse:
+    | { readonly purpose: "assistance"; readonly dataClasses: readonly ("conversation" | "work-artifact")[] }
+    | { readonly purpose: "research"; readonly dataClasses: readonly "conversation"[] };
   /** What the agent is given. Nothing else reaches the model. */
   readonly input: readonly string[];
   readonly output: string;
@@ -91,9 +93,9 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
   }),
   /*
    * RA-AUTH-1 — the Research Agent's only capability (Director-approved). DECLARED, NOT PERFORMABLE:
-   * no seam performs it and it declares no External-AI disclosure (`dataUse: null`). RA-EAI-1 adds the
-   * `research` purpose to the platform policy and RA-PREP-1 adds the seam; until both land, nothing can
-   * prepare a research report. Its mandate condition is the PREPARATION kind `prepare-research` alone,
+   * no seam performs it. RA-EAI-1 declares its disclosure — `research` × `conversation`, the one
+   * platform cell for that purpose — and RA-PREP-1 adds the seam; until then nothing can prepare a
+   * research report. Its mandate condition is the PREPARATION kind `prepare-research` alone,
    * so a research mandate grants no general draft and a general draft mandate grants no research.
    */
   Object.freeze({
@@ -104,7 +106,7 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
       "Write one sourced research report — market, customer or opportunity research — for a work item the agent is responsible for.",
     sideEffect: "PREPARATION_ONLY" as const,
     mandateKindsAnyOf: Object.freeze(["prepare-research"] as const),
-    dataUse: null,
+    dataUse: Object.freeze({ purpose: "research" as const, dataClasses: Object.freeze(["conversation"] as const) }),
     input: Object.freeze([
       "your research question, in your words",
       "public web sources found during the research",

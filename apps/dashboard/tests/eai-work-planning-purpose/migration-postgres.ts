@@ -67,7 +67,8 @@ async function main(): Promise<void> {
   assert.equal(journal.entries[76]!.tag, TAG, "D1 is ledger entry 77 (idx 76)");
   assert.equal(migration.split("--> statement-breakpoint").length, 2, "two statements");
   assert.match(migration, /^ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk";/);
-  assert.ok(migration.includes(`in (${PURPOSES.map((p) => `'${p}'`).join(", ")})`), "the CHECK lists exactly the vocabulary");
+  /* RA-EAI-1 appended `research` to the vocabulary later; D1's file lists the vocabulary as it was then. */
+  assert.ok(migration.includes(`in (${[...OLD_PURPOSES, "work-planning"].map((p) => `'${p}'`).join(", ")})`), "the CHECK lists exactly D1's vocabulary");
   assert.ok(!/\b(drop table|delete|update|insert|truncate)\b/i.test(migration), "no table dropped, no row written");
 
   const folder = ledgerBefore(TAG);

@@ -61,7 +61,7 @@ export const EXTERNAL_AI_SERVICE_SCOPES_SQL = [
   "higgsfield/pixverse-v6/text-to-video",
   "higgsfield/pixverse-v6/image-to-video",
 ] as const;
-export const EXTERNAL_AI_PURPOSES_SQL = ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning"] as const;
+export const EXTERNAL_AI_PURPOSES_SQL = ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning", "research"] as const;
 export const EXTERNAL_AI_DATA_CLASSES_SQL = [
   "conversation",
   "knowledge",

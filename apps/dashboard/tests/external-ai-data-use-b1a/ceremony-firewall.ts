@@ -108,6 +108,8 @@ assert.deepEqual(
     "anthropic/messages|agent-origination|knowledge",
     /* D4 (Controlled Agent Reasoning phase 5), a separate reviewed change. */
     "anthropic/messages|work-planning|operational-record",
+    /* RA-EAI-1, a separate reviewed change. */
+    "anthropic/messages|research|conversation",
   ],
 );
 assert.ok(

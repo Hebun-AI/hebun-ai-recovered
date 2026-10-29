@@ -46,6 +46,8 @@ const ALLOWED = ["conversation", "knowledge", "work-artifact"] as const;
 const ORIGINATION_ALLOWED = ["conversation", "organization", "knowledge"] as const;
 /* D4 (Director, 2026-10-13, Controlled Agent Reasoning phase 5): Heby AI planning's one cell, appended last. */
 const WORK_PLANNING_ALLOWED = ["operational-record"] as const;
+/* RA-EAI-1 (Director, 2026-10-29): the research question's one cell, appended after D4's. */
+const RESEARCH_ALLOWED = ["conversation"] as const;
 
 /* ── 1. EXACTLY THREE CELLS, EXACTLY THESE BOUNDS. ─────────────────────────────────────────────── */
 const policy = RECORDED_PLATFORM_DISCLOSURE_POLICY;
@@ -55,8 +57,9 @@ assert.deepEqual(
     ...ALLOWED.map((d) => ["anthropic/messages", "assistance", d, "allowed"]),
     ...ORIGINATION_ALLOWED.map((d) => ["anthropic/messages", "agent-origination", d, "allowed"]),
     ...WORK_PLANNING_ALLOWED.map((d) => ["anthropic/messages", "work-planning", d, "allowed"]),
+    ...RESEARCH_ALLOWED.map((d) => ["anthropic/messages", "research", d, "allowed"]),
   ],
-  "exactly the three B1D cells, APF-3's two, WF-3B's one and D4's one, in order",
+  "exactly the three B1D cells, APF-3's two, WF-3B's one, D4's one and RA-EAI-1's one, in order",
 );
 const EXPECTED_BOUNDS = {
   contractSurfaces: ["anthropic-commercial-terms"],
@@ -93,7 +96,8 @@ for (const serviceScope of SERVICE_SCOPES) {
         serviceScope === "anthropic/messages" &&
         ((purpose === "assistance" && (ALLOWED as readonly string[]).includes(dataClass)) ||
           (purpose === "agent-origination" && (ORIGINATION_ALLOWED as readonly string[]).includes(dataClass)) ||
-          (purpose === "work-planning" && (WORK_PLANNING_ALLOWED as readonly string[]).includes(dataClass)))
+          (purpose === "work-planning" && (WORK_PLANNING_ALLOWED as readonly string[]).includes(dataClass)) ||
+          (purpose === "research" && (RESEARCH_ALLOWED as readonly string[]).includes(dataClass)))
       ) {
         assert.equal(verdict.decision, "allowed", `${label} is ALLOWED`);
         if (verdict.decision === "allowed") assert.equal(verdict.bounds, ANTHROPIC_ASSISTANCE_BOUNDS);
@@ -104,7 +108,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(allowedCount, 7, "seven ALLOWED cells across the whole vocabulary (WF-3B added one, D4 one)");
+assert.equal(allowedCount, 8, "eight ALLOWED cells across the whole vocabulary (WF-3B added one, D4 one, RA-EAI-1 one)");
 /* The classes and purposes the Director named as NOT authorized, spelled out. */
 for (const purpose of ["relevance-selection", "media-generation"] as const) {
   for (const dataClass of ALLOWED) {

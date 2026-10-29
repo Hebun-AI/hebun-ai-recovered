@@ -66,7 +66,7 @@ export const SERVICE_SCOPES = [
 export type ServiceScope = (typeof SERVICE_SCOPES)[number];
 
 /** Why the data crosses the boundary. Not one giant "AI" purpose, not one per implementation. */
-export const PURPOSES = ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning"] as const;
+export const PURPOSES = ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning", "research"] as const;
 export type Purpose = (typeof PURPOSES)[number];
 
 /**

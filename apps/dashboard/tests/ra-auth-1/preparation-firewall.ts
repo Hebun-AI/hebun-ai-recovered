@@ -128,7 +128,9 @@ const draft = agentWorkCapability("prepare-work-draft");
 assert.deepEqual([...research.mandateKindsAnyOf], [KIND], "P5: research needs prepare-research and nothing else");
 assert.equal(research.sideEffect, "PREPARATION_ONLY");
 assert.equal(research.authorizationRequired, false);
-assert.equal(research.dataUse, null, "P5: declared, not performable — it declares no External-AI disclosure");
+/* RA-EAI-1 — it now declares its one disclosure, and is still performed by nothing. */
+assert.deepEqual(research.dataUse, { purpose: "research", dataClasses: ["conversation"] }, "P5: research × conversation, nothing else");
+assert.match(research.performedBy, /^no seam yet/, "P5: declared, not performable");
 assert.ok(research.cannot.some((line) => /send|publish/.test(line)) && research.cannot.some((line) => /state/.test(line)), "P5: says it cannot send, publish or change state");
 assert.deepEqual([...draft.mandateKindsAnyOf], ["record-work", "set-work-declared-state"], "P5: the general draft condition is unchanged");
 assert.equal(refuseOutsideAgentWorkCapability(research, researchOnly, D(ENG)), null, "P5: a research mandate admits research for its work");

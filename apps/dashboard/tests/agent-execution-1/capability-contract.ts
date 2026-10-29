@@ -53,17 +53,10 @@ for (const capability of AGENT_WORK_CAPABILITIES) {
     assert.ok((AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]).includes(kind), `${capability.id}: ${kind} is a mandate kind`);
     assert.ok(RESPONSIBILITY_SCOPED_REGISTRY_KINDS.includes(AGENT_ORIGINABLE_REGISTRY_KIND[kind]), `${capability.id}: ${kind} carries responsibility`);
   }
-  /*
-   * RA-AUTH-1 — `dataUse: null` declares no disclosure. It is admitted only for a capability no seam
-   * performs yet; every declared class must still be an allowed platform cell.
-   */
-  if (capability.dataUse === null) {
-    assert.match(capability.performedBy, /^no seam yet/, `${capability.id}: a capability declaring no disclosure must be one nothing performs`);
-  } else {
-    for (const dataClass of capability.dataUse.dataClasses) {
-      const verdict = decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: capability.dataUse.purpose, dataClass } as never);
-      assert.equal(verdict.decision, "allowed", `${capability.id}: ${capability.dataUse.purpose} × ${dataClass} must be an allowed platform cell`);
-    }
+  /* Every declared class must be an allowed platform cell (RA-EAI-1: no capability declares nothing any more). */
+  for (const dataClass of capability.dataUse.dataClasses) {
+    const verdict = decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: capability.dataUse.purpose, dataClass } as never);
+    assert.equal(verdict.decision, "allowed", `${capability.id}: ${capability.dataUse.purpose} × ${dataClass} must be an allowed platform cell`);
   }
   assert.equal(capability.sideEffect, "PREPARATION_ONLY");
   assert.equal(capability.authorizationRequired, false);

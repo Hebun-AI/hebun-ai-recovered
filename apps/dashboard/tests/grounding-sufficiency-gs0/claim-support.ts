@@ -131,6 +131,6 @@ assert.deepEqual(assessClaimSupport("Our rugs are made from undyed sheep wool.",
 
 /* 20 · B2 unchanged: no grounding purpose was added. work-planning is D1's (Controlled Agent Reasoning
  * phase 5), a separate reviewed change, not a grounding purpose. */
-assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning"]);
+assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning", "research"]); /* RA-EAI-1 appends research. */
 
 console.log("PASS grounding-sufficiency-gs0 claim-support");

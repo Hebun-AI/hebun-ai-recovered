@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   }
 
   /* ── 2 · ASSISTANCE UNCHANGED. ─────────────────────────────────────────────────────────────── */
-  assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 7);
+  assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 8); /* RA-EAI-1: + research × conversation. */
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass: "operational-record" }).decision, "unknown");
   {
     /* Work records declared under assistance, even with an assistance grant for them: refused before fetch. */

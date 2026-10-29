@@ -1,0 +1,2 @@
+ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk";--> statement-breakpoint
+ALTER TABLE "tenant_ai_data_use_scopes" ADD CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk" CHECK ("tenant_ai_data_use_scopes"."purpose" in ('assistance', 'relevance-selection', 'agent-origination', 'media-generation', 'work-planning', 'research'));
