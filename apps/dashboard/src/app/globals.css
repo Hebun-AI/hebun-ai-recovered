@@ -1484,21 +1484,63 @@
 /* ═══════════════════════════════════════════════════════════════════════════
  * LIVE MAP — THE ORGANIZATIONAL MAP (LMX-1)
  *
- * Scoped entirely under `[data-live-map]`, so nothing here can reach another surface. It spends
- * only the shell's own tokens — no colour, radius or type value is hardcoded — and it draws no
- * relationship the projection did not prove: the spine is rendered only when `data-connected="yes"`,
- * which the component sets from the same condition the edge itself is drawn under.
+ * Scoped entirely under `[data-live-map]`, so nothing here can reach another surface. Its rules
+ * spend only tokens, repointed by the dark scope below — no rule hardcodes a colour, radius or type
+ * value — and it draws no relationship the projection did not prove: the spine is rendered only
+ * when `data-connected="yes"`, which the component sets from the same condition the edge itself is
+ * drawn under.
  *
  * COLOUR CARRIES NOTHING ALONE. The retired tone changes a colour AND the word beside it, and the
  * truth classes are printed as words rather than distinguished by shade.
  * ═════════════════════════════════════════════════════════════════════════ */
 
+/*
+ * THE DARK SCOPE. The content area is dark by repointing tokens HERE, on the root, so every rule
+ * below re-skins with no edit and the shell and PageHeader, which sit outside this element, keep the
+ * product palette. The literals are confined to this one rule; `tests/live-map-experience/dark-scope.ts`
+ * fails if a rule below spends a colour of its own or a token this scope does not repoint.
+ *
+ * THE ACCENT IS THE PRODUCT'S, NOT HEBY'S. It is derived from `--color-highlight`, lifted only far
+ * enough to read on a dark ground, so no new colour exists. Amber is Heby's identity and is not
+ * spent here. Success and warning keep the same dark-ground values Heby uses, because a status
+ * colour means the same thing everywhere; it is not an accent.
+ */
 [data-live-map] {
+  color-scheme: dark;
+
+  --color-bg:             #040708;
+  --color-surface:        #0a1013;
+  --color-surface-raised: #101a1d;
+  --color-surface-sunken: #0c1417;
+  --color-border:         #172227;
+  --color-border-strong:  #24343a;
+
+  --color-text-primary:   #eef2f3;
+  --color-text-secondary: #b7c3c7;
+  --color-text-muted:     #8a9ba1;
+
+  --color-primary:        color-mix(in srgb, var(--color-highlight) 55%, white);
+  --color-primary-subtle: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  --color-primary-ring:   color-mix(in srgb, var(--color-primary) 45%, transparent);
+
+  --color-success:        #34d399;
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 13%, transparent);
+  --color-warning:        #fbbf24;
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 13%, transparent);
+
   --lm-line: var(--color-border-strong);
   --lm-stem: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  border-radius: 1rem;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  [data-live-map] { padding: 1.25rem; }
 }
 
 [data-live-map] .lm-canvas {
