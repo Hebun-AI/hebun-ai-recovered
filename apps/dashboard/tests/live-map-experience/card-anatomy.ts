@@ -223,6 +223,23 @@ async function main(): Promise<void> {
     !/minmax\((?!0,|min\()[0-9.]+rem/.test(block),
     "no column minimum can outgrow a 320px screen",
   );
+  /* Filed, approved and never executed keep their words whole on the narrowest screen. */
+  /* Basis 0 keeps the columns equal, and a row wraps only when the words themselves cannot fit. */
+  assert.ok(/\.lm-metric \{[^}]*flex: 1 1 0;/.test(block), "the three counts share the row equally");
+  assert.ok(/\.lm-metric \{[^}]*min-width: min-content;/.test(block), "and a column is never narrower than its word");
+  assert.ok(/\.lm-glance \{[^}]*flex-wrap: wrap;/.test(block), "when they cannot share a row, a count moves down whole");
+  assert.ok(
+    /\.lm-metric-label \{[^}]*overflow-wrap: normal;/.test(block),
+    "a metric label breaks between words, never inside one",
+  );
+
+  /* The sticky top bar covers a card that focus scrolled to the top of the window. */
+  assert.ok(
+    /\.lm-node \{[^}]*scroll-margin-top: calc\(var\(--topbar-h\) \+ [0-9.]+rem\);/.test(block),
+    "keyboard focus stops a card below the sticky top bar",
+  );
+  assert.ok(/--topbar-h:\s*\d+px;/.test(read("src/styles/tokens.css")), "and the bar's height is a real token");
+
   assert.ok(
     /\.lm-node:focus-visible \{[^}]*outline: 2px solid var\(--color-primary-ring\);/.test(block),
     "keyboard focus draws a solid ring in the scope's own ring token",

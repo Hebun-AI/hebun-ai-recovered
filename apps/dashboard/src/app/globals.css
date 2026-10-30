@@ -1692,6 +1692,8 @@
   flex-direction: column;
   cursor: pointer;
   list-style: none;
+  /* Focus scrolls a card to the window's edge; this stops it below the sticky top bar instead. */
+  scroll-margin-top: calc(var(--topbar-h) + 0.5rem);
 }
 
 [data-live-map] .lm-node::-webkit-details-marker { display: none; }
@@ -1807,6 +1809,7 @@
 [data-live-map] .lm-glance {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.375rem;
   min-width: 0;
@@ -1815,12 +1818,18 @@
   color: var(--color-text-secondary);
 }
 
+/*
+ * Equal columns, never narrower than their words: the global `overflow-wrap: anywhere` would otherwise
+ * cut a label mid-word. A count moves to the next row only when the words themselves cannot fit.
+ */
 [data-live-map] .lm-metric {
   display: flex;
   flex: 1 1 0;
   flex-direction: column-reverse;
-  min-width: 0;
+  min-width: min-content;
 }
+
+[data-live-map] .lm-metric-label { overflow-wrap: normal; }
 
 [data-live-map] .lm-metric-value {
   font-size: var(--text-body, 0.875rem);
