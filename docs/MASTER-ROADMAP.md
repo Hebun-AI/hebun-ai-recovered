@@ -5762,6 +5762,7 @@ re-graded here.
 | RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
 | RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
 | AUTH-EMAIL-OWNERSHIP-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` |
+| SELF-SERVICE-GOVERNANCE-E2E-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` |
 
 ---
 
@@ -5828,8 +5829,10 @@ before §16.1 are not yet indexed (Phase B).
 | EHO-1-CLAUDE-SWITCH-STATE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | The Director's signed-in read of `/director/provider-matrix` |
 | AEO-1-PROD-DELIVERY-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Provider evidence | CLOSED | — |
 | AEO-1-NOTICE-UX-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | UX improvement | DEFERRED | A Director-selected UX change to where the ownership notice renders; not a delivery defect |
-| AEO-1-GOVERNANCE-NOMINATION-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Verification gap | DEFERRED | One real Governance nomination accepted in production by an identity with a proof |
+| AEO-1-GOVERNANCE-NOMINATION-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` | Verification gap | CLOSED | — |
 | AEO-1-OWNERSHIP-ROW-READ-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Verification gap | DEFERRED | One Director-authorized read-only production read of the proof columns and the consumed challenge |
+| E2E-TEST-TENANT-RETENTION-1 | SELF-SERVICE-GOVERNANCE-E2E-1 | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` | Test data retention | DEFERRED | A Director decision to suspend `hebun-e2e-test-01` with `tenant:lifecycle` or keep it active; no deletion path exists |
+| E2E-REGISTER-LEGAL-LINKS-1 | SELF-SERVICE-GOVERNANCE-E2E-1 | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` | Sign-up consent | DEFERRED | A Director decision on sign-up consent and on links to `/terms` and `/privacy` from `/register` |
 | EHO-1-ROLLBACK-RESTORES-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Release safety | DEFERRED | Any rollback below 1f8f9a47 is a Director decision, preceded by disabling Claude connectivity under production possession |
 | EHO-1-RED-SUITE-BASELINE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification reliability | DEFERRED | A Director-selected suite-recovery phase |
 | SR1-INT5A-M11-SURVIVOR-1 | SUITE-RECOVERY-1 | `docs/product-vision/runtime/hebun-suite-recovery-1-closure.md` | Security-test coverage | CLOSED | — |
@@ -5890,7 +5893,7 @@ before §16.1 are not yet indexed (Phase B).
 | OR1-ARMING-COPY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` | Legibility | CLOSED | — |
 | OR2-R3W-AMBIENT-DB-BLOCKED-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification environment | DEFERRED | A run with the canonical hebun_r1 at :55432 up, or a Director decision on the test's environment |
 | TA1-PROD-PENDING-UI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render by the owner of an existing legitimate self-service organization that has no nomination |
-| TA1-PROD-PENDING-CLI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A Director-authorized production operator ceremony run of the read-only listing |
+| TA1-PROD-PENDING-CLI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` | Verification gap | CLOSED | — |
 | SIGNUP-EMAIL-UNVERIFIED-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Identity assurance | DEFERRED | A Director decision on email-ownership proof (mail runtime integration gate) and on existing self-service identities (schema gate) |
 | GENESIS-REVOKED-READ-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Governance integrity | DEFERRED | Resolved before any phase introduces a writer of `revoked` genesis nominations |
 | PI1-PROD-ARMED-WORDING-1 | PRODUCT-INTEGRATION-1 | `docs/product-vision/runtime/hebun-product-integration-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of `/governance/authority` by an already armed organization |

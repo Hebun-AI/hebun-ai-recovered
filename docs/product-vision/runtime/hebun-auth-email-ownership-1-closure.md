@@ -119,3 +119,12 @@ is NOT a current test result. `EHO-1-RED-SUITE-BASELINE-1` stays open.
 - Production acceptance evidence: scoped to one production account, senoltr@gmail.com — one send accepted at 2026-10-30T16:49:08Z, mail received in the Inbox, link opened by the Director, "Your email address is confirmed." shown, notice gone on /command after reload; numeric status, provider log, production row read and root cause of the earlier 400 are not proven
 - Deferred risks: AEO-1-PROD-DELIVERY-1 (CLOSED); AEO-1-NOTICE-UX-1 (DEFERRED); AEO-1-GOVERNANCE-NOMINATION-1 (DEFERRED); AEO-1-OWNERSHIP-ROW-READ-1 (DEFERRED)
 - Director approvals: push of 8b5e8b04 with automatic production deployment; redeploy of 8b5e8b04 with the updated key; each of the two single production sends to senoltr@gmail.com, on 2026-10-30; preparation of this closure in a separate worktree; on 2026-10-30 the Director accepted PRODUCTION-ACCEPTED (scoped) for this one account and one successful verification only, accepted V2 for this documentation closure, and approved one local commit of this record. Push and deployment of this record are NOT approved
+
+## Amendment (2026-10-30)
+
+The text above is preserved as written and states what was true when this record closed. Its statements
+that Governance nomination acceptance and a second account were not exercised describe that moment.
+SELF-SERVICE-GOVERNANCE-E2E-1 later exercised both for one test identity, and
+AEO-1-GOVERNANCE-NOMINATION-1 is resolved there:
+`docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md`. The acceptance scope of this
+record is unchanged. AEO-1-NOTICE-UX-1 and AEO-1-OWNERSHIP-ROW-READ-1 stay open here.
