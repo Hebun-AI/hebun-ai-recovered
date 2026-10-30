@@ -45,6 +45,43 @@ const REGISTER = "src/app/register/actions.ts";
 const GENESIS = "src/features/governance-genesis/genesis-acceptance.server.ts";
 const MIDDLEWARE = "src/middleware.ts";
 
+/*
+ * THE TWO NAMED EXCEPTIONS — Director decisions under AEO-1-PROD-DELIVERY-1, `MAIL` only.
+ *
+ *   1. ONE LOG. This helper, verbatim, called exactly once with `(outcome, httpStatus)`. It prints
+ *      the outcome class and an integer status or `none`, and nothing it could leak is in scope.
+ *   2. ONE `globalThis.fetch`. The base of this wrapper, verbatim: it passes the request through
+ *      untouched and reads `response.status` and nothing else.
+ *
+ * Each pinned block is REMOVED from `MAIL` before the general rules run, so every other line of the
+ * file is still held to "nothing logs" and "no socket of its own". Widening either block fails here.
+ */
+const MAIL_WARN_HELPER = `function warnDeliveryFailure(outcome: AuthMailDeliveryOutcome, httpStatus: number | null): void {
+  const status = isHttpStatus(httpStatus) ? String(httpStatus) : "none";
+  console.warn(\`[auth-mail] delivery=\${outcome} http=\${status}\`);
+}`;
+const MAIL_WARN_CALL = `  if (outcome !== "accepted") warnDeliveryFailure(outcome, httpStatus);`;
+const MAIL_STATUS_WRAPPER = `  const base: FetchLike = deps.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+  const observed: FetchLike = async (url, init) => {
+    const response = await base(url, init);
+    httpStatus = response.status;
+    return response;
+  };`;
+
+const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+/** `MAIL`'s code with both named exceptions verified and then cut out. */
+function mailWithoutExceptions(): string {
+  const mail = codeOf(read(MAIL));
+  assert.equal(count(mail, MAIL_WARN_HELPER), 1, "the one permitted log helper is present verbatim, exactly once");
+  assert.equal(count(mail, "warnDeliveryFailure("), 2, "the log helper is defined once and called once");
+  assert.equal(count(mail, MAIL_WARN_CALL), 1, "it is called only on a failed outcome, with the outcome and status only");
+  assert.equal(count(mail, MAIL_STATUS_WRAPPER), 1, "the one permitted status wrapper is present verbatim, exactly once");
+  assert.equal(count(stripStrings(mail), "globalThis.fetch"), 1, "exactly one globalThis.fetch reference: the wrapper's base");
+  assert.ok(!/\binit\.|\.headers\b|\.body\b/.test(stripStrings(mail)), "nothing reads the request, its headers or a body");
+  return mail.replace(MAIL_WARN_HELPER, "").replace(MAIL_STATUS_WRAPPER, "");
+}
+
 const SRC_FILES = collect("src");
 const FEATURE_FILES = collect(FEATURE_DIR);
 const FEATURE_CODE = FEATURE_FILES.map((f) => codeOf(read(f))).join("\n");
@@ -81,7 +118,7 @@ function tokenStaysOutOfUrlsAndLogs(): void {
     assert.ok(!/verify-email\?/.test(code), `${f}: no verify-email URL may carry a query string`);
   }
   for (const f of [...FEATURE_FILES, ACTIONS, PAGE, CONFIRM_UI, NOTICE_UI]) {
-    const code = stripStrings(codeOf(read(f)));
+    const code = stripStrings(f === MAIL ? mailWithoutExceptions() : codeOf(read(f)));
     assert.ok(!/console\.|logger\.|captureException/.test(code), `${f}: nothing on this path logs`);
   }
   const ui = stripStrings(codeOf(read(CONFIRM_UI)));
@@ -115,7 +152,9 @@ function reusesOnlyTheTransport(): void {
   ]) {
     assert.ok(!imports.some((m) => m.includes(forbidden)), `the feature must not reach ${forbidden}`);
   }
-  const code = stripStrings(FEATURE_CODE);
+  const code = stripStrings(
+    FEATURE_FILES.map((f) => (f === MAIL ? mailWithoutExceptions() : codeOf(read(f)))).join("\n"),
+  );
   for (const primitive of ["fetch(", "globalThis.fetch", "node:http", "node:https", "node:net", "nodemailer", "axios", "undici"]) {
     assert.ok(!code.includes(primitive), `the feature opens no socket of its own (${primitive})`);
   }

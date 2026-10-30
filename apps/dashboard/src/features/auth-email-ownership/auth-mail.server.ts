@@ -116,6 +116,23 @@ export function buildEmailVerificationText(link: string): string {
   ].join("\n");
 }
 
+/**
+ * THE ONE DIAGNOSTIC THIS PATH EMITS (AEO-1-PROD-DELIVERY-1, a named Director exception).
+ *
+ * A `rejected` outcome covers every 400–499, so without the status a production failure cannot be
+ * told apart: authentication, sender permission, request format and quota all look the same. This
+ * line names the status and NOTHING else — no address, no token, no key, no header, no provider
+ * text. Only a failed send prints it. `boundaries-and-firewall.ts` pins this helper verbatim.
+ */
+function isHttpStatus(value: number | null): value is number {
+  return value !== null && Number.isInteger(value) && value >= 100 && value <= 599;
+}
+
+function warnDeliveryFailure(outcome: AuthMailDeliveryOutcome, httpStatus: number | null): void {
+  const status = isHttpStatus(httpStatus) ? String(httpStatus) : "none";
+  console.warn(`[auth-mail] delivery=${outcome} http=${status}`);
+}
+
 export interface AuthMailDeps {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Test seam only: the transport's own fetch seam, so no test can reach the network. */
@@ -128,21 +145,34 @@ export interface AuthMailDeps {
  *
  * `idempotencyKey` is the challenge id, so even an accidental second call for the same challenge is
  * deduplicated by the provider.
+ *
+ * The transport keeps its released behaviour; it is handed a wrapper over the same fetch it would
+ * use by default, which records `response.status` and touches nothing of the request. That
+ * `globalThis.fetch` reference is the second named exception, pinned by the firewall.
  */
 export async function sendEmailVerificationMessage(
   input: { readonly to: string; readonly reference: string; readonly idempotencyKey: string },
   environment: Extract<AuthMailEnvironment, { status: "configured" }>,
   deps: AuthMailDeps = {},
 ): Promise<AuthMailDeliveryOutcome> {
+  let httpStatus: number | null = null;
+  const base: FetchLike = deps.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+  const observed: FetchLike = async (url, init) => {
+    const response = await base(url, init);
+    httpStatus = response.status;
+    return response;
+  };
+
+  let outcome: AuthMailDeliveryOutcome;
   try {
     const transport = createResendEmailTransport({
       apiKey: environment.apiKey,
       sender: environment.from,
       subject: EMAIL_VERIFICATION_SUBJECT,
       timeoutMs: AUTH_MAIL_TIMEOUT_MS,
-      fetchImpl: deps.fetchImpl,
+      fetchImpl: observed,
     });
-    const outcome = await transport.send({
+    const sent = await transport.send({
       endpointKind: "email",
       endpoint: input.to,
       content: buildEmailVerificationText(
@@ -150,9 +180,11 @@ export async function sendEmailVerificationMessage(
       ),
       idempotencyKey: input.idempotencyKey,
     });
-    return outcome.class;
+    outcome = sent.class;
   } catch {
     /* Construction cannot fail with a configured environment; if it ever does, nothing was sent. */
-    return "unreachable";
+    outcome = "unreachable";
   }
+  if (outcome !== "accepted") warnDeliveryFailure(outcome, httpStatus);
+  return outcome;
 }

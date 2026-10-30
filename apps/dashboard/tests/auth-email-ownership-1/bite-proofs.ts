@@ -236,6 +236,50 @@ function main(): void {
     "  return normalizedEmail.length === 0;",
   );
 
+  /* B15 — a second log call appears beside the one permitted diagnostic (AEO-1-PROD-DELIVERY-1). */
+  bites(
+    "second log call on the mail path",
+    MAIL,
+    FIREWALL,
+    "nothing on this path logs",
+    `  if (outcome !== "accepted") warnDeliveryFailure(outcome, httpStatus);`,
+    `  if (outcome !== "accepted") warnDeliveryFailure(outcome, httpStatus);
+  console.warn("[auth-mail] sent");`,
+  );
+
+  /* B16 — the permitted diagnostic line is widened to carry more than outcome and status. */
+  bites(
+    "diagnostic line widened",
+    MAIL,
+    FIREWALL,
+    "the one permitted log helper is present verbatim",
+    "http=${status}`);",
+    "http=${status} detail=${outcome.length}`);",
+  );
+
+  /* B17 — a second `globalThis.fetch` reference appears beside the status wrapper's base. */
+  bites(
+    "second globalThis.fetch reference",
+    MAIL,
+    FIREWALL,
+    "exactly one globalThis.fetch reference",
+    `    return response;
+  };`,
+    `    return response;
+  };
+  void globalThis.fetch;`,
+  );
+
+  /* B18 — the status wrapper starts reading the request it is meant to pass through untouched. */
+  bites(
+    "status wrapper reads the request",
+    MAIL,
+    FIREWALL,
+    "the one permitted status wrapper is present verbatim",
+    `    const response = await base(url, init);`,
+    `    const response = await base(url, { ...init, headers: init.headers });`,
+  );
+
   /* A harmless change must be ACCEPTED by both suites. */
   mutate(
     "harmless wording change",
@@ -250,8 +294,8 @@ function main(): void {
     },
   );
 
-  assert.equal(bitten, 14);
-  console.log(`auth-email-ownership-1 bite-proofs: ${bitten}/14 bit, harmless change accepted — PASS`);
+  assert.equal(bitten, 18);
+  console.log(`auth-email-ownership-1 bite-proofs: ${bitten}/18 bit, harmless change accepted — PASS`);
 }
 
 main();

@@ -119,6 +119,13 @@ function main(): void {
          * repository with unlisted outbound HTTP, which is the exact thing this pin exists to deny.
          */
         "src/features/action-execution-live/resend-email-transport.server.ts",
+        /*
+         * AEO-1-PROD-DELIVERY-1 — authentication mail names `globalThis.fetch` once, as the base of
+         * a wrapper it hands the Resend transport above so a failed send can report its HTTP status.
+         * It reaches no host of its own: the request is the transport's, passed through untouched.
+         * Its own firewall pins the wrapper verbatim (`auth-email-ownership-1`).
+         */
+        "src/features/auth-email-ownership/auth-mail.server.ts",
         "src/features/heby-model-live/claude-http-transport.server.ts",
         /*
          * MEDIA-1 — the one seam that follows a generation provider's output URL. It reaches only
