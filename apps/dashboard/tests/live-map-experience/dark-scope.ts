@@ -157,6 +157,36 @@ test("every text token reads at AA on every surface it can sit on", () => {
   }
 });
 
+test("the drawn relationship reads at 3:1, even where the canvas is brightest", () => {
+  const match = (declared("--lm-line") ?? "").match(
+    /^color-mix\(in srgb, var\(--color-text-muted\) (\d+)%, var\(--color-surface\)\)$/,
+  );
+  assert.ok(match, "the line is derived from the scope's own tokens");
+  const share = Number(match[1]) / 100;
+  const [ink, ground] = [token("--color-text-muted"), token("--color-surface")];
+  const line = [0, 1, 2].map((i) => ink[i] * share + ground[i] * (1 - share)) as unknown as Rgb;
+  /* `.lm-canvas` washes 6% of the accent over the surface, centred where the spine starts. */
+  const washed = [0, 1, 2].map((i) => accent()[i] * 0.06 + ground[i] * 0.94) as unknown as Rgb;
+  assert.ok(block.includes("color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 60%)"), "the wash is 6%");
+  for (const [name, against] of [["surface", ground], ["washed surface", washed]] as const) {
+    const ratio = contrast(line, against);
+    assert.ok(ratio >= 3, `the line on the ${name} is ${ratio.toFixed(2)}:1`);
+  }
+  assert.ok(!/\.lm-branch \{[^}]*linear-gradient/.test(block), "and no gradient fades it below that");
+});
+
+test("the focus ring reads at 3:1 on every surface a focusable element sits on", () => {
+  const match = (declared("--color-primary-ring") ?? "").match(/ (\d+)%, transparent\)$/);
+  assert.ok(match, "the ring states its strength");
+  const share = Number(match[1]) / 100;
+  for (const name of ["--color-surface", "--color-surface-raised", "--color-surface-sunken"]) {
+    const ground = token(name);
+    const ring = [0, 1, 2].map((i) => accent()[i] * share + ground[i] * (1 - share)) as unknown as Rgb;
+    const ratio = contrast(ring, ground);
+    assert.ok(ratio >= 3, `the ring on ${name} is ${ratio.toFixed(2)}:1`);
+  }
+});
+
 test("the reading hierarchy survives the repoint", () => {
   const ground = token("--color-surface");
   const primary = contrast(token("--color-text-primary"), ground);

@@ -327,10 +327,12 @@ async function theMapOffersNoControl(): Promise<void> {
   /* Accessibility: the map is navigable and named, never a field of decorative shapes. */
   assert.ok(markup.includes('aria-label="Organizational map"'), "the canvas is named");
   assert.ok(markup.includes('aria-label="Organization: Acme Holdings"'), "the centre node is named");
-  assert.ok(
-    markup.includes('aria-label="Sourcing Analyst — In service"'),
-    "and each agent node carries its own accessible name including its lifecycle",
-  );
+  /* The node's text IS its name: an `aria-label` here replaced the three counts for a screen reader. */
+  const agentNode = markup.match(/<summary class="lm-node".*?<\/summary>/)?.[0] ?? "";
+  assert.ok(!agentNode.startsWith('<summary class="lm-node" aria-label'), "no label replaces the node's text");
+  for (const word of ["Sourcing Analyst", "In service", "11", "filed", "5", "approved", "13", "never executed"]) {
+    assert.ok(text(agentNode).includes(word), `and each agent node carries its own accessible name: ${word}`);
+  }
   assert.ok(markup.includes('aria-label="Agent identity"'), "the inspector's halves are named");
   assert.ok(markup.includes('aria-label="Agent outcome observation"'), "both of them");
 

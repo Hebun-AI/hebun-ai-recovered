@@ -22,6 +22,8 @@ const MAP_SUITE = "tests/live-map-experience/map-surface.ts";
 const AWARENESS_SUITE = "tests/live-map-experience/awareness.ts";
 const FIREWALL_SUITE = "tests/live-map-experience/firewall.ts";
 const INVARIANT_SUITE = "tests/live-map-experience/rendering-invariant.ts";
+const CARD_SUITE = "tests/live-map-experience/card-anatomy.ts";
+const DARK_SUITE = "tests/live-map-experience/dark-scope.ts";
 
 const CANVAS = "src/components/live-map/live-map-canvas.tsx";
 const BAND = "src/components/awareness/global-awareness.tsx";
@@ -30,6 +32,7 @@ const SEC_AWARENESS = "src/features/security-center/awareness.ts";
 const COMMAND_PAGE = "src/app/(dashboard)/command/page.tsx";
 const LIVE_MAP_PAGE = "src/app/(dashboard)/live-map/page.tsx";
 const RESOLVER = "src/features/auth-runtime/request-session.server.ts";
+const STYLESHEET = "src/app/globals.css";
 
 const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -123,17 +126,15 @@ const MUTATIONS: readonly Mutation[] = [
     file: CANVAS,
     suite: MAP_SUITE,
     find: `  if (intelligence.status === "unavailable") {
-    return <p className="lm-glance lm-glance-unread">Outcome observation unread</p>;
+    return <span className="lm-glance lm-glance-unread">Outcome observation unread</span>;
   }`,
     replace: `  if (intelligence.status === "unavailable") {
     return (
-      <p className="lm-glance">
-        <span>0 filed</span>
-        <span aria-hidden="true"> · </span>
-        <span>0 approved</span>
-        <span aria-hidden="true"> · </span>
-        <span>0 never executed</span>
-      </p>
+      <span className="lm-glance">
+        <Metric value={0} label="filed" />{" "}
+        <Metric value={0} label="approved" />{" "}
+        <Metric value={0} label="never executed" />
+      </span>
     );
   }`,
     expect: "the glance line says it could not be read",
@@ -240,6 +241,87 @@ const MUTATIONS: readonly Mutation[] = [
     find: `  const tenant = await resolveTenantContext();`,
     replace: `  const tenant = await resolveTenantContext();\n  const again = await resolveTenantContext();\n  void again;`,
     expect: "resolves the tenant exactly once",
+  },
+  {
+    /* C1 — A LABEL TAKES THE COUNTS AWAY FROM A SCREEN READER AGAIN. */
+    label: "C1 the summary regains an aria-label",
+    file: CANVAS,
+    suite: CARD_SUITE,
+    find: `      <summary className="lm-node">`,
+    replace: `      <summary className="lm-node" aria-label={node.label}>`,
+    expect: "no aria-label replaces the card's own text",
+  },
+  {
+    /* C2 — NO WHITESPACE IS DRAWN BETWEEN FLEX ITEMS, SO ITS LOSS IS INVISIBLE TO A SIGHTED READER. */
+    label: "C2 two counts run together in the document's text",
+    file: CANVAS,
+    suite: CARD_SUITE,
+    find: `      <Metric value={filed} label="filed" />{" "}`,
+    replace: `      <Metric value={filed} label="filed" />`,
+    expect: "all three counts read in order",
+  },
+  {
+    /* C3 — BLOCK CONTENT INSIDE `summary`. */
+    label: "C3 the summary gains a block element",
+    file: CANVAS,
+    suite: CARD_SUITE,
+    find: `          <ChevronRight className="lm-node-chevron size-4" aria-hidden="true" />`,
+    replace: `          <div><ChevronRight className="lm-node-chevron size-4" aria-hidden="true" /></div>`,
+    expect: "nothing block-level",
+  },
+  {
+    /* C4 — THE FIELD STARTS TO VARY BY AGENT, WHICH IS HOW A PICTURE OF WORK ARRIVES. */
+    label: "C4 the field is keyed to an agent",
+    file: CANVAS,
+    suite: CARD_SUITE,
+    find: `        <span className="lm-field">`,
+    replace: `        <span className="lm-field" data-office={node.label}>`,
+    expect: "dressed like every other agent",
+  },
+  {
+    /* C5 — A FIXED HEIGHT CUTS TEXT THE MOMENT A READER ASKS FOR MORE SPACING. */
+    label: "C5 the closed card gets a fixed height",
+    file: STYLESHEET,
+    suite: CARD_SUITE,
+    find: `.lm-agent:not([open]) { min-height: 223px; }`,
+    replace: `.lm-agent:not([open]) { height: 223px; }`,
+    expect: "never a fixed height",
+  },
+  {
+    /* C6 — THE FIELD TAKES A FILE. */
+    label: "C6 the field is drawn from an image",
+    file: STYLESHEET,
+    suite: CARD_SUITE,
+    find: `    linear-gradient(180deg, var(--color-surface-raised), var(--color-surface-sunken));`,
+    replace: `    url("/agent-offices/heby.webp");`,
+    expect: "the field is drawn from tokens",
+  },
+  {
+    /* C7 — COLUMNS FOLLOW THE WINDOW, AND THE SIDEBAR'S WIDTH IS NOBODY'S PROBLEM. */
+    label: "C7 the columns stop following the content width",
+    file: STYLESHEET,
+    suite: CARD_SUITE,
+    find: `  container: lm-agents / inline-size;\n`,
+    replace: ``,
+    expect: "columns follow the content width",
+  },
+  {
+    /* C8 — THE LINE FADES BACK BELOW WHAT IT HAS TO SAY. */
+    label: "C8 the spine fades out again",
+    file: STYLESHEET,
+    suite: DARK_SUITE,
+    find: `  height: var(--lm-stem);\n  background: var(--lm-line);`,
+    replace: `  height: var(--lm-stem);\n  background: linear-gradient(to bottom, transparent, var(--lm-line));`,
+    expect: "no gradient fades it",
+  },
+  {
+    /* C9 — THE LINE ITSELF BECOMES TOO FAINT TO SEE. */
+    label: "C9 the line drops below 3:1",
+    file: STYLESHEET,
+    suite: DARK_SUITE,
+    find: `var(--color-text-muted) 65%, var(--color-surface)`,
+    replace: `var(--color-text-muted) 30%, var(--color-surface)`,
+    expect: "the line on the surface",
   },
 ];
 

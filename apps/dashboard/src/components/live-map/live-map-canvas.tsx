@@ -1,4 +1,4 @@
-import { Building2, Bot, CircleSlash, Layers, UsersRound } from "lucide-react";
+import { Building2, Bot, ChevronRight, CircleSlash, Layers, UsersRound } from "lucide-react";
 import type {
   LiveMapDomain,
   LiveMapEdge,
@@ -196,6 +196,15 @@ function AttentionAnnotation({ attention }: { attention: LiveMapNodeAttention })
   );
 }
 
+/** Number first in the document, so it reads "11 filed"; the stylesheet alone lifts the label above it. */
+function Metric({ value, label }: { value: number; label: string }) {
+  return (
+    <span className="lm-metric">
+      <span className="lm-metric-value">{value}</span> <span className="lm-metric-label">{label}</span>
+    </span>
+  );
+}
+
 /**
  * The glance line on a closed agent node.
  *
@@ -207,7 +216,7 @@ function AttentionAnnotation({ attention }: { attention: LiveMapNodeAttention })
 function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence }) {
   if (!intelligence) return null;
   if (intelligence.status === "unavailable") {
-    return <p className="lm-glance lm-glance-unread">Outcome observation unread</p>;
+    return <span className="lm-glance lm-glance-unread">Outcome observation unread</span>;
   }
   const at = (groupId: string, label: string): number | null => {
     const group = intelligence.groups.find((g) => g.groupId === groupId);
@@ -219,13 +228,11 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
   const unexecuted = at("governance", "Approved, never executed");
   if (filed === null || approved === null || unexecuted === null) return null;
   return (
-    <p className="lm-glance">
-      <span>{filed} filed</span>
-      <span aria-hidden="true"> · </span>
-      <span>{approved} approved</span>
-      <span aria-hidden="true"> · </span>
-      <span>{unexecuted} never executed</span>
-    </p>
+    <span className="lm-glance">
+      <Metric value={filed} label="filed" />{" "}
+      <Metric value={approved} label="approved" />{" "}
+      <Metric value={unexecuted} label="never executed" />
+    </span>
   );
 }
 
@@ -240,22 +247,36 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
  * is selected" is a platform guarantee rather than state this surface keeps. The open node spans
  * the full width (see the stylesheet), which is what makes the inspector readable without a second
  * column that would have to disappear on a laptop.
+ *
+ * THE SUMMARY HAS NO `aria-label`. Its text is its name, so the lifecycle, the authority, all three
+ * counts and an unread observation reach a screen reader in the order they are read on screen. It
+ * holds spans only: `summary` takes phrasing content. The `{" "}` between them keep the words apart
+ * in that name, because these spans are flex items and no whitespace of theirs is ever drawn.
+ *
+ * THE FIELD IS THE SAME FOR EVERY AGENT. Nothing on it is a function of who the agent is or of what
+ * it did, so it cannot be read as activity.
  */
 function AgentNode({ node }: { node: LiveMapNode }) {
   return (
     <details className="lm-agent" name="live-map-agent">
-      <summary className="lm-node" aria-label={`${node.label} — ${node.status?.label ?? "agent"}`}>
-        <span className="lm-node-mark" aria-hidden="true">
-          <Bot className="size-4" />
-        </span>
-        <span className="lm-node-body">
-          <span className="lm-node-name">{node.label}</span>
-          {node.status ? (
-            <span className="lm-status" data-tone={node.status.tone}>
-              {node.status.label}
-            </span>
-          ) : null}
+      <summary className="lm-node">
+        <span className="lm-field">
+          <span className="lm-node-mark" aria-hidden="true">
+            <Bot className="size-4" />
+          </span>
+          <span className="lm-node-body">
+            <span className="lm-node-name">{node.label}</span>{" "}
+            {node.status ? (
+              <span className="lm-status" data-tone={node.status.tone}>
+                {node.status.label}
+              </span>
+            ) : null}{" "}
+            <span className="lm-node-source">{node.sourceAuthority}</span>
+          </span>
+        </span>{" "}
+        <span className="lm-foot">
           <GlanceSignal intelligence={node.intelligence} />
+          <ChevronRight className="lm-node-chevron size-4" aria-hidden="true" />
         </span>
       </summary>
 
