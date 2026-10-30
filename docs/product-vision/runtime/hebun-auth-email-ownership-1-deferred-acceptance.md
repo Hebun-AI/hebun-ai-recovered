@@ -55,3 +55,9 @@ own session, the ownership evidence linked to the consumed challenge, and the no
 Existing sign-in, tenant membership, Governance authority and EXTERNAL-AI-DATA-USE authorization are
 unchanged: a full read-only table digest before and after the attempt differed only in the new
 challenge row, the Director's sign-in sessions and the sign-in update of `auth_credentials`.
+
+## Amendment (2026-10-30)
+
+AEO-1-PROD-DELIVERY-1 is resolved. The authority is now
+`docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md`. The text above is preserved as
+written and describes the state on 2026-10-24.

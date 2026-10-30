@@ -5761,6 +5761,7 @@ re-graded here.
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
 | RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
 | RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
+| AUTH-EMAIL-OWNERSHIP-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` |
 
 ---
 
@@ -5825,7 +5826,10 @@ before §16.1 are not yet indexed (Phase B).
 | EHO-1-PROD-PAYLOAD-UNOBSERVED-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification gap | DEFERRED | A Director decision on a bounded production observation or a design decision on an observation seam |
 | EHO-1-REAL-PROVIDER-ACCEPTANCE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | A separately authorized, bounded real-provider test |
 | EHO-1-CLAUDE-SWITCH-STATE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Provider evidence | DEFERRED | The Director's signed-in read of `/director/provider-matrix` |
-| AEO-1-PROD-DELIVERY-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-deferred-acceptance.md` | Provider evidence | DEFERRED | Blocks PRODUCTION-ACCEPTED of AUTH-EMAIL-OWNERSHIP-1 (migration 81 applied, `dpl_C83rYx19` READY, `auth.hebuntech.com` verified; one send rejected 2026-10-24, HTTP status unknown) and, while open, any new organization's genesis acceptance: the provider status of a send, then one accepted, received and confirmed verification |
+| AEO-1-PROD-DELIVERY-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Provider evidence | CLOSED | — |
+| AEO-1-NOTICE-UX-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | UX improvement | DEFERRED | A Director-selected UX change to where the ownership notice renders; not a delivery defect |
+| AEO-1-GOVERNANCE-NOMINATION-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Verification gap | DEFERRED | One real Governance nomination accepted in production by an identity with a proof |
+| AEO-1-OWNERSHIP-ROW-READ-1 | AUTH-EMAIL-OWNERSHIP-1 | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` | Verification gap | DEFERRED | One Director-authorized read-only production read of the proof columns and the consumed challenge |
 | EHO-1-ROLLBACK-RESTORES-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Release safety | DEFERRED | Any rollback below 1f8f9a47 is a Director decision, preceded by disabling Claude connectivity under production possession |
 | EHO-1-RED-SUITE-BASELINE-1 | EAI-HISTORY-ORIGIN-1 | `docs/product-vision/runtime/hebun-eai-history-origin-1-closure.md` | Verification reliability | DEFERRED | A Director-selected suite-recovery phase |
 | SR1-INT5A-M11-SURVIVOR-1 | SUITE-RECOVERY-1 | `docs/product-vision/runtime/hebun-suite-recovery-1-closure.md` | Security-test coverage | CLOSED | — |
