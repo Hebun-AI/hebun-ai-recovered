@@ -7,9 +7,10 @@
  *
  *     FIELD != ACTIVITY        UNREAD != ZERO        CARD != A NEW DATA SOURCE
  *
- * NO AGENT IS DRESSED DIFFERENTLY. There is one field for every agent, so no image, no per-identity
- * mapping and no moving part can suggest that something is happening. The firewall proves the rest:
- * `<details>` stays the only interaction this surface has.
+ * THE OFFICE IS DRESSING AND NOTHING MORE. Every card has the same structure; only the room and the
+ * robot's head differ, chosen from an opaque id, so no name, image or per-identity mapping can dress
+ * an agent and no moving part can suggest that something is happening. `office-scene.ts` proves the
+ * drawing. The firewall proves the rest: `<details>` stays the only interaction this surface has.
  *
  * Rendered with `renderToStaticMarkup` against the released projection. No database, no browser.
  */
@@ -128,6 +129,7 @@ const summaries = (markup: string): string[] => markup.match(/<summary class="lm
 /* The document's own text with NOTHING added, so words that only tags kept apart run together. */
 const naturalText = (html: string): string =>
   html
+    .replace(/<svg class="lm-scene".*?<\/svg>/g, "")
     .replace(/<[^>]+aria-hidden="true"[^>]*>.*?<\/span>/g, "")
     .replace(/<[^>]+>/g, "")
     .replace(/\s+/g, " ")
@@ -152,7 +154,7 @@ async function main(): Promise<void> {
   /* ── Valid HTML: `summary` holds phrasing content ───────────────────────── */
   for (const card of cards) {
     const tags = [...card.matchAll(/<([a-z][a-z0-9]*)[\s>]/g)].map((m) => m[1]);
-    const invalid = tags.filter((tag) => !["summary", "span", "svg", "path", "rect", "circle"].includes(tag));
+    const invalid = tags.filter((tag) => !["summary", "span", "svg", "path", "rect", "circle", "g", "use"].includes(tag));
     assert.deepEqual(invalid, [], "summary holds spans and an icon, nothing block-level");
   }
 
@@ -179,13 +181,16 @@ async function main(): Promise<void> {
     assert.ok(card.includes(`data-tone="${tone}">${word}<`), `${name} reads "${word}"`);
   }
 
-  /* ── One neutral field: no image, no mapping, no sign of activity ───────── */
-  const shape = (card: string): string => card.replace(/>[^<]*</g, "><");
+  /* ── One structure: no image, no mapping, no sign of activity ───────────── */
+  /* The room and the head are the only things that differ, and they are all a variant may change. */
+  const shape = (card: string): string =>
+    card.replace(/>[^<]*</g, "><").replace(/#lms-(room|head)-\d/g, "#lms-$1");
   const [serving, , , , heby] = cards;
   assert.equal(shape(heby), shape(serving), "an agent called Heby is dressed like every other agent");
   assert.equal((observed.match(/class="lm-field"/g) ?? []).length, 5, "every agent has the one field");
 
-  const canvas = read("src/components/live-map/live-map-canvas.tsx");
+  const canvas =
+    read("src/components/live-map/live-map-canvas.tsx") + read("src/components/live-map/agent-office-scene.tsx");
   for (const banned of ["<img", "next/image", "data-office", "backgroundImage", "agentOffice"]) {
     assert.ok(!canvas.includes(banned), `the card must not gain ${banned}`);
   }

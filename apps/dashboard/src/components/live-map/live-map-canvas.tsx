@@ -8,6 +8,7 @@ import type {
   LiveMapNodeIntelligence,
   LiveMapProjection,
 } from "@/features/live-map/contracts";
+import { AgentOfficeScene, AgentOfficeSprite } from "./agent-office-scene";
 
 /*
  * LIVE MAP — THE VISUAL ORGANIZATIONAL MAP (LMX-1).
@@ -253,14 +254,16 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
  * holds spans only: `summary` takes phrasing content. The `{" "}` between them keep the words apart
  * in that name, because these spans are flex items and no whitespace of theirs is ever drawn.
  *
- * THE FIELD IS THE SAME FOR EVERY AGENT. Nothing on it is a function of who the agent is or of what
- * it did, so it cannot be read as activity.
+ * THE OFFICE IS DECORATION. It sees the node's id and lifecycle tone and nothing else, so it cannot
+ * say what an agent did. The words come first: a name of any length is printed whole, in the area the
+ * office leaves free, and the card grows rather than cut it.
  */
 function AgentNode({ node }: { node: LiveMapNode }) {
   return (
     <details className="lm-agent" name="live-map-agent">
       <summary className="lm-node">
         <span className="lm-field">
+          <AgentOfficeScene nodeId={node.nodeId} tone={node.status?.tone} />
           <span className="lm-node-mark" aria-hidden="true">
             <Bot className="size-4" />
           </span>
@@ -469,6 +472,7 @@ export function LiveMapCanvas({ projection }: { projection: LiveMapProjection })
           </h3>
           {agentNodes.length > 0 ? (
             <div className="lm-agents">
+              <AgentOfficeSprite />
               {agentNodes.map((node) => (
                 <AgentNode key={node.nodeId} node={node} />
               ))}

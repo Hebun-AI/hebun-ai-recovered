@@ -1528,6 +1528,58 @@
   --color-warning:        #fbbf24;
   --color-warning-subtle: color-mix(in srgb, var(--color-warning) 13%, transparent);
 
+  /*
+   * THE AGENT'S OFFICE. A navy room on the graphite card, lit in the accent's violet and the
+   * product's blue. Decorative, so it needs no contrast against text: it never sits behind any.
+   */
+  --lms-field-a: #141c3a;
+  --lms-field-b: #0e1427;
+  --lms-field-c: #0a0f1e;
+  --lms-floor-a: #303c6e;
+  --lms-slab-a: #141b38;
+  --lms-slab-b: #1b2448;
+  --lms-wall-left-a: #2a3566;
+  --lms-wall-left-b: #19214a;
+  --lms-wall-right-a: #37447d;
+  --lms-wall-right-b: #222c5a;
+  --lms-edge: #6a78c0;
+  --lms-seam: #0a1022;
+  --lms-sky-a: #2b2f78;
+  --lms-sky-b: #4b3f9c;
+  --lms-sky-c: #7a6be0;
+  --lms-violet: #8884f5;
+  --lms-violet-b: #4f4dc0;
+  --lms-violet-c: #3a39a0;
+  --lms-blue: #3f7bf0;
+  --lms-blue-b: #2c5fcb;
+  --lms-blue-c: #2149a0;
+  --lms-steel-1: #a4b1dc;
+  --lms-steel-2: #8a97c2;
+  --lms-steel-3: #7180ad;
+  --lms-steel-4: #5a688f;
+  --lms-steel-5: #46537c;
+  --lms-steel-6: #343f62;
+  --lms-steel-7: #232c4a;
+  --lms-chair: #46548f;
+  --lms-chair-edge: #8d9be0;
+  --lms-seat: #2c3768;
+  --lms-metal-a: #f0f3fb;
+  --lms-metal-b: #d9dfef;
+  --lms-metal-c: #b6c0da;
+  --lms-metal-d: #aab5d2;
+  --lms-metal-e: #55628a;
+  --lms-visor-a: #121a36;
+  --lms-visor-b: #1e2a55;
+  --lms-eye: #c9c6ff;
+  --lms-screen-a: #2b3380;
+  --lms-screen-b: #1a2058;
+  --lms-screen-off: #0b0f20;
+  --lms-lamp: #c9c7ff;
+  --lms-leaf-a: #5fd3b0;
+  --lms-leaf-b: #1f7a6c;
+  --lms-leaf-c: #46b796;
+  --lms-shadow: #050813;
+
   /* The drawn relationship is information, so it holds 3:1 on the canvas; a border need not. */
   --lm-line: color-mix(in srgb, var(--color-text-muted) 65%, var(--color-surface));
   --lm-stem: 1.75rem;
@@ -1650,6 +1702,7 @@
 [data-live-map] .lm-agents {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   gap: 0.75rem;
 }
 
@@ -1662,6 +1715,7 @@
 }
 
 [data-live-map] .lm-agent {
+  container: lm-card / inline-size;
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -1706,19 +1760,50 @@
 }
 
 /*
- * THE FIELD. One static wash for every agent, drawn from tokens: no image, no motion and nothing that
- * varies with an agent, so it can never be read as a picture of work happening.
+ * THE FIELD. The agent's words, and an office beside or under them. The office is drawn in its own
+ * area, never behind a word, so the words decide the size of the card and no name is ever cut.
  */
 [data-live-map] .lm-field {
+  /* The room takes what the words leave. Sized from the card, so the two can never meet. */
+  --lm-scene-width: min(202px, calc(100cqw - 12.25rem));
+  position: relative;
   display: flex;
   flex: 1 0 auto;
   align-items: flex-start;
   gap: 0.625rem;
   min-height: 161px;
+  overflow: hidden;
   padding: 0.75rem;
   background:
-    radial-gradient(120% 100% at 50% 110%, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent 70%),
-    linear-gradient(180deg, var(--color-surface-raised), var(--color-surface-sunken));
+    radial-gradient(120% 90% at 100% 100%, var(--lms-field-a), transparent 70%),
+    linear-gradient(180deg, var(--lms-field-b), var(--lms-field-c));
+}
+
+[data-live-map] .lm-field > .lm-node-mark,
+[data-live-map] .lm-field > .lm-node-body { position: relative; z-index: 1; }
+
+[data-live-map] .lm-field > .lm-node-body { max-width: calc(100cqw - var(--lm-scene-width) - 3.5rem); }
+
+/* The sprite is referenced, never shown, and it must not take a grid cell. */
+[data-live-map] .lm-scene-sprite { position: absolute; }
+
+[data-live-map] .lm-scene {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: var(--lm-scene-width);
+  height: auto;
+  pointer-events: none;
+}
+
+[data-live-map] .lm-agent[open] .lm-scene { display: none; }
+
+/* A narrow card has no room beside the words, so the office takes a band of its own under them. */
+@container lm-card (max-width: 20.5rem) {
+  [data-live-map] .lm-field { --lm-scene-width: 150px; padding-bottom: 122px; }
+  [data-live-map] .lm-field > .lm-node-body { max-width: none; }
+  [data-live-map] .lm-scene { right: 50%; transform: translateX(50%); }
 }
 
 [data-live-map] .lm-foot {
@@ -1759,14 +1844,7 @@
   line-height: 1.25;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
-
-/* The clamp hides nothing from a screen reader, and opening the card shows a sighted reader the rest. */
-[data-live-map] .lm-agent[open] .lm-node-name { display: block; }
 
 [data-live-map] .lm-node-source {
   font-size: var(--text-meta, 0.75rem);
@@ -1851,7 +1929,7 @@
 }
 
 /* An open card has already been chosen, so the field gives its height to the inspector. */
-[data-live-map] .lm-agent[open] .lm-field { min-height: 0; }
+[data-live-map] .lm-agent[open] .lm-field { min-height: 0; padding-bottom: 0.75rem; }
 
 /* With the room for it an open card reads across: the field beside the counts, the two halves apart. */
 @container lm-agents (min-width: 45rem) {
@@ -2017,6 +2095,12 @@
 }
 
 [data-live-map] .lm-completeness strong { color: var(--color-text-secondary); }
+
+/* High contrast keeps the words and drops the decoration, and the band that held it. */
+@media (forced-colors: active) {
+  [data-live-map] .lm-field { padding-bottom: 0.75rem; }
+  [data-live-map] .lm-scene { display: none; }
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * COMMAND VISUAL V2 — the executive band, the ledger strip, the attention edge.

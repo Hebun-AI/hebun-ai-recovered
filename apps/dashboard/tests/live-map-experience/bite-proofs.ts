@@ -24,6 +24,7 @@ const FIREWALL_SUITE = "tests/live-map-experience/firewall.ts";
 const INVARIANT_SUITE = "tests/live-map-experience/rendering-invariant.ts";
 const CARD_SUITE = "tests/live-map-experience/card-anatomy.ts";
 const DARK_SUITE = "tests/live-map-experience/dark-scope.ts";
+const OFFICE_SUITE = "tests/live-map-experience/office-scene.ts";
 
 const CANVAS = "src/components/live-map/live-map-canvas.tsx";
 const BAND = "src/components/awareness/global-awareness.tsx";
@@ -33,6 +34,7 @@ const COMMAND_PAGE = "src/app/(dashboard)/command/page.tsx";
 const LIVE_MAP_PAGE = "src/app/(dashboard)/live-map/page.tsx";
 const RESOLVER = "src/features/auth-runtime/request-session.server.ts";
 const STYLESHEET = "src/app/globals.css";
+const OFFICE = "src/components/live-map/agent-office-scene.tsx";
 
 const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -292,7 +294,7 @@ const MUTATIONS: readonly Mutation[] = [
     label: "C6 the field is drawn from an image",
     file: STYLESHEET,
     suite: CARD_SUITE,
-    find: `    linear-gradient(180deg, var(--color-surface-raised), var(--color-surface-sunken));`,
+    find: `    linear-gradient(180deg, var(--lms-field-b), var(--lms-field-c));`,
     replace: `    url("/agent-offices/heby.webp");`,
     expect: "the field is drawn from tokens",
   },
@@ -322,6 +324,96 @@ const MUTATIONS: readonly Mutation[] = [
     find: `var(--color-text-muted) 65%, var(--color-surface)`,
     replace: `var(--color-text-muted) 30%, var(--color-surface)`,
     expect: "the line on the surface",
+  },
+  {
+    /* O1 — A WORD ON THE SCREEN. A monitor that shows text looks like a monitor at work. */
+    label: "O1 the standby screen gains a word",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `      <Face at={screenFace} fill={paint("screen")} />`,
+    replace: `      <Face at={screenFace} fill={paint("screen")} /><text>Ready</text>`,
+    expect: "no <text in the drawing",
+  },
+  {
+    /* O2 — IN SERVICE STARTS TO LOOK LIKE ACTIVITY. */
+    label: "O2 the scene gains a working state",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `  const seated = state !== "retired";`,
+    replace: `  const seated = state !== "retired"; const working = state === "active"; void working;`,
+    expect: "no such state exists",
+  },
+  {
+    /* O3 — A RETIRED AGENT STAYS AT THE DESK. */
+    label: "O3 a retired agent keeps its robot",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `  const seated = state !== "retired";`,
+    replace: `  const seated = true;`,
+    expect: "a retired agent has an empty chair",
+  },
+  {
+    /* O4 — THE HASH DRIFTS, AND EVERY AGENT CHANGES ROOM OVERNIGHT. */
+    label: "O4 the variant hash changes",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `  return { room: (hash % 4) + 1, head: ((hash >>> 8) % 4) + 1 };`,
+    replace: `  return { room: ((hash + 1) % 4) + 1, head: ((hash >>> 8) % 4) + 1 };`,
+    expect: "changing it re-dresses every agent",
+  },
+  {
+    /* O5 — A SECOND ELEMENT TAKES AN ID, AND A REFERENCE QUIETLY DRAWS NOTHING. */
+    label: "O5 two elements share an id",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `<Gradient id="desk-top" `,
+    replace: `<Gradient id="desk" `,
+    expect: "duplicate id",
+  },
+  {
+    /* O6 — THE ID IS READ RATHER THAN HASHED. */
+    label: "O6 the node id is parsed",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `  const hash = hashOpaqueId(nodeId);`,
+    replace: `  const hash = hashOpaqueId(nodeId);\n  void nodeId.split(":");`,
+    expect: "the id stays opaque",
+  },
+  {
+    /* O7 — THE SCENE IS GIVEN A LITERAL COLOUR, AND IT LEAVES THE LIVE MAP SCOPE. */
+    label: "O7 the scene spends a literal colour",
+    file: OFFICE,
+    suite: OFFICE_SUITE,
+    find: `      <ellipse cx="0" cy="-13" rx="19" ry="6.4" fill={token("seat")} />`,
+    replace: `      <ellipse cx="0" cy="-13" rx="19" ry="6.4" fill="#e0a137" />`,
+    expect: "no hex in the scene",
+  },
+  {
+    /* O8 — A NAME IS CUT AGAIN. Identity outranks decoration. */
+    label: "O8 a long name is clamped",
+    file: STYLESHEET,
+    suite: OFFICE_SUITE,
+    find: `[data-live-map] .lm-node-name {\n`,
+    replace: `[data-live-map] .lm-node-name {\n  -webkit-line-clamp: 2;\n`,
+    expect: "no name is ever cut",
+  },
+  {
+    /* O9 — A FIXED SIZE. This is the exact defect the real route found: the room met the words. */
+    label: "O9 the room stops following the card",
+    file: STYLESHEET,
+    suite: OFFICE_SUITE,
+    find: `  --lm-scene-width: min(202px, calc(100cqw - 12.25rem));`,
+    replace: `  --lm-scene-width: 202px;`,
+    expect: "the room is sized from the card",
+  },
+  {
+    /* O10 — HIGH CONTRAST KEEPS THE PICTURE AND LOSES THE MARGIN OF SAFETY. */
+    label: "O10 forced colours keep the scene",
+    file: STYLESHEET,
+    suite: OFFICE_SUITE,
+    find: `  [data-live-map] .lm-field { padding-bottom: 0.75rem; }\n  [data-live-map] .lm-scene { display: none; }\n`,
+    replace: `  [data-live-map] .lm-field { padding-bottom: 0.75rem; }\n`,
+    expect: "the scene steps aside",
   },
 ];
 
