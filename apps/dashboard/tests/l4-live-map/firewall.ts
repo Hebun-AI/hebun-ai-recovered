@@ -26,6 +26,8 @@ const FEATURE_DIR = "src/features/live-map";
 const COMPONENT_DIR = "src/components/live-map";
 const PROJECTION = `${FEATURE_DIR}/read-live-map.server.ts`;
 const PAGE = "src/app/(dashboard)/live-map/page.tsx";
+const OFFICE_ROUTE = "src/app/(dashboard)/live-map/agents/[agentId]/page.tsx";
+const OFFICE_NOT_FOUND = "src/app/(dashboard)/live-map/agents/[agentId]/not-found.tsx";
 const NAV = "src/config/workspace-nav.ts";
 
 function walk(dir: string): string[] {
@@ -128,7 +130,7 @@ function liveMapCannotWrite(): void {
 
 /* ── 2 · THE TRANSITIVE GATE. NOTHING THAT MUTATES IS REACHABLE ───────────── */
 function noAuthorityIsReachable(): void {
-  const graph = transitiveGraph([PROJECTION, PAGE, ...walk(COMPONENT_DIR)]);
+  const graph = transitiveGraph([PROJECTION, PAGE, OFFICE_ROUTE, OFFICE_NOT_FOUND, ...walk(COMPONENT_DIR)]);
   assert.ok(graph.size > 3, "the graph walker actually resolved Live Map's imports");
   /* It must reach the authorities it consumes — otherwise the walk proves nothing. */
   assert.ok(
@@ -173,6 +175,12 @@ function noAuthorityIsReachable(): void {
       assert.deepEqual(
         offenders.sort(),
         [
+          /*
+           * PHASE 4B. The agent PLACEMENT read and its pure contracts, reached because an agent's
+           * office prints the department the authority records. It is a read: the placement writer
+           * stays absent, which the writer sweep below proves rather than assumes.
+           */
+          "src/features/organization-authority/agent-placement-contracts.ts",
           "src/features/organization-authority/contracts.ts",
           /*
            * LM-1. The PLACEMENT READ SEAM and its pure contracts, reached because the map now draws
@@ -182,6 +190,7 @@ function noAuthorityIsReachable(): void {
            * assumes. (Listed in sorted order — the comparison sorts the actual set.)
            */
           "src/features/organization-authority/placement-contracts.ts",
+          "src/features/organization-authority/read-agent-placement.server.ts",
           "src/features/organization-authority/read-organization.server.ts",
           "src/features/organization-authority/read-placement.server.ts",
           /*
@@ -292,11 +301,33 @@ function tenantIsUnrepresentableAsAnArgument(): void {
     "the page resolves its tenant server-side and passes no identifier",
   );
   assert.ok(!/searchParams/.test(page), "no query parameter reaches the projection");
+
+  /*
+   * PHASE 4B. A route parameter now exists, and it may name an agent and nothing else. The office
+   * seam takes the same trusted context first, and forwards no identifier to any read beneath it.
+   */
+  const office = read(OFFICE_ROUTE);
+  assert.match(
+    office,
+    /readLiveMapAgentOffice\(await resolveTenantContext\(\), agentId\)/,
+    "the office resolves its tenant server-side and passes one agent id beside it",
+  );
+  assert.ok(!/searchParams/.test(office), "no query parameter reaches the office");
+  for (const name of ["organizationId", "tenantId", "slug"]) {
+    assert.ok(!office.includes(name), `the office route holds no ${name}`);
+  }
+  const seamStart = source.indexOf("export async function readLiveMapAgentOffice");
+  assert.ok(seamStart > 0, "the office seam is exported");
+  const seam = source.slice(seamStart, source.indexOf("\n}\n", seamStart));
+  assert.match(seam, /tenant:\s*TenantContext\s*\|\s*null/, "the office seam takes the trusted context");
+  assert.match(seam, /readLiveMapProjection\(tenant, deps\)/, "it reads the one projection, with no widening");
+  assert.match(seam, /candidate\.officeRoute === route/, "and only compares the parameter to that answer");
+  assert.ok(!/\bwhere\(|\beq\(|getControlPlaneDb/.test(seam), "the parameter never becomes a predicate");
 }
 
 /* ── 5 · MOCK AND SEEDED FICTION CANNOT ENTER THE MAP ─────────────────────── */
 function fictionCannotBeLaundered(): void {
-  const graph = transitiveGraph([PROJECTION, PAGE, ...walk(COMPONENT_DIR)]);
+  const graph = transitiveGraph([PROJECTION, PAGE, OFFICE_ROUTE, OFFICE_NOT_FOUND, ...walk(COMPONENT_DIR)]);
   const mocks = [...graph].filter((f) => /\/mock(\.|\/)|\/mock$|fixtures?\//.test(f));
   assert.deepEqual(mocks, [], "no compiled-in fixture is reachable from Live Map");
 

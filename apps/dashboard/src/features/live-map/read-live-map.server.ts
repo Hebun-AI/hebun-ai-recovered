@@ -78,6 +78,7 @@ import {
   type LiveMapAgentOutcomeRead,
 } from "@/features/agent-outcome-observation/live-map-agent-outcome.server";
 import {
+  agentOfficeRoute,
   LIVE_MAP_FRESHNESS,
   LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING,
   LIVE_MAP_DEPARTMENT_BASIS,
@@ -88,6 +89,8 @@ import {
   LIVE_MAP_WORKS_IN_BASIS,
   LIVE_MAP_STRUCTURE_NONE_RECORDED,
   liveMapStructureRecorded,
+  type LiveMapAgentOfficePlacement,
+  type LiveMapAgentOfficeRead,
   type LiveMapDomain,
   type LiveMapDomainState,
   type LiveMapEdge,
@@ -112,6 +115,8 @@ import {
   type PlacementRegister,
 } from "@/features/organization-authority/read-placement.server";
 import { resolveHumanLabels } from "@/features/auth-runtime/human-label-read.server";
+import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";
+import type { AgentPlacementRegister } from "@/features/organization-authority/agent-placement-contracts";
 
 /* L-2a — one status per identity-seam state, so the map never draws a suspended agent as retired. */
 const LIVE_MAP_AGENT_STATUS: Readonly<Record<AgentServiceStatus, LiveMapNodeStatus>> = {
@@ -561,6 +566,7 @@ function agentDomain(
       `Established: ${identity.createdAt}.`,
     ],
     openRoute: "/agents",
+    officeRoute: agentOfficeRoute(identity.agentId),
     /*
      * THE SAME FACT THE FIRST DETAIL LINE STATES, AS A VALUE. `inService` is the identity
      * authority's own derivation; handing the surface a word to render keeps a visual map from
@@ -782,5 +788,70 @@ export async function readLiveMapProjection(
     edges: [...edgesFor(organization, agents), ...placementEdges(placementRead, people, structure)],
     freshness: LIVE_MAP_FRESHNESS,
     intelligenceCompleteness: intelligenceCompleteness(outcomeRead),
+  };
+}
+
+export interface LiveMapAgentOfficeDeps extends LiveMapDeps {
+  /** Where each agent sits. Contained: a failure costs the department line and not the agent. */
+  readonly readAgentPlacements?: (tenant: TenantContext | null) => Promise<AgentPlacementRegister>;
+}
+
+/** One agent's placement off the tenant's register. No row is unread, never "unplaced". */
+function officePlacement(
+  register: AgentPlacementRegister,
+  agentId: string,
+): LiveMapAgentOfficePlacement {
+  if (register.status !== "available") return { status: "unavailable" };
+  const view = register.placements.find((placement) => placement.agentId === agentId);
+  if (!view) return { status: "unavailable" };
+  return { status: "available", state: view.state, department: view.department };
+}
+
+/**
+ * One agent's office (PHASE 4B). THE MAP'S OWN NODE, found by the address the seam itself built.
+ *
+ * ── THE PARAMETER NEVER REACHES THE DATABASE ─────────────────────────────────
+ *
+ * It is compared against the list this tenant's authority already returned. Another organization's
+ * agent is therefore not refused here: it is not in the list, and it gets the same `not-found` as an
+ * id nobody holds. A malformed id cannot become a query error for the same reason, so no outage can
+ * be manufactured from a URL. This function adds no read of agents and no tenant filter of its own.
+ *
+ * Reusing the whole projection costs the people reads this page does not print. It buys the one
+ * guarantee worth having: the office and the map cannot disagree about an agent.
+ *
+ *     ROUTE PARAMETER != TENANT SCOPE
+ *
+ * Server-only, and it writes nothing.
+ */
+export async function readLiveMapAgentOffice(
+  tenant: TenantContext | null,
+  agentId: string,
+  deps: LiveMapAgentOfficeDeps = {},
+): Promise<LiveMapAgentOfficeRead> {
+  const projection = await readLiveMapProjection(tenant, deps);
+  const agents = projection.domains.find((domain) => domain.domainId === "agents");
+  if (!agents) return { status: "not-found" };
+  if (agents.state.status === "known-empty") return { status: "not-found" };
+  if (agents.state.status !== "available") {
+    return { status: "unavailable", detail: agents.state.detail };
+  }
+
+  const route = agentOfficeRoute(agentId);
+  const node = agents.state.nodes.find((candidate) => candidate.officeRoute === route);
+  if (!node) return { status: "not-found" };
+
+  let register: AgentPlacementRegister;
+  try {
+    register = await (deps.readAgentPlacements ?? readAgentPlacements)(tenant);
+  } catch {
+    register = { status: "unavailable" };
+  }
+
+  return {
+    status: "found",
+    node,
+    placement: officePlacement(register, agentId),
+    freshness: projection.freshness,
   };
 }

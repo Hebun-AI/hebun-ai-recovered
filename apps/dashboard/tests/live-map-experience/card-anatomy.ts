@@ -124,7 +124,7 @@ const render = async (evidence: LiveMapAgentOutcomeRead): Promise<string> =>
     }),
   );
 
-const summaries = (markup: string): string[] => markup.match(/<summary class="lm-node".*?<\/summary>/g) ?? [];
+const summaries = (markup: string): string[] => markup.match(/<a class="lm-node".*?<\/a>/g) ?? [];
 
 /* The document's own text with NOTHING added, so words that only tags kept apart run together. */
 const naturalText = (html: string): string =>
@@ -139,11 +139,11 @@ async function main(): Promise<void> {
   const observed = await render(EVIDENCE);
   const unread = await render(UNREAD);
   const cards = summaries(observed);
-  assert.equal(cards.length, 5, "one summary per durable identity, and no more");
+  assert.equal(cards.length, 5, "one link per durable identity, and no more");
 
   /* ── Screen reader: the document's text is the name ──────────────────────── */
   for (const card of cards) {
-    assert.ok(!/<summary[^>]*aria-label/.test(card), "no aria-label replaces the card's own text");
+    assert.ok(!/<a [^>]*aria-label/.test(card), "no aria-label replaces the card's own text");
   }
   assert.equal(
     naturalText(cards[0]),
@@ -151,11 +151,12 @@ async function main(): Promise<void> {
     "the name, the lifecycle, the authority and all three counts read in order",
   );
 
-  /* ── Valid HTML: `summary` holds phrasing content ───────────────────────── */
+  /* ── Valid HTML: the link holds phrasing content and nothing interactive ─── */
   for (const card of cards) {
     const tags = [...card.matchAll(/<([a-z][a-z0-9]*)[\s>]/g)].map((m) => m[1]);
-    const invalid = tags.filter((tag) => !["summary", "span", "svg", "path", "rect", "circle", "g", "use"].includes(tag));
-    assert.deepEqual(invalid, [], "summary holds spans and an icon, nothing block-level");
+    const invalid = tags.filter((tag) => !["a", "span", "svg", "path", "rect", "circle", "g", "use"].includes(tag));
+    assert.deepEqual(invalid, [], "the link holds spans and an icon, nothing block-level");
+    assert.equal((card.match(/<a /g) ?? []).length, 1, "and exactly one link");
   }
 
   /* ── The three counts, and the difference between zero and unread ───────── */
@@ -184,7 +185,10 @@ async function main(): Promise<void> {
   /* ── One structure: no image, no mapping, no sign of activity ───────────── */
   /* The room and the head are the only things that differ, and they are all a variant may change. */
   const shape = (card: string): string =>
-    card.replace(/>[^<]*</g, "><").replace(/#lms-(room|head)-\d/g, "#lms-$1");
+    card
+      .replace(/>[^<]*</g, "><")
+      .replace(/#lms-(room|head)-\d/g, "#lms-$1")
+      .replace(/href="\/live-map\/agents\/[^"]*"/, 'href="office"');
   const [serving, , , , heby] = cards;
   assert.equal(shape(heby), shape(serving), "an agent called Heby is dressed like every other agent");
   assert.equal((observed.match(/class="lm-field"/g) ?? []).length, 5, "every agent has the one field");
@@ -199,7 +203,9 @@ async function main(): Promise<void> {
     "no agent identity is written into the surface",
   );
   for (const id of [SERVING, RETIRED, SUSPENDED, UNKNOWN, HEBY]) {
-    assert.ok(!cards.join("").includes(id), "the card does not print an identity");
+    /* The address carries the id, because it must; no word a reader sees does. */
+    assert.ok(cards.some((card) => card.includes(`href="/live-map/agents/${id}"`)), "each card links its own office");
+    assert.ok(!cards.join("").replace(/href="[^"]*"/g, "").includes(id), "the card does not print an identity");
   }
   assert.ok(!existsSync(path.join(root, "public/agent-offices")), "no office image is published");
 
@@ -210,8 +216,8 @@ async function main(): Promise<void> {
 
   /* ── The geometry the design accepted ───────────────────────────────────── */
   assert.ok(
-    /\.lm-agent:not\(\[open\]\) \{[^}]*min-height: 223px;/.test(block),
-    "a closed card is at least 223px and never a fixed height",
+    /\.lm-agent \{[^}]*min-height: 223px;/.test(block),
+    "a card is at least 223px and never a fixed height",
   );
   assert.ok(!/\.lm-agent[^{]*\{[^}]*[^-]height: 223px/.test(block), "text can grow the card");
   assert.ok(block.includes("container: lm-agents / inline-size"), "columns follow the content width");

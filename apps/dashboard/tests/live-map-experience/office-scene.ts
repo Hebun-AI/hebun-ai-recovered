@@ -186,7 +186,6 @@ test("the scene gives way to the words: names wrap, the card grows, the scene ke
     "on a narrow card the scene sits in its own band under the text",
   );
   assert.ok(!/\.lm-scene \{[^}]*scale\(/.test(block), "a fixed scale cannot follow the card, and the words would meet the room");
-  assert.ok(/\.lm-agent\[open\] \.lm-scene \{ display: none; \}/.test(block), "an open card gives its room to the inspector");
 });
 
 test("high-contrast mode drops the decoration, not the words", () => {

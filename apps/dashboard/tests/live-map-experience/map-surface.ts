@@ -17,8 +17,9 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 
+import { AgentOfficePage } from "../../src/components/live-map/agent-office-page";
 import { LiveMapCanvas } from "../../src/components/live-map/live-map-canvas";
-import { readLiveMapProjection } from "../../src/features/live-map/read-live-map.server";
+import { readLiveMapAgentOffice, readLiveMapProjection } from "../../src/features/live-map/read-live-map.server";
 import type { LiveMapProjection } from "../../src/features/live-map/contracts";
 import type { LiveMapAgentOutcomeRead } from "../../src/features/agent-outcome-observation/live-map-agent-outcome.server";
 import type { OrganizationAuthorityRead } from "../../src/features/organization-authority/contracts";
@@ -147,6 +148,18 @@ const render = async (
   return { markup, page: text(markup) };
 };
 
+/** The first agent's office, from the same fixtures: the inspector's words now live there. */
+const renderOffice = async (outcome: LiveMapAgentOutcomeRead): Promise<{ markup: string; page: string }> => {
+  const office = await readLiveMapAgentOffice(TENANT, SERVING, {
+    readOrganization: async () => ORGANIZATION,
+    readAgentIdentity: async () => IDENTITIES,
+    readAgentOutcome: async () => outcome,
+    readAgentPlacements: async () => ({ status: "unavailable" }),
+  });
+  const markup = renderToStaticMarkup(React.createElement(AgentOfficePage, { office }));
+  return { markup, page: text(markup) };
+};
+
 /* ── A · IT IS A MAP, NOT A STACK OF CARDS ────────────────────────────────── */
 async function itRendersAsAMap(): Promise<void> {
   const { markup } = await render(EVIDENCE);
@@ -209,12 +222,13 @@ async function agentsAndTheirRelationship(): Promise<void> {
 
 /* ── E + F · SELECTING AN AGENT REVEALS THE DERIVED OBSERVATION ───────────── */
 async function theInspectorRevealsOutcomeIntelligence(): Promise<void> {
-  const { markup, page } = await render(EVIDENCE);
+  const { markup, page } = await renderOffice(EVIDENCE);
 
-  /* Selection is native and mutually exclusive: exactly one agent can be open at a time. */
-  const named = markup.match(/<details class="lm-agent" name="live-map-agent"/g) ?? [];
-  assert.equal(named.length, 2, "every agent is part of one exclusive selection group");
-  assert.ok(markup.includes("<summary"), "and the node itself is the control that opens it");
+  /* Choosing an agent is a link, and what the inspector printed is on the office page. */
+  const { markup: map } = await render(EVIDENCE);
+  assert.equal((map.match(/<a class="lm-node"/g) ?? []).length, 2, "every agent is one link");
+  assert.ok(!map.includes("<details class=\"lm-agent\""), "and no card discloses in place");
+  assert.ok(markup.includes('aria-labelledby="lm-office-details"'), "the record is the office's Details");
 
   /* The identity half. */
   assert.ok(page.includes("authoritative · Durable Agent Identity"), "identity states its class");
@@ -246,9 +260,10 @@ async function theInspectorRevealsOutcomeIntelligence(): Promise<void> {
   assert.ok(page.includes("Accepted is not delivered"), "including the strongest one");
 
   /* The glance line on a closed node is three counts, never one summarising figure. */
-  assert.ok(page.includes("11 filed"), "the node glances the filed count");
-  assert.ok(page.includes("5 approved"), "and the approved count");
-  assert.ok(page.includes("13 never executed"), "and the approval gap — three facts, not one");
+  const { page: glance } = await render(EVIDENCE);
+  assert.ok(glance.includes("11 filed"), "the node glances the filed count");
+  assert.ok(glance.includes("5 approved"), "and the approved count");
+  assert.ok(glance.includes("13 never executed"), "and the approval gap — three facts, not one");
 }
 
 /* ── G · UNAVAILABLE EVIDENCE NEVER BECOMES ZEROS ─────────────────────────── */
@@ -257,18 +272,21 @@ async function unavailableIsNotZero(): Promise<void> {
 
   assert.ok(page.includes("Sourcing Analyst"), "the agents are still real and still drawn");
   assert.ok(page.includes("Outcome observation unread"), "the glance line says it could not be read");
+  const { page: office } = await renderOffice({ status: "unavailable", reason: "read-failed" });
   assert.ok(
-    page.includes("could not read this agent's outcome evidence"),
-    "and the inspector says so in full",
+    office.includes("could not read this agent's outcome evidence"),
+    "and the office says so in full",
   );
   assert.ok(
-    page.includes("says nothing about what this agent has proposed"),
+    office.includes("says nothing about what this agent has proposed"),
     "with what that does NOT mean",
   );
   for (const heading of ["Proposals filed", "Governance outcome", "Execution outcome"]) {
     assert.ok(!page.includes(heading), `an unread observation renders no "${heading}" block`);
+    assert.ok(!office.includes(heading), `on the office either: "${heading}"`);
   }
   assert.ok(!/\bApproved\b/.test(page), "and no zeroed count anywhere");
+  assert.ok(!/\bApproved\b/.test(office), "on either surface");
   assert.ok(!page.includes("Unplaced agent proposals"), "no completeness figure is invented");
 
   /* A MEASURED zero is different, and is shown as a zero. */
@@ -328,17 +346,18 @@ async function theMapOffersNoControl(): Promise<void> {
   assert.ok(markup.includes('aria-label="Organizational map"'), "the canvas is named");
   assert.ok(markup.includes('aria-label="Organization: Acme Holdings"'), "the centre node is named");
   /* The node's text IS its name: an `aria-label` here replaced the three counts for a screen reader. */
-  const agentNode = markup.match(/<summary class="lm-node".*?<\/summary>/)?.[0] ?? "";
-  assert.ok(!agentNode.startsWith('<summary class="lm-node" aria-label'), "no label replaces the node's text");
+  const agentNode = markup.match(/<a class="lm-node".*?<\/a>/)?.[0] ?? "";
+  assert.ok(!/^<a [^>]*aria-label/.test(agentNode), "no label replaces the node's text");
   for (const word of ["Sourcing Analyst", "In service", "11", "filed", "5", "approved", "13", "never executed"]) {
     assert.ok(text(agentNode).includes(word), `and each agent node carries its own accessible name: ${word}`);
   }
-  assert.ok(markup.includes('aria-label="Agent identity"'), "the inspector's halves are named");
-  assert.ok(markup.includes('aria-label="Agent outcome observation"'), "both of them");
+  const { markup: office } = await renderOffice(EVIDENCE);
+  assert.ok(office.includes('aria-label="Agent identity"'), "the record's halves are named");
+  assert.ok(office.includes('aria-label="Agent outcome observation"'), "both of them");
 
   /* Navigation to the owning subsystems survives. */
   assert.ok(markup.includes('href="/director/organization"'), "Organization stays reachable");
-  assert.ok(markup.includes('href="/agents"'), "so does Agents");
+  assert.ok(office.includes('href="/agents"'), "so does Agents, from the office");
 }
 
 /* ── J · THE SPARSE CASES STAY GRACEFUL ───────────────────────────────────── */

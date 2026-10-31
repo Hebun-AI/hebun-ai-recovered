@@ -29,6 +29,8 @@ const COMPONENT_DIR = "src/components/live-map";
 const PROJECTION = `${LIVE_MAP_DIR}/read-live-map.server.ts`;
 const CONTRACTS = `${LIVE_MAP_DIR}/contracts.ts`;
 const PAGE = "src/app/(dashboard)/live-map/page.tsx";
+const OFFICE_ROUTE = "src/app/(dashboard)/live-map/agents/[agentId]/page.tsx";
+const OFFICE_NOT_FOUND = "src/app/(dashboard)/live-map/agents/[agentId]/not-found.tsx";
 
 const OUTCOME_DIR = "src/features/agent-outcome-observation";
 const SEAM = `${OUTCOME_DIR}/live-map-agent-outcome.server.ts`;
@@ -107,7 +109,7 @@ function transitiveGraph(entries: readonly string[]): Set<string> {
 }
 
 const graph = (): Set<string> =>
-  transitiveGraph([PROJECTION, PAGE, ...walk(COMPONENT_DIR)]);
+  transitiveGraph([PROJECTION, PAGE, OFFICE_ROUTE, OFFICE_NOT_FOUND, ...walk(COMPONENT_DIR)]);
 
 /* ── 1 · THE WIDENED GRAPH REALLY REACHES THE EVIDENCE ────────────────────── */
 function theWalkIsReal(): void {
@@ -175,7 +177,7 @@ function noWriterEnteredTheClosure(): void {
 
 /* ── 3 · THE E2-3 FILES THEMSELVES HOLD NOTHING THAT COULD WRITE ──────────── */
 function theNewCodeHoldsNoHandle(): void {
-  for (const file of [...walk(LIVE_MAP_DIR), ...walk(COMPONENT_DIR), PAGE, SEAM]) {
+  for (const file of [...walk(LIVE_MAP_DIR), ...walk(COMPONENT_DIR), PAGE, OFFICE_ROUTE, OFFICE_NOT_FOUND, SEAM]) {
     const source = read(file);
     assert.ok(!performsDurableWrite(source), `${file}: performs no durable write`);
     const code = codeOf(source);

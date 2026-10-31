@@ -1,14 +1,15 @@
+import Link from "next/link";
 import { Building2, Bot, ChevronRight, CircleSlash, Layers, UsersRound } from "lucide-react";
 import type {
   LiveMapDomain,
   LiveMapEdge,
   LiveMapIntelligenceCompleteness,
   LiveMapNode,
-  LiveMapNodeAttention,
   LiveMapNodeIntelligence,
   LiveMapProjection,
 } from "@/features/live-map/contracts";
 import { AgentOfficeScene, AgentOfficeSprite } from "./agent-office-scene";
+import { headlineCounts } from "./agent-record";
 
 /*
  * LIVE MAP — THE VISUAL ORGANIZATIONAL MAP (LMX-1).
@@ -28,16 +29,16 @@ import { AgentOfficeScene, AgentOfficeSprite } from "./agent-office-scene";
  *
  *     TRUTH BEFORE GRAPH COMPLETENESS        NO NODE FOR VISUAL COMPLETENESS
  *
- * ── SELECTION WITHOUT A CONTROL ──────────────────────────────────────────────
+ * ── NAVIGATION WITHOUT A CONTROL ─────────────────────────────────────────────
  *
- * Selecting an agent opens its inspector. That is a native `<details name="live-map-agent">` group:
- * the browser closes the previously open one, so exactly one agent is ever selected, with keyboard
- * operation, focus and screen-reader semantics supplied by the platform rather than reimplemented.
+ * Choosing an agent opens its office, at its own address (PHASE 4B). That is a link, so keyboard
+ * operation, focus, the browser's history and screen-reader semantics come from the platform rather
+ * than being reimplemented, and what the inspector printed now lives on that page.
  *
  * It is also the only interaction this surface CAN have. Live Map holds no authority over anything
- * it draws, and a `<details>` discloses text that is already in the projection — it cannot create,
- * move, rename, retire, approve or execute. The released firewall forbids `onClick`, `useState`,
- * `<button>` and `<form>` in this directory, and that ban is unweakened here.
+ * it draws, and a link cannot create, move, rename, retire, approve or execute. The released firewall
+ * forbids `onClick`, `useState`, `<button>` and `<form>` in this directory, and that ban is unweakened
+ * here.
  *
  *     VISUAL INTERACTION != WRITE AUTHORITY
  *
@@ -103,100 +104,6 @@ function OrganizationNode({ node }: { node: LiveMapNode }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- * THE DERIVED ATTACHMENT
- * ═════════════════════════════════════════════════════════════════════════ */
-
-/**
- * The inspector's derived half.
- *
- * Rendered under its own heading and its own truth-class label, never interleaved with the identity
- * facts above it. An unread observation is a sentence and never a row of zeros — a zero here would
- * tell a Director that a working agent has proposed nothing.
- */
-function OutcomeIntelligence({ intelligence }: { intelligence: LiveMapNodeIntelligence }) {
-  if (intelligence.status === "unavailable") {
-    return (
-      <section className="lm-intel" aria-label="Agent outcome observation">
-        <p className="lm-truth">
-          <span className="lm-truth-class">{intelligence.truthClass}</span>
-          <span aria-hidden="true"> · </span>
-          <span>{intelligence.sourceAuthority}</span>
-        </p>
-        <p className="lm-intel-detail">{intelligence.detail}</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="lm-intel" aria-label="Agent outcome observation">
-      <p className="lm-truth">
-        <span className="lm-truth-class">{intelligence.truthClass}</span>
-        <span aria-hidden="true"> · </span>
-        <span>{intelligence.sourceAuthority}</span>
-      </p>
-      <p className="lm-intel-basis">{intelligence.basis}</p>
-      {intelligence.groups.map((group) => (
-        <div key={group.groupId} className="lm-group">
-          <h5 className="lm-group-title">{group.label}</h5>
-          <dl className="lm-measures">
-            {group.measures.map((measure) => (
-              <div key={measure.label} className="lm-measure">
-                <dt>{measure.label}</dt>
-                <dd>{measure.value}</dd>
-                {measure.note ? <p className="lm-measure-note">{measure.note}</p> : null}
-              </div>
-            ))}
-          </dl>
-        </div>
-      ))}
-      <ul className="lm-nonclaims">
-        {intelligence.nonClaims.map((claim) => (
-          <li key={claim}>{claim}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * E2-4 — THE ELAPSED ANNOTATION, IN ITS OWN BLOCK UNDER ITS OWN AUTHORITY.
- *
- * It sits beside the outcome observation rather than inside it, because the two are composed by
- * different authorities and a duration printed under "Agent Outcome Observation" would be
- * misattributed. Same neutral treatment as every other derived block: no colour, no badge, no
- * ordering by size. A duration rendered as a warning would be a classification, and no policy
- * owner for one exists.
- *
- *     AGE != IMPORTANCE     WAITING != LATE     ANNOTATION != CLASSIFICATION
- */
-function AttentionAnnotation({ attention }: { attention: LiveMapNodeAttention }) {
-  return (
-    <section className="lm-intel" aria-label="Organizational attention observation">
-      <p className="lm-truth">
-        <span className="lm-truth-class">{attention.truthClass}</span>
-        <span aria-hidden="true"> · </span>
-        <span>{attention.sourceAuthority}</span>
-      </p>
-      <p className="lm-intel-basis">{attention.basis}</p>
-      <dl className="lm-measures">
-        {attention.measures.map((measure) => (
-          <div key={measure.label} className="lm-measure">
-            <dt>{measure.label}</dt>
-            <dd>{measure.value}</dd>
-            <p className="lm-measure-note">{measure.basis}</p>
-          </div>
-        ))}
-      </dl>
-      <ul className="lm-nonclaims">
-        {attention.nonClaims.map((claim) => (
-          <li key={claim}>{claim}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 /** Number first in the document, so it reads "11 filed"; the stylesheet alone lifts the label above it. */
 function Metric({ value, label }: { value: number; label: string }) {
   return (
@@ -207,7 +114,7 @@ function Metric({ value, label }: { value: number; label: string }) {
 }
 
 /**
- * The glance line on a closed agent node.
+ * The glance line on an agent card.
  *
  * THREE COUNTS, NEVER A SUMMARY OF THEM. Filed, approved and approved-but-never-executed are three
  * different authorities' facts; a single figure combining them would be the score this milestone is
@@ -219,20 +126,13 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
   if (intelligence.status === "unavailable") {
     return <span className="lm-glance lm-glance-unread">Outcome observation unread</span>;
   }
-  const at = (groupId: string, label: string): number | null => {
-    const group = intelligence.groups.find((g) => g.groupId === groupId);
-    const measure = group?.measures.find((m) => m.label === label);
-    return measure ? measure.value : null;
-  };
-  const filed = at("proposals", "Filed");
-  const approved = at("governance", "Approved");
-  const unexecuted = at("governance", "Approved, never executed");
-  if (filed === null || approved === null || unexecuted === null) return null;
+  const counts = headlineCounts(intelligence);
+  if (!counts) return null;
   return (
     <span className="lm-glance">
-      <Metric value={filed} label="filed" />{" "}
-      <Metric value={approved} label="approved" />{" "}
-      <Metric value={unexecuted} label="never executed" />
+      <Metric value={counts.filed} label="filed" />{" "}
+      <Metric value={counts.approved} label="approved" />{" "}
+      <Metric value={counts.neverExecuted} label="never executed" />
     </span>
   );
 }
@@ -242,17 +142,16 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
  * ═════════════════════════════════════════════════════════════════════════ */
 
 /**
- * One agent on the map, closed as a node and open as an inspector.
+ * One agent on the map: a single link to its office.
  *
- * `name="live-map-agent"` makes the group mutually exclusive in the browser, so "exactly one agent
- * is selected" is a platform guarantee rather than state this surface keeps. The open node spans
- * the full width (see the stylesheet), which is what makes the inspector readable without a second
- * column that would have to disappear on a laptop.
+ * THE LINK IS THE WHOLE CARD, and nothing inside it is interactive. It has no `aria-label`, so its
+ * text is its name, and the lifecycle, the authority, all three counts and an unread observation
+ * reach a screen reader in the order they are read on screen. It holds spans only. The `{" "}` between
+ * them keep the words apart in that name, because these spans are flex items and no whitespace of
+ * theirs is ever drawn.
  *
- * THE SUMMARY HAS NO `aria-label`. Its text is its name, so the lifecycle, the authority, all three
- * counts and an unread observation reach a screen reader in the order they are read on screen. It
- * holds spans only: `summary` takes phrasing content. The `{" "}` between them keep the words apart
- * in that name, because these spans are flex items and no whitespace of theirs is ever drawn.
+ * NOTHING PREFETCHES. An office costs a full authority read, and a map of N agents must not spend N
+ * of them on a page somebody is only looking at.
  *
  * THE OFFICE IS DECORATION. It sees the node's id and lifecycle tone and nothing else, so it cannot
  * say what an agent did. The words come first: a name of any length is printed whole, in the area the
@@ -260,8 +159,8 @@ function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence
  */
 function AgentNode({ node }: { node: LiveMapNode }) {
   return (
-    <details className="lm-agent" name="live-map-agent">
-      <summary className="lm-node">
+    <article className="lm-agent">
+      <Link className="lm-node" href={node.officeRoute ?? "/agents"} prefetch={false}>
         <span className="lm-field">
           <AgentOfficeScene nodeId={node.nodeId} tone={node.status?.tone} />
           <span className="lm-node-mark" aria-hidden="true">
@@ -281,30 +180,8 @@ function AgentNode({ node }: { node: LiveMapNode }) {
           <GlanceSignal intelligence={node.intelligence} />
           <ChevronRight className="lm-node-chevron size-4" aria-hidden="true" />
         </span>
-      </summary>
-
-      <div className="lm-inspector">
-        <section className="lm-identity" aria-label="Agent identity">
-          <p className="lm-truth">
-            <span className="lm-truth-class">{node.truth}</span>
-            <span aria-hidden="true"> · </span>
-            <span>{node.sourceAuthority}</span>
-          </p>
-          <ul className="lm-record">
-            {node.detail.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          {node.openRoute ? (
-            <a className="lm-open" href={node.openRoute}>
-              Open Agents
-            </a>
-          ) : null}
-        </section>
-        {node.intelligence ? <OutcomeIntelligence intelligence={node.intelligence} /> : null}
-        {node.attention ? <AttentionAnnotation attention={node.attention} /> : null}
-      </div>
-    </details>
+      </Link>
+    </article>
   );
 }
 

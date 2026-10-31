@@ -16,8 +16,9 @@ import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 
+import { AgentOfficePage } from "../../src/components/live-map/agent-office-page";
 import { LiveMapCanvas } from "../../src/components/live-map/live-map-canvas";
-import { readLiveMapProjection } from "../../src/features/live-map/read-live-map.server";
+import { readLiveMapAgentOffice, readLiveMapProjection } from "../../src/features/live-map/read-live-map.server";
 import type { LiveMapProjection } from "../../src/features/live-map/contracts";
 import type { LiveMapAgentOutcomeRead } from "../../src/features/agent-outcome-observation/live-map-agent-outcome.server";
 import type { OrganizationAuthorityRead } from "../../src/features/organization-authority/contracts";
@@ -104,9 +105,19 @@ const text = (markup: string): string =>
     .replace(/\s+/g, " ");
 
 const render = async (outcome: LiveMapAgentOutcomeRead): Promise<{ markup: string; page: string }> => {
-  const markup = renderToStaticMarkup(
-    React.createElement(LiveMapCanvas, { projection: await project(outcome) }),
-  );
+  /*
+   * PHASE 4B. The numbers moved from the map's card to the agent's office, so a "page" here is both
+   * surfaces: every claim and every ban below now binds the office as well, and none was narrowed.
+   */
+  const office = await readLiveMapAgentOffice(TENANT, AGENT, {
+    readOrganization: async () => ORGANIZATION,
+    readAgentIdentity: async () => IDENTITIES,
+    readAgentOutcome: async () => outcome,
+    readAgentPlacements: async () => ({ status: "unavailable" }),
+  });
+  const markup =
+    renderToStaticMarkup(React.createElement(LiveMapCanvas, { projection: await project(outcome) })) +
+    renderToStaticMarkup(React.createElement(AgentOfficePage, { office }));
   return { markup, page: text(markup) };
 };
 

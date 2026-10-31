@@ -73,6 +73,11 @@
  *     CURRENT READ != REAL-TIME STREAM
  */
 
+import type {
+  AgentPlacementState,
+  AgentPlacementView,
+} from "@/features/organization-authority/agent-placement-contracts";
+
 /** The only kinds Core admits. Each earned its place from a released, tenant-scoped read seam. */
 /*
  * LM-1 ADDS TWO KINDS, AND EACH ONE EARNED IT BY AN AUTHORITY EXISTING.
@@ -180,6 +185,13 @@ export interface LiveMapNode {
   readonly detail: readonly string[];
   /** Where the owning subsystem lives, when a real released route exists. Navigation, not control. */
   readonly openRoute?: string;
+  /**
+   * PHASE 4B — this agent's own office page, built by the seam from the identity authority's id.
+   *
+   * A value rather than something a surface derives, because `nodeId` is opaque and never parsed.
+   * It carries the id, not the name, so a rename moves no address.
+   */
+  readonly officeRoute?: string;
   /** The lifecycle word a reader sees on the node itself. Supplied by the owning authority. */
   readonly status?: LiveMapNodeStatus;
   /**
@@ -402,6 +414,60 @@ export const LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING = Object.freeze({
     "Proposals attributed to an agent identity this reading could not place. They are counted so " +
     "the numbers above are never quietly short, and no agent was invented to hold them.",
 });
+
+/** The one address of an agent's office. The id, because AGENT NAME != AGENT IDENTITY. */
+export function agentOfficeRoute(agentId: string): string {
+  return `/live-map/agents/${agentId}`;
+}
+
+/**
+ * The Team & Subagents sentence, and it is `no-authority`, not `known-empty`.
+ *
+ * "0 subagents" would be a measured zero about something nobody measures: no released authority
+ * records one agent under another. `manager_actor_*` exists on the row and no released writer fills
+ * it, so an unwritten column is not read here as an answer.
+ *
+ *     NO AUTHORITY != ZERO SUBAGENTS
+ */
+export const LIVE_MAP_TEAM_RELATION_ABSENT =
+  "Hebun records no team, supervisor or subagent relationship between agents. Nothing owns that " +
+  "concept yet, so this is not a count, and it does not say this agent works alone.";
+
+/** What a department line is, printed beside it so proximity cannot be read as a team. */
+export const LIVE_MAP_AGENT_PLACEMENT_BASIS =
+  "Recorded by the Organization Authority. It is a placement: not a team, not a reporting line and " +
+  "not a subagent relationship, and it grants nothing.";
+
+/** The office hero's caption. The drawing shows a lifecycle tone and no work. */
+export const LIVE_MAP_OFFICE_HERO_CAPTION =
+  "A decorative placeholder. It shows no activity, and no authority comes with this room.";
+
+/** An agent's department as the office page needs it, or the fact that it could not be read. */
+export type LiveMapAgentOfficePlacement =
+  | { readonly status: "unavailable" }
+  | {
+      readonly status: "available";
+      readonly state: AgentPlacementState;
+      readonly department: AgentPlacementView["department"];
+    };
+
+/**
+ * What the office route can say. THREE ANSWERS, NEVER TWO.
+ *
+ * `not-found` carries nothing, so an agent in another organization and an id nobody holds are the
+ * same value. `unavailable` is the authority not answering, which says nothing about the agent.
+ *
+ *     NOT FOUND != UNAVAILABLE
+ */
+export type LiveMapAgentOfficeRead =
+  | {
+      readonly status: "found";
+      readonly node: LiveMapNode;
+      readonly placement: LiveMapAgentOfficePlacement;
+      readonly freshness: string;
+    }
+  | { readonly status: "not-found" }
+  | { readonly status: "unavailable"; readonly detail: string };
 
 /** Frozen so a test can read the milestone's own claims instead of re-deriving them. */
 export const LIVE_MAP_PROJECTION_MODEL = Object.freeze({

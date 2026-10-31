@@ -25,6 +25,9 @@ const INVARIANT_SUITE = "tests/live-map-experience/rendering-invariant.ts";
 const CARD_SUITE = "tests/live-map-experience/card-anatomy.ts";
 const DARK_SUITE = "tests/live-map-experience/dark-scope.ts";
 const OFFICE_SUITE = "tests/live-map-experience/office-scene.ts";
+const AGENT_OFFICE_SUITE = "tests/live-map-experience/agent-office.ts";
+const AGENT_OFFICE_POSTGRES_SUITE = "tests/live-map-experience/agent-office-postgres.ts";
+const PLACEMENT_FIREWALL_SUITE = "tests/ap2-agent-placement/firewall.ts";
 
 const CANVAS = "src/components/live-map/live-map-canvas.tsx";
 const BAND = "src/components/awareness/global-awareness.tsx";
@@ -35,6 +38,12 @@ const LIVE_MAP_PAGE = "src/app/(dashboard)/live-map/page.tsx";
 const RESOLVER = "src/features/auth-runtime/request-session.server.ts";
 const STYLESHEET = "src/app/globals.css";
 const OFFICE = "src/components/live-map/agent-office-scene.tsx";
+const OFFICE_PAGE = "src/components/live-map/agent-office-page.tsx";
+const OFFICE_ROUTE = "src/app/(dashboard)/live-map/agents/[agentId]/page.tsx";
+const OFFICE_NOT_FOUND = "src/app/(dashboard)/live-map/agents/[agentId]/not-found.tsx";
+const OFFICE_THEME = "src/features/live-map/office-theme.ts";
+const PROJECTION = "src/features/live-map/read-live-map.server.ts";
+const IDENTITY_READER = "src/features/agent-identity/read-durable-agent-identity.server.ts";
 
 const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -73,6 +82,142 @@ interface Mutation {
 }
 
 const MUTATIONS: readonly Mutation[] = [
+  /*
+   * PHASE 4B — THE OFFICE ROUTE. Each of these is a way the page could look finished and lie.
+   */
+  {
+    label: "P1 the seam falls back to the first agent",
+    file: PROJECTION,
+    suite: AGENT_OFFICE_SUITE,
+    find: `const node = agents.state.nodes.find((candidate) => candidate.officeRoute === route);`,
+    replace: `const node = agents.state.nodes[0];`,
+    expect: "an id outside this tenant's list",
+  },
+  {
+    label: "P2 an unanswered authority reads as an absent agent",
+    file: PROJECTION,
+    suite: AGENT_OFFICE_SUITE,
+    find: `return { status: "unavailable", detail: agents.state.detail };`,
+    replace: `return { status: "not-found" };`,
+    expect: "an unread authority is never not-found",
+  },
+  {
+    label: "P3 the not-found page explains itself",
+    file: OFFICE_NOT_FOUND,
+    suite: AGENT_OFFICE_SUITE,
+    find: `There is no agent office at this address.`,
+    replace: `This agent belongs to another organization.`,
+    expect: "no reason is offered",
+  },
+  {
+    label: "P4 the panel prints a measured-looking zero",
+    file: OFFICE_PAGE,
+    suite: AGENT_OFFICE_SUITE,
+    find: `<p className="lm-notice">{LIVE_MAP_TEAM_RELATION_ABSENT}</p>`,
+    replace: `<p className="lm-notice">0 subagents</p>`,
+    expect: "the relationship has no owner",
+  },
+  {
+    label: "P5 a missing placement row reads as unplaced",
+    file: PROJECTION,
+    suite: AGENT_OFFICE_SUITE,
+    find: `if (!view) return { status: "unavailable" };`,
+    replace: `if (!view) return { status: "available", state: "unplaced", department: null };`,
+    expect: "no row is not unplaced",
+  },
+  {
+    label: "P6 an unread observation headlines as zeros",
+    file: OFFICE_PAGE,
+    suite: AGENT_OFFICE_SUITE,
+    find: `const counts = node.intelligence ? headlineCounts(node.intelligence) : null;`,
+    replace: `const counts = (node.intelligence ? headlineCounts(node.intelligence) : null) ?? { filed: 0, approved: 0, neverExecuted: 0 };`,
+    expect: "an unread observation prints no zero",
+  },
+  {
+    label: "P7 a historical placement picks a room",
+    file: OFFICE_THEME,
+    suite: AGENT_OFFICE_SUITE,
+    find: `if (placement.status !== "available" || placement.state !== "placed") return "neutral";`,
+    replace: `if (placement.status !== "available") return "neutral";`,
+    expect: "is not a current placement",
+  },
+  {
+    label: "P8 Details loses the attention block",
+    file: OFFICE_PAGE,
+    suite: AGENT_OFFICE_SUITE,
+    find: `{node.attention ? <AttentionAnnotation attention={node.attention} /> : null}`,
+    replace: `{null}`,
+    expect: "Oldest proposal awaiting a decision",
+  },
+  {
+    label: "P16 the way back shrinks below a 44px target",
+    file: STYLESHEET,
+    suite: AGENT_OFFICE_SUITE,
+    find: `  min-height: 2.75rem;
+  border-radius: 0.375rem;`,
+    replace: `  min-height: 1.5rem;
+  border-radius: 0.375rem;`,
+    expect: "the way back is at least 44px tall",
+  },
+  {
+    label: "P9 the route accepts a query parameter",
+    file: OFFICE_ROUTE,
+    suite: FIREWALL_SUITE,
+    find: `  params: Promise<{ agentId: string }>;`,
+    replace: `  params: Promise<{ agentId: string }>;\n  searchParams: Promise<{ tenant?: string }>;`,
+    expect: "the office takes no query parameter",
+  },
+  {
+    label: "P10 the route becomes prerenderable",
+    file: OFFICE_ROUTE,
+    suite: FIREWALL_SUITE,
+    find: `export const metadata = { title: "Agent office — Hebun AI" };`,
+    replace: `export const metadata = { title: "Agent office — Hebun AI" };\nexport const dynamic = "force-static";`,
+    expect: "a tenant page is never prerendered",
+  },
+  {
+    label: "P11 the route turns every non-answer into a 404",
+    file: OFFICE_ROUTE,
+    suite: FIREWALL_SUITE,
+    find: `if (office.status === "not-found") notFound();`,
+    replace: `if (office.status !== "found") notFound();`,
+    expect: "only a true absence is a 404",
+  },
+  {
+    label: "P12 the theme is given the agent's name",
+    file: OFFICE_THEME,
+    suite: FIREWALL_SUITE,
+    find: `const slug = placement.department?.slug;`,
+    replace: `const slug = placement.department?.name;`,
+    expect: "only the placement reaches it",
+  },
+  {
+    /* THE NEGATIVE CONTROL for the one consumer PHASE 4B added to the placement census. */
+    label: "P14 Live Map reaches the placement writer",
+    file: PROJECTION,
+    suite: PLACEMENT_FIREWALL_SUITE,
+    find: `import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";`,
+    replace: `import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";\nimport "@/features/organization-authority/write-agent-placement.server";`,
+    expect: "reads placement and can never write it",
+  },
+  {
+    /* THE CENSUS ITSELF STILL BITES: an authority module cannot quietly join the list. */
+    label: "P15 a mandate module reaches agent placement",
+    file: "src/features/agent-mandate/read-agent-mandate.server.ts",
+    suite: PLACEMENT_FIREWALL_SUITE,
+    find: `import { workDomains } from "@/db/schema/work-domain";`,
+    replace: `import { workDomains } from "@/db/schema/work-domain";\nimport { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";`,
+    expect: "no mandate, capability",
+  },
+  {
+    /* THE REAL TENANT PROOF: the released predicate is what keeps tenant B out of this list. */
+    label: "P13 the identity read loses its tenant predicate",
+    file: IDENTITY_READER,
+    suite: AGENT_OFFICE_POSTGRES_SUITE,
+    find: `      .where(eq(agents.tenantId, tenant.tenantId))\n      .orderBy(desc(agents.createdAt));`,
+    replace: `      .orderBy(desc(agents.createdAt));`,
+    expect: "tenant B's agent does not exist for tenant A",
+  },
   {
     /* M1 — THE ORGANIZATION LOSES THE CENTRE. The map's whole claim is where it puts the reader. */
     label: "M1 the organization is demoted out of the map's centre",
@@ -102,13 +247,13 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "the durable column that proves it is printed",
   },
   {
-    /* M4 — SELECTION STOPS BEING EXCLUSIVE, so "the selected agent" no longer means anything. */
-    label: "M4 the agents leave the exclusive selection group",
+    /* M4 — EVERY CARD STARTS SPENDING A FULL AUTHORITY READ ON AN OFFICE NOBODY OPENED. */
+    label: "M4 the card link starts prefetching",
     file: CANVAS,
     suite: FIREWALL_SUITE,
-    find: `    <details className="lm-agent" name="live-map-agent">`,
-    replace: `    <details className="lm-agent">`,
-    expect: "exactly one is ever selected",
+    find: `<Link className="lm-node" href={node.officeRoute ?? "/agents"} prefetch={false}>`,
+    replace: `<Link className="lm-node" href={node.officeRoute ?? "/agents"}>`,
+    expect: "nothing prefetches an office",
   },
   {
     /* M5 — A CONTROL ON A MAP IMPLIES AN AUTHORITY THE MAP DOES NOT HAVE. */
@@ -246,11 +391,11 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     /* C1 — A LABEL TAKES THE COUNTS AWAY FROM A SCREEN READER AGAIN. */
-    label: "C1 the summary regains an aria-label",
+    label: "C1 the card link gains an aria-label",
     file: CANVAS,
     suite: CARD_SUITE,
-    find: `      <summary className="lm-node">`,
-    replace: `      <summary className="lm-node" aria-label={node.label}>`,
+    find: `<Link className="lm-node" href={node.officeRoute ?? "/agents"} prefetch={false}>`,
+    replace: `<Link className="lm-node" aria-label={node.label} href={node.officeRoute ?? "/agents"} prefetch={false}>`,
     expect: "no aria-label replaces the card's own text",
   },
   {
@@ -258,13 +403,13 @@ const MUTATIONS: readonly Mutation[] = [
     label: "C2 two counts run together in the document's text",
     file: CANVAS,
     suite: CARD_SUITE,
-    find: `      <Metric value={filed} label="filed" />{" "}`,
-    replace: `      <Metric value={filed} label="filed" />`,
+    find: `      <Metric value={counts.filed} label="filed" />{" "}`,
+    replace: `      <Metric value={counts.filed} label="filed" />`,
     expect: "all three counts read in order",
   },
   {
-    /* C3 — BLOCK CONTENT INSIDE `summary`. */
-    label: "C3 the summary gains a block element",
+    /* C3 — BLOCK CONTENT INSIDE THE LINK. */
+    label: "C3 the card link gains a block element",
     file: CANVAS,
     suite: CARD_SUITE,
     find: `          <ChevronRight className="lm-node-chevron size-4" aria-hidden="true" />`,
@@ -282,11 +427,11 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     /* C5 — A FIXED HEIGHT CUTS TEXT THE MOMENT A READER ASKS FOR MORE SPACING. */
-    label: "C5 the closed card gets a fixed height",
+    label: "C5 the card gets a fixed height",
     file: STYLESHEET,
     suite: CARD_SUITE,
-    find: `.lm-agent:not([open]) { min-height: 223px; }`,
-    replace: `.lm-agent:not([open]) { height: 223px; }`,
+    find: `.lm-agent { min-height: 223px;`,
+    replace: `.lm-agent { height: 223px;`,
     expect: "never a fixed height",
   },
   {

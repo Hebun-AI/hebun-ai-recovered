@@ -25,10 +25,25 @@ const BAND = "src/components/awareness/global-awareness.tsx";
 const CANVAS = "src/components/live-map/live-map-canvas.tsx";
 const COMMAND_PAGE = "src/app/(dashboard)/command/page.tsx";
 const LIVE_MAP_PAGE = "src/app/(dashboard)/live-map/page.tsx";
+const OFFICE_ROUTE = "src/app/(dashboard)/live-map/agents/[agentId]/page.tsx";
+const OFFICE_NOT_FOUND = "src/app/(dashboard)/live-map/agents/[agentId]/not-found.tsx";
+const OFFICE_PAGE = "src/components/live-map/agent-office-page.tsx";
+const AGENT_RECORD = "src/components/live-map/agent-record.tsx";
+const OFFICE_THEME = "src/features/live-map/office-theme.ts";
 const SECURITY_PAGE = "src/app/(dashboard)/director/governance/security/page.tsx";
 const JOURNAL = "src/db/migrations/meta/_journal.json";
 
-const OWNED = [LIVE_MAP_AWARENESS, SECURITY_AWARENESS, BAND, CANVAS] as const;
+const OWNED = [
+  LIVE_MAP_AWARENESS,
+  SECURITY_AWARENESS,
+  BAND,
+  CANVAS,
+  OFFICE_ROUTE,
+  OFFICE_NOT_FOUND,
+  OFFICE_PAGE,
+  AGENT_RECORD,
+  OFFICE_THEME,
+] as const;
 
 /**
  * Comments removed, STRING LITERALS KEPT.
@@ -187,22 +202,26 @@ function theCommandRouteResolvesOnce(): void {
 
 /* ── 5 · THE MAP STILL OFFERS NAVIGATION AND NOTHING ELSE ─────────────────── */
 function theMapCannotAct(): void {
-  const code = codeOf(read(CANVAS));
-  for (const banned of ["onClick", "onSubmit", "onChange", "<form", "<button", "useState", "action=", "useEffect"]) {
-    assert.ok(!code.includes(banned), `the map discloses, it does not act — "${banned}"`);
+  for (const file of [CANVAS, OFFICE_PAGE, AGENT_RECORD, OFFICE_ROUTE, OFFICE_NOT_FOUND]) {
+    const code = codeOf(read(file));
+    for (const banned of ["onClick", "onSubmit", "onChange", "<form", "<button", "useState", "action=", "useEffect"]) {
+      assert.ok(!code.includes(banned), `the map discloses, it does not act — "${banned}"`);
+    }
+    assert.ok(!/"use client"/.test(read(file)), `${file} is a server component`);
   }
-  /* Selection is the platform's, not this surface's: one exclusive `<details>` group. */
+  /* Choosing an agent is the platform's, not this surface's: one link, and nothing prefetches it. */
+  const canvas = withoutComments(read(CANVAS));
   assert.match(
-    withoutComments(read(CANVAS)),
-    /<details className="lm-agent" name="live-map-agent">/,
-    "agents share one exclusive disclosure group, so exactly one is ever selected",
+    canvas,
+    /<Link className="lm-node" href=\{node\.officeRoute \?\? "\/agents"\} prefetch=\{false\}>/,
+    "the card is one link, and nothing prefetches an office a reader only glanced at",
   );
-  assert.ok(!/"use client"/.test(read(CANVAS)), "the map is a server component");
+  assert.ok(!/name="live-map-agent"/.test(canvas), "the disclosure group left with the inspector");
 }
 
 /* ── 6 · NO MOCK, NO SEED, NO INFERRED STRUCTURE ──────────────────────────── */
 function noFictionEnters(): void {
-  const graph = transitiveGraph([BAND, CANVAS, COMMAND_PAGE, LIVE_MAP_PAGE]);
+  const graph = transitiveGraph([BAND, CANVAS, COMMAND_PAGE, LIVE_MAP_PAGE, OFFICE_ROUTE, OFFICE_NOT_FOUND]);
   const mocks = [...graph].filter((f) => /\/mock(\.|\/)|\/mock$|fixtures?\//.test(f));
   assert.deepEqual(mocks, [], "no compiled-in fixture is reachable from the new surfaces");
 
@@ -265,6 +284,45 @@ function searchWasReducedNotRemoved(): void {
   assert.ok(repo.size > 1, "the topbar graph resolved");
 }
 
+/* ── 9 · THE OFFICE ROUTE STAYS INSIDE EVERY LINE ABOVE (PHASE 4B) ───────── */
+function theOfficeRouteIsContained(): void {
+  const route = read(OFFICE_ROUTE);
+  const code = codeOf(route);
+  assert.equal((route.match(/resolveTenantContext\(/g) ?? []).length, 1, "one tenant resolution");
+  assert.match(route, /readLiveMapAgentOffice\(await resolveTenantContext\(\), agentId\)/, "one read");
+  assert.ok(!code.includes("searchParams"), "the office takes no query parameter");
+  for (const banned of ["force-static", "generateStaticParams", "revalidate", "generateMetadata"]) {
+    /* Comments out, strings IN: `codeOf` blanks the very literal that makes a route static. */
+    assert.ok(!withoutComments(route).includes(banned), `no ${banned}: a tenant page is never prerendered`);
+  }
+  assert.match(
+    route,
+    /if \(office\.status === "not-found"\) notFound\(\);/,
+    "only a true absence is a 404, so an authority that did not answer never reads as one",
+  );
+
+  /*
+   * Nothing reachable from the route can write, outside the same ambient session floor every
+   * authenticated page stands on, which the L4 firewall enumerates: `resolveTenantContext` pulls the
+   * session service, and that legitimately owns credentials.
+   */
+  const AMBIENT_FLOOR = /^src\/(features\/auth-runtime\/|features\/auth\/|db\/client\.server\.ts)/;
+  const graph = transitiveGraph([OFFICE_ROUTE, OFFICE_NOT_FOUND]);
+  const writers = [...graph].filter(
+    (f) => !f.startsWith("src/db/schema/") && !AMBIENT_FLOOR.test(f) && performsDurableWrite(read(f)),
+  );
+  assert.deepEqual(writers, [], "nothing reachable from the office route performs a durable write");
+  assert.ok(graph.has("src/features/live-map/read-live-map.server.ts"), "the walk reaches the seam");
+}
+
+/* ── 10 · THE THEME CANNOT SEE AN AGENT ───────────────────────────────────── */
+function theThemeSeesAPlacementOnly(): void {
+  const code = codeOf(read(OFFICE_THEME));
+  assert.ok(!/\bnode\b|\bagentId\b|\bnodeId\b|\.label\b|\.name\b|intelligence/.test(code), "only the placement reaches it");
+  assert.match(read(OFFICE_THEME), /export function officeThemeFor\(placement: LiveMapAgentOfficePlacement\)/);
+  assert.ok(!/from\s+["'][^"']*\.server["']/.test(read(OFFICE_THEME)), "and it performs no read");
+}
+
 function main(): void {
   theNewCodeHoldsNoAuthority();
   theSummariesPerformNoRead();
@@ -274,6 +332,8 @@ function main(): void {
   noFictionEnters();
   nothingWasPersisted();
   searchWasReducedNotRemoved();
+  theOfficeRouteIsContained();
+  theThemeSeesAPlacementOnly();
   console.log("live-map-experience — firewall checks passed");
 }
 

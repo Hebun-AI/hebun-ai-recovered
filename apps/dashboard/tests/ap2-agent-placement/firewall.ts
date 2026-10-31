@@ -127,9 +127,19 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
       "src/app/(dashboard)/agents/actions.ts",
       "src/app/(dashboard)/agents/page.tsx",
       "src/components/agents/agent-placement-card.tsx",
+      /*
+       * PHASE 4B, Director decision: an agent's office prints its department. A read-only display,
+       * so these two may reach the reader and the pure contracts, and the assertion below keeps the
+       * writer out. No authority module joined this list.
+       */
+      "src/features/live-map/contracts.ts",
+      "src/features/live-map/read-live-map.server.ts",
     ],
-    "only the /agents surface reaches agent placement — no mandate, capability, WF-4, standing, EAI, proposer or origination module does",
+    "only the /agents surface reaches agent placement, beside the read-only Live Map office — no mandate, capability, WF-4, standing, EAI, proposer or origination module does",
   );
+  for (const file of ["src/features/live-map/contracts.ts", "src/features/live-map/read-live-map.server.ts"]) {
+    assert.ok(!/write-agent-placement/.test(read(file)), `${file} reads placement and can never write it`);
+  }
   const columnReaders = SOURCE.filter((f) => /\bagents\.departmentId\b/.test(code(f))).sort();
   assert.deepEqual(columnReaders, [READER, WRITER].sort(),
     "`agents.departmentId` is read by the placement reader and writer and nothing else");

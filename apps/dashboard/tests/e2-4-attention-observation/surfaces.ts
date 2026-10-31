@@ -1,7 +1,7 @@
 /*
  * E2-4 — WHAT A HUMAN ACTUALLY SEES.
  *
- * The rendered proof that a duration reaches Command, Decisions and the Live Map inspector — and
+ * The rendered proof that a duration reaches Command, Decisions and the Live Map office — and
  * that it arrives as metadata rather than as an alarm. The load-bearing one is §2: the OLDEST
  * figure must come from the unbounded aggregate, because the list beside it is newest-first and
  * capped, so a surface that derived "oldest" from what it is showing would be right on small
@@ -20,10 +20,10 @@ import { commandProps } from "../helpers/command-composition";
 import { toWaitingOnYou } from "../../src/features/command-overview/workspace-model";
 import { getExpressIntentSummary } from "../../src/features/command-overview/workspace-model";
 import { ActionAuthorizations } from "../../src/components/decision-workspace/action-authorizations";
-import { LiveMapCanvas } from "../../src/components/live-map/live-map-canvas";
+import { AgentOfficePage } from "../../src/components/live-map/agent-office-page";
 import { elapsedSince } from "../../src/features/attention-observation/contracts";
 import type { PendingActionRequestView } from "../../src/features/action-authorization/read-action-authorizations.server";
-import type { LiveMapProjection } from "../../src/features/live-map/contracts";
+import type { LiveMapNode, LiveMapProjection } from "../../src/features/live-map/contracts";
 
 const AT = "2026-08-30T12:00:00.000Z";
 
@@ -245,7 +245,19 @@ function main(): void {
       freshness: "Read at request time.",
     } as unknown as LiveMapProjection;
 
-    const html = renderToStaticMarkup(React.createElement(LiveMapCanvas, { projection }));
+    /* PHASE 4B. The annotation moved with the rest of the inspector to the agent's office. */
+    const office = (source: LiveMapProjection) =>
+      renderToStaticMarkup(
+        React.createElement(AgentOfficePage, {
+          office: {
+            status: "found",
+            node: (source.domains[0]!.state as unknown as { nodes: LiveMapNode[] }).nodes[0]!,
+            placement: { status: "unavailable" },
+            freshness: source.freshness,
+          },
+        }),
+      );
+    const html = office(projection);
     assert.match(html, /Organizational Attention Observation/, "the annotation names its own authority");
     assert.match(html, /Oldest proposal awaiting a decision/);
     assert.match(html, /3d 4h/);
@@ -259,7 +271,7 @@ function main(): void {
     /* A node with no annotation renders none — absence, never a zero. */
     const bare = JSON.parse(JSON.stringify(projection)) as LiveMapProjection;
     delete (bare.domains[0]!.state as unknown as { nodes: { attention?: unknown }[] }).nodes[0]!.attention;
-    const bareHtml = renderToStaticMarkup(React.createElement(LiveMapCanvas, { projection: bare }));
+    const bareHtml = office(bare);
     assert.ok(!/Organizational Attention Observation/.test(bareHtml));
     assert.ok(!/0d 0h|under a minute/.test(bareHtml), "no annotation is not a duration of zero");
   }
