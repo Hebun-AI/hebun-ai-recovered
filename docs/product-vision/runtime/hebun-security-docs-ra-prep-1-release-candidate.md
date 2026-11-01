@@ -1,4 +1,4 @@
-# Release candidate — Security Strategy + RA-PREP-1 · NOT RELEASED
+# Release candidate — Security Strategy + RA-PREP-1 · RELEASED 471e0dc8
 
 Prepared 2026-10-29 ("CONTROLLED RELEASE CANDIDATE — Security Strategy + RA-PREP-1"). **Nothing was
 pushed or deployed.** Pushing `main` starts a Vercel production deployment (no `ignoreCommand`;
@@ -80,3 +80,8 @@ Final candidate: the tip of `release/ra-prep-1-integration` on base `5c6a1674`. 
 deployed.** Build exit 0; full suite 1128 PASS, 1 FAIL (PRE-EXISTING), 1 BLOCKED, 0 REGRESSION; production
 ledger 83 = authored 83. Evidence, including the dependency correction: `hebun-ra-prep-1-closure.md`,
 *Re-verification on e7b0c0d3*. The push remains a Director gate.
+
+## Released — 2026-11-01
+
+Pushed as a fast-forward of `main` to `471e0dc8`; running as `dpl_B9w4jJGs6HL48c8DAB1i2uH2EN9z`. The
+sections above stand as dated. Measurements: `hebun-ra-prep-1-closure.md`, *Production release*.

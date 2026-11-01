@@ -5815,7 +5815,7 @@ re-graded here.
 | RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
 | AUTH-EMAIL-OWNERSHIP-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` |
 | SELF-SERVICE-GOVERNANCE-E2E-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` |
-| RA-PREP-1 | VERIFIED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
+| RA-PREP-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
 | LIVE-MAP-AGENT-OFFICE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` |
 
 ---

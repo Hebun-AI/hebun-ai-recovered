@@ -47,6 +47,12 @@ The anonymous reads prove the session gate, not the page. Rollback target for 4B
 Items 1–4, 6 and 7 are a Director signed-in read (`LMO-PROD-SIGNED-IN-1`); item 5 is
 `LMO-PROD-CROSS-TENANT-1`. The tests below prove source and read seams only.
 
+**Acceptance attempt, 2026-11-01, not performed.** The Director asked for a read-only signed-in pass. The
+built-in browser, gstack's headless browser and the Chrome DevTools browser all reached `/login`: none holds a
+Hebun session, and Aside is not installed. No credential was entered, requested or imported, and the
+person's own Chrome was not used. All seven items stay PENDING, and the state stays DEPLOYED, not closed.
+`dpl_B9w4jJGs6HL48c8DAB1i2uH2EN9z` (`471e0dc8`) now serves these phases; no Live Map file changed in it.
+
 ## Closure Contract (v1)
 
 - Phase: LIVE-MAP-AGENT-OFFICE-1

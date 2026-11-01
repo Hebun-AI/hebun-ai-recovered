@@ -1,4 +1,4 @@
-# RA-PREP-1 · Research preparation seam · closure record · VERIFIED
+# RA-PREP-1 · Research preparation seam · closure record · DEPLOYED
 
 Third package of the Research Agent. It makes `prepare-research-report` performable: one narrow server
 seam asks every owning authority, sends the person's question through the existing model gateway under
@@ -118,15 +118,15 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 
 - Phase: RA-PREP-1
 - Owner: features/agent-work (research seam) + features/work-artifacts (research writer, revise guard) + features/heby-answer (research purpose option)
-- Reached state: VERIFIED
-- Implementation commit: a12f770f, ccb2c35f, THIS COMMIT (mandate provenance row and filing-transaction checks)
+- Reached state: DEPLOYED
+- Implementation commit: a12f770f, ccb2c35f, 0e418175 (mandate provenance row and filing-transaction checks); integrated by merge 265d6afd
 - Verification level: V3 — data-use purpose through the shared gateway, shared artifact writer, writer and revise authority boundary
 - Verification evidence: 2026-10-29; final candidate: ra-prep-1 research-preparation-postgres (R1–R9) and research-firewall (F1–F8) PASS; bite-proofs 11/11, 0 void; full suite run 4 1121/1124 with 0 REGRESSION (k2 create-and-read intermittent, 5/5 PASS at base and candidate; plan-step-idempotency-1 bite-proofs PRE-EXISTING; r3w ambient BLOCKED, not run); C-locale cluster per repository evidence; tsc 0; eslint 0 errors; next build exit 0; git diff --check clean; continuity closure-contract PASS
 - Test environment: worktree .claude/worktrees/ra-prep-1 and disposable detached worktree full-a12f770f (scratchpad, real node_modules via APFS clone); session-created PostgreSQL 18 clusters on 127.0.0.1:55494 (en_US.UTF-8, system_identifier 7702077506908358914) and 127.0.0.1:55495 (C locale, system_identifier 7702091228980822985); baseline disposable detached copy base-03817c82; macOS Darwin 25.2.0, Node 24.16.0
-- Deployment evidence: N/A
-- Production acceptance evidence: N/A
+- Deployment evidence: dpl_B9w4jJGs6HL48c8DAB1i2uH2EN9z, READY, PROMOTED, target production, ref main, githubCommitSha 471e0dc81d2c9a3634e0c56a25dc31f97671dc02; www.hebuntech.com and hebuntech.com aliased, measured 2026-11-01
+- Production acceptance evidence: N/A — dormant release: nothing in production can perform the capability, so no research behaviour has been observed; the deployment itself was accepted by the Director, 2026-11-01
 - Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-PREP-1-NO-SURFACE-1 (DEFERRED); RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED); RA-PREP-1-MANDATE-PROVENANCE-1 (CLOSED); RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED); RA-EAI-1-WEB-SEARCH-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
-- Director approvals: implementation, local verification and local implementation commit on feat/ra-prep-1, 2026-10-29 ("RA-PREP-1 — SECURE RESEARCH PREPARATION SEAM IMPLEMENTATION"); no push, migration, deployment, provider call, tenant authorization or Governance approval was authorized or made
+- Director approvals: implementation, local verification and local implementation commit on feat/ra-prep-1, 2026-10-29 ("RA-PREP-1 — SECURE RESEARCH PREPARATION SEAM IMPLEMENTATION"); no push, migration, deployment, provider call, tenant authorization or Governance approval was authorized or made; push of 471e0dc8 to main with no migration, 2026-11-01 ("DIRECTOR RELEASE AUTHORIZATION"); deployment accepted and record update prepared locally, 2026-11-01 ("DIRECTOR DECISION")
 
 ### Deferred risk detail
 
@@ -245,3 +245,22 @@ parent's baseline would prove neither the merge nor this dependency set.
 **Release readiness.** No migration and no reachable path. Ready for a dormant production release, subject
 to the Director's push gate: re-read remote `main` immediately before the push, prove fast-forward, and verify
 the deployment record afterwards. Rollback target: `dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm`.
+
+## Production release (2026-11-01)
+
+Reached state: **DEPLOYED**. The sections above stand as dated; their "not pushed" lines are true of their
+own moment. Released as a fast-forward of `main` from `5c6a1674` to `471e0dc8`, no force. No migration, no
+production data change, no new environment variable or secret.
+
+| Measurement | Result |
+|---|---|
+| Canonical prefix, before and after the deployment, read-only session | converged, 83 of 83, digest `3f114ef305ce39c580ba0282103b26b7` = authored; hash and timestamp compared per position |
+| Deployment | `dpl_B9w4jJGs6HL48c8DAB1i2uH2EN9z`, READY, PROMOTED, 0 error lines in its build events; rollback target `dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm` |
+| Anonymous routes | `/`, `/login` 200; `/live-map`, the office route, `/agents`, `/operations`, `/approvals`, `/heby` 307 to `/login` |
+| Research activation, after the deployment | 0 research data-use scopes, 0 `prepare-research` mandate revisions, 0 `research-report` artifacts, 0 filing audit rows |
+| Reach | no research route in the build; no route or component imports the seam |
+
+Unchanged classifications: `plan-step-idempotency-1/bite-proofs` is PRE-EXISTING and flaky, not a PASS;
+`r3w-flow/ambient-database-safety` is BLOCKED, not a PASS. Production research stays behind
+`GATE-D-PROVIDER-RECONCILIATION-1`, a tenant research authorization, a `prepare-research` mandate and a
+surface, each its own Director decision.
