@@ -82,9 +82,19 @@ person's own Chrome was not used. All seven items stay PENDING, and the state st
   signed-in read after release. Evidence so far: `map-surface` asserts every map section is a sibling H2 on the
   present and unavailable branches, red before the change, and the four heading sites each bit a mutation; 30
   affected suites exit 0 including four bite-proofs; `tsc` and `eslint` exit 0; 14 computed style properties and
-  the geometry of all 4 headings unchanged when the tags were swapped in the production DOM of one tab. `next build`
-  is NOT RUN: the 10 GiB watchdog stopped it at 9.41 GiB, and the Director's no-cleanup rule stands. The full
+  the geometry of all 4 headings unchanged when the tags were swapped in the production DOM of one tab. The full
   suite was not repeated: since 1131/0/1 at `4149c43f` the only code change is these tags and one test.
+
+| Build check on `8c3ecd1d` | Result |
+|---|---|
+| Local `next build` | BLOCKED: the 10 GiB watchdog stopped it at 9.41 GiB, and the Director's no-cleanup rule stands |
+| Vercel Preview build | PASS: `dpl_2k4X5BNyjqvE8zSPG7uVHc7CdvBn`, READY, target preview, SHA matched, 0 error lines |
+| TypeScript in that build | PASS: `Finished TypeScript in 7.6s` |
+| Preview `/live-map` headings | PASS: H1, then H2 Organization, Agents, Departments & teams, People; no skip; console clean |
+| What the preview covers | The tenant-less branch only: 0 environment variables, no database, 0 agent cards |
+| Populated Live Map headings | PENDING until production acceptance |
+
+  The preview's remote branch was deleted after the read; production stayed on `94949084` throughout.
 - **LMO-PROD-LIFECYCLE-UNOBSERVED-1 (DEFERRED).** All 4 agents are in service, so the suspended and retired words
   have never rendered here in production. Closes on an organic state, read only; a state is not forced to test it.
 - **LMO-PROD-CROSS-TENANT-1 (DEFERRED).** Tenant isolation of the office route is proven by the Postgres
