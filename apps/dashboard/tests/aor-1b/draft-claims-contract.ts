@@ -204,7 +204,8 @@ assert.doesNotMatch(inputShape, /actionClaim/, "D6 the client-suppliable input c
 const setters = execSync(`grep -rlE '"internal-draft"|actionClaimMode: ' src`, { cwd: ROOT, encoding: "utf8" }).trim().split("\n").sort();
 assert.deepEqual(
   setters,
-  ["src/features/heby-runtime/response-validator.ts", "src/features/work-artifacts/prepare-work-artifact.server.ts"],
+  /* RA-PREP-1 — the research seam, a server preparation seam, judges its draft the same way. */
+  ["src/features/agent-work/assign-research-report.server.ts", "src/features/heby-runtime/response-validator.ts", "src/features/work-artifacts/prepare-work-artifact.server.ts"],
   "D6 no client action, route, component or model path names the mode",
 );
 

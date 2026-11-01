@@ -161,6 +161,12 @@ async function main(): Promise<void> {
        */
       "src/features/governance-audit/organizational-work-audit.server.ts",
       /*
+       * RA-PREP-1 — the research preparation seam's provenance sibling. It appends, on the report's own
+       * filing transaction, which mandate revision the report rested on. The census GREW; nothing in it
+       * was widened.
+       */
+      "src/features/governance-audit/research-report-audit.server.ts",
+      /*
        * TRH-23 — the Standing Observation Authority's audit sibling. It appends to the SHARED sink
        * like every other and creates no second audit table. The census GREW; nothing in it was
        * widened. Every row it writes carries `collected: false`, because authorizing observation is

@@ -335,6 +335,8 @@ function main(): void {
        * widened.
        */
       "src/features/governance-audit/organizational-work-audit.server.ts",
+      /* RA-PREP-1 — the research seam's provenance sibling (mandate revision per filed report). The census GREW; nothing in it was widened. */
+      "src/features/governance-audit/research-report-audit.server.ts",
       /*
        * TRH-23 — the Standing Observation Authority's audit sibling. It appends to the SHARED sink
        * like every other and creates no second audit table. The census GREW; nothing in it was

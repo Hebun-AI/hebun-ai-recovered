@@ -149,6 +149,20 @@ function checkIntendedDestination(
   });
 }
 
+/**
+ * RA-PREP-1 — a research report's title and content. The type is the research writer's own constant,
+ * never an input, so there is no classification to judge and no destination to carry.
+ */
+export function validateResearchReportInput(input: {
+  readonly title?: unknown;
+  readonly content?: unknown;
+}): readonly WorkArtifactValidationProblem[] {
+  const problems: WorkArtifactValidationProblem[] = [];
+  checkText("title", input.title, WORK_ARTIFACT_LIMITS.title, problems);
+  checkText("content", input.content, WORK_ARTIFACT_LIMITS.content, problems);
+  return problems;
+}
+
 /** Validate only the content of a new revision. The type and title are already fixed. */
 export function validateRevisionContent(
   content: unknown,

@@ -50,7 +50,7 @@
 import { sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { agentWorkCapability, agentWorkRole, refuseOutsideAgentWorkCapability, type AgentWorkRole } from "./capabilities";
+import { agentWorkCapability, agentWorkRole, refuseOutsideAgentWorkCapability, type AgentWorkCapability, type AgentWorkRole } from "./capabilities";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
@@ -107,11 +107,12 @@ type WorkTarget = {
   readonly declaredState: WorkDeclaredState;
 };
 
-type TargetRead =
+export type TargetRead =
   | { readonly status: "resolved"; readonly target: WorkTarget }
   | { readonly status: "refused"; readonly reason: "persistence-unavailable" | "work-unresolved" | "work-retired" | "work-not-scoped" };
 
-async function readTarget(tenant: TenantContext, workItemId: unknown, deps: AgentWorkDeps): Promise<TargetRead> {
+/** The work item as the Work Authority holds it. Shared with the research seam (RA-PREP-1). */
+export async function readTarget(tenant: TenantContext, workItemId: unknown, deps: AgentWorkDeps): Promise<TargetRead> {
   const read = await readWorkStateTarget(tenant, workItemId, { getDb: deps.getDb });
   if (read.status === "unavailable") return { status: "refused", reason: "persistence-unavailable" };
   if (read.status === "unresolved") return { status: "refused", reason: "work-unresolved" };
@@ -128,16 +129,18 @@ async function readTarget(tenant: TenantContext, workItemId: unknown, deps: Agen
   };
 }
 
-type EligibleAgent = { readonly agentId: string; readonly name: string; readonly role: AgentWorkRole };
+export type EligibleAgent = { readonly agentId: string; readonly name: string; readonly role: AgentWorkRole };
 
 /**
  * In-service agents whose in-force mandate admits one of the capability's responsibility-scoped kinds
  * AND whose responsibility covers this scope — the shared ceiling, asked per kind, never re-derived.
+ * RA-PREP-1: asked for whichever capability the seam performs; the draft seams pass none (work drafting).
  */
-async function eligibleAgents(
+export async function eligibleAgents(
   tenant: TenantContext,
   workScope: WorkScope,
   deps: AgentWorkDeps,
+  capability: AgentWorkCapability = CAPABILITY,
 ): Promise<{ readonly status: "read"; readonly agents: readonly EligibleAgent[] } | { readonly status: "unavailable" }> {
   const identity = await readDurableAgentIdentityState(tenant, { getDb: deps.getDb });
   if (identity.status !== "known") return { status: "unavailable" };
@@ -146,7 +149,7 @@ async function eligibleAgents(
     if (!candidate.inService) continue;
     const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, { getDb: deps.getDb });
     if (mandate.status !== "known") return { status: "unavailable" };
-    if (!refuseOutsideAgentWorkCapability(CAPABILITY, mandate, workScope)) {
+    if (!refuseOutsideAgentWorkCapability(capability, mandate, workScope)) {
       agents.push({ agentId: candidate.agentId, name: candidate.name, role: agentWorkRole(mandate, workScope) });
     }
   }
