@@ -43,7 +43,7 @@ The anonymous reads prove the session gate, not the page. Rollback target for 4B
 | 5 | Another tenant's agent renders the same not-found | PENDING — needs a second signed-in organization |
 | 6a | Dark theme and scenes render; phone width (375 px) has no horizontal scroll on `/live-map`, the office and `/agents`; one H1, scene `aria-hidden`, every control named | PASS |
 | 6b | Keyboard focus stays visible | PASS at `94949084`: whole ring on all 4 cards at 350 px, and on the second and third columns at 1280 px; Enter opens the office |
-| 6c | Headings do not skip a level | NOT PASS on `/live-map`: H1 then H3, no H2, since `8fb299e1` (`LMO-A11Y-HEADING-SKIP-1`). The office page is ordered |
+| 6c | Headings do not skip a level | NOT PASS in production: `/live-map` goes H1 then H3, since `8fb299e1`. Fixed locally in `2886f0d2`, unverified until released (`LMO-A11Y-HEADING-SKIP-1`). The office page is ordered |
 | 7 | No console or hydration error on `/live-map` and the office route | PASS: only the two deliberate 404s |
 | 8 | Lifecycle words are true | PASS for `In service`, on all 4 agents, agreeing with `/agents`. Suspended and retired are PENDING: no such agent exists to observe (`LMO-PROD-LIFECYCLE-UNOBSERVED-1`) |
 | 9 | Counts are true | PASS at `94949084`: Engineering never executed 0, internal 1; Heby never executed 0, internal 1, unknown 1 (`hebun-approved-outcome-truth-1-closure.md`) |
@@ -77,8 +77,14 @@ person's own Chrome was not used. All seven items stay PENDING, and the state st
 ### Deferred risk detail
 
 - **LMO-PROD-SIGNED-IN-1 (CLOSED).** Signed-in reads on 2026-11-01 at `471e0dc8` and `94949084`.
-- **LMO-A11Y-HEADING-SKIP-1 (DEFERRED).** `/live-map` goes from H1 to H3 on every section heading. Blocks
-  PRODUCTION-ACCEPTED only if the Director keeps it in scope; the fix is a small markup change, not selected.
+- **LMO-A11Y-HEADING-SKIP-1 (DEFERRED).** `PageHeader` prints the H1 and `LiveMapCanvas` printed every section as
+  an H3. Fixed locally in `2886f0d2`: the five section headings are H2, by Director decision. Closes on a
+  signed-in read after release. Evidence so far: `map-surface` asserts every map section is a sibling H2 on the
+  present and unavailable branches, red before the change, and the four heading sites each bit a mutation; 30
+  affected suites exit 0 including four bite-proofs; `tsc` and `eslint` exit 0; 14 computed style properties and
+  the geometry of all 4 headings unchanged when the tags were swapped in the production DOM of one tab. `next build`
+  is NOT RUN: the 10 GiB watchdog stopped it at 9.41 GiB, and the Director's no-cleanup rule stands. The full
+  suite was not repeated: since 1131/0/1 at `4149c43f` the only code change is these tags and one test.
 - **LMO-PROD-LIFECYCLE-UNOBSERVED-1 (DEFERRED).** All 4 agents are in service, so the suspended and retired words
   have never rendered here in production. Closes on an organic state, read only; a state is not forced to test it.
 - **LMO-PROD-CROSS-TENANT-1 (DEFERRED).** Tenant isolation of the office route is proven by the Postgres

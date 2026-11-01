@@ -1,4 +1,4 @@
-# RA-AUTH-1 · Research preparation authority · closure record · DEPLOYED
+# RA-AUTH-1 · Research preparation authority · closure record · PRODUCTION-ACCEPTED
 
 First package of the Research Agent. It adds the AUTHORITY to prepare research and nothing that
 performs it: a preparation mandate kind, a declared-but-not-performable capability and a stored artifact
@@ -47,22 +47,22 @@ called, no research mandate is granted and no research report exists.
 
 - Phase: RA-AUTH-1
 - Owner: features/agent-mandate (vocabulary) + features/action-authorization/agent-mandate-ceiling (ceilings)
-- Reached state: DEPLOYED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: 5b1bb853
 - Verification level: V3 — authority/mandate boundary + schema migration
 - Verification evidence: full suite `npm run test:run` at 5b1bb853 in a disposable detached copy: 1115/1118, tree clean after; 3 red classified — plan-step-idempotency-1/bite-proofs PRE-EXISTING flake (baseline 73e362e2 2/5 FAIL, P1 3/4 FAIL, varying race assertions, seam untouched), r4c2-flow/pdf-extraction and test-runner/failure-reporting environment artifacts of the copy's relocated node_modules (both FAIL on baseline copy too, both PASS at 5b1bb853 in the real tree); 0 REGRESSION; 9/9 bite-proofs in disposable detached copy; tsc exit 0; eslint 0 errors on 92 changed files; `next build` exit 0; `git diff --check` clean; fresh 82-migration apply on disposable PG18; r3w ambient-database-safety PASS against a disposable stand-in (canonical 55432 not running); production ceremony SUCCESS ledger 81 → 82 digest 0b5c377bdc7415f672ba87c08ae7192a with validated backup (see Release)
 - Test environment: disposable PostgreSQL 18.6, 127.0.0.1:55492 (session-owned); stand-in PG18 on 55432 for the ambient test only; macOS Darwin 25.2.0, Node 24.16.0
 - Deployment evidence: 2026-10-29, dpl_BD9v1CMLfwsa3jj2FzF33rx2cSz4, githubCommitSha 5b1bb8535a0709df9284839994005d220958e8bf (main, fast-forward 73e362e2..5b1bb853), target production, READY; www.hebuntech.com, hebuntech.com, hebun-ai-recovered.vercel.app bound to it; read-only production schema acceptance PASS (ledger 82, CHECK and enum widened, 0 prepare-research mandates, 0 research-report artifacts)
-- Production acceptance evidence: N/A — withheld: authenticated runtime acceptance not performed (RA-AUTH-1-AUTH-RUNTIME-1); anonymous and schema checks alone are not the full package
-- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
-- Director approvals: implementation and final verification, 2026-10-28; controlled production release and closure, 2026-10-29 ("P1 / RA-AUTH-1 — CONTROLLED PRODUCTION RELEASE & FINAL CLOSURE"); ceremony credential change of host and sslmode only, 2026-10-29 ("NEON DIRECT CONNECTION, TLS VERIFICATION & CONTROLLED PRODUCTION RELEASE"); migration #82 run by the Director at a TTY, 2026-10-29; main integration, deployment, acceptance and closure, 2026-10-29 ("RA-AUTH-1 — PRODUCTION DEPLOYMENT, ACCEPTANCE & FINAL CLOSURE")
+- Production acceptance evidence: signed-in read-only check on the Director's session at 94949084, 2026-11-01, confirmed by the Director: 4 agents under MAY PROPOSE, 0 under MAY PREPARE, every `prepare-research` option unchecked; read-only production query: 0 `prepare-research` mandate revisions, 0 research data-use scopes, 0 `research-report` artifacts; `/approvals` and `/operations` open, no form or action used, no production data changed. The positive MAY PREPARE path has not been observed in production
+- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-AUTH-1-AUTH-RUNTIME-1 (CLOSED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
+- Director approvals: implementation and final verification, 2026-10-28; controlled production release and closure, 2026-10-29 ("P1 / RA-AUTH-1 — CONTROLLED PRODUCTION RELEASE & FINAL CLOSURE"); ceremony credential change of host and sslmode only, 2026-10-29 ("NEON DIRECT CONNECTION, TLS VERIFICATION & CONTROLLED PRODUCTION RELEASE"); migration #82 run by the Director at a TTY, 2026-10-29; main integration, deployment, acceptance and closure, 2026-10-29 ("RA-AUTH-1 — PRODUCTION DEPLOYMENT, ACCEPTANCE & FINAL CLOSURE"); RA-AUTH-1-AUTH-RUNTIME-1 closed and RA-AUTH-1 production-accepted, 2026-11-01 ("HEBUN AI, DIRECTOR DECISION")
 
 ### Deferred risk detail
 
 - **RA-AUTH-1-HUMAN-REVISE-1 (DEFERRED).** The human Operations `reviseWorkArtifact` path does not check
   artifact type. Unreachable while no `research-report` row exists. Closes in RA-PREP-1 by the
   acceptance criterion above, before any research artifact can be created.
-- **RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED).** Signed-in production behaviour is unmeasured: the mandate
+- **RA-AUTH-1-AUTH-RUNTIME-1 (CLOSED).** Closed by the Director on 2026-11-01. Until then signed-in production behaviour was unmeasured: the mandate
   view's "May propose" / "May prepare" split and the existing Heby, Governance and Work read paths at
   `5b1bb853`. Closes, and moves this record to PRODUCTION-ACCEPTED, on a Director signed-in read-only
   check of `/agents` (mandate scope sentence), `/approvals` and `/operations` with no mutation.
@@ -70,14 +70,15 @@ called, no research mandate is granted and no research report exists.
     `/approvals` and `/operations` open without error. Read-only production measurement the same day:
     0 `prepare-research` mandates, so the "May prepare" heading (rendered only for such a mandate) is
     correctly absent and cannot be observed without a grant, which is not made for acceptance.
-  - Still open: the Director's explicit confirmation that existing mandates on `/agents` are listed under
-    "May propose" and none shows "May prepare". The agent has no signed-in session and cannot supply it.
+  - The confirmation this needed, that existing mandates on `/agents` are listed under "May propose" and none
+    shows "May prepare", was given by the Director on 2026-11-01 on the readings below.
   - 2026-11-01, measured on the Director's signed-in session at `471e0dc8`, read-only: 4 mandates under
     "May propose", 0 "May prepare", every `prepare-research` option unchecked; `/approvals` and `/operations`
-    open. Reached state and disposition are unchanged here: closing this is the Director's decision.
+    open.
   - 2026-11-01, repeated at `94949084`, read-only: the same 4 and 0, every `prepare-research` option unchecked,
     0 `prepare-research` mandate revisions by a read-only production query; `/approvals` and `/operations` open
-    with no form or action used. Those are the agent's readings of the Director's session. The contract's last
-    line, the Director's explicit confirmation, is the Director's to give.
+    with no form or action used.
+  - What this closure does not claim: no research preparation authority was created for this acceptance, the
+    positive "May prepare" rendering has never been observed in production, and no production data was changed.
 - **GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED).** Owned by HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1.
   Production Anthropic credential binding is unverified; any research execution package depends on it.

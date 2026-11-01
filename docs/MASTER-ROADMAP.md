@@ -5811,7 +5811,7 @@ re-graded here.
 | GOVERNANCE-DECISION-EVIDENCE-READ-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-governance-decision-evidence-read-1-closure.md` |
 | B2-REFUSAL-GUARD-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b2-refusal-guard-1-closure.md` |
 | B1-LIVE-BUDGET-1 | DEPLOYED | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` |
-| RA-AUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
+| RA-AUTH-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` |
 | RA-EAI-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` |
 | AUTH-EMAIL-OWNERSHIP-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-auth-email-ownership-1-closure.md` |
 | SELF-SERVICE-GOVERNANCE-E2E-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` |
@@ -6018,7 +6018,7 @@ before §16.1 are not yet indexed (Phase B).
 | B1-PREPAY-UNIT-LOSS-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Cost control | DEFERRED | A prepaid unit is not returned when the AP-3 evidence write throws; lost for one window; recorded, not fixed |
 | B1-429-PREDISPATCH-1 | B1-LIVE-BUDGET-1 | `docs/product-vision/runtime/hebun-b1-live-budget-1-closure.md` | Provenance | DEFERRED | Origination records a provider 429 as `not-dispatched` because the instance cap shares `rate-limited`; deferred by the Director to a separate change |
 | RA-AUTH-1-HUMAN-REVISE-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Authority boundary | CLOSED | Opened by RA-AUTH-1; closed in code by RA-PREP-1 a12f770f: every reviser refuses research-report from the type read under the artifact lock (postgres R2, bite B1); ships with the research writer |
-| RA-AUTH-1-AUTH-RUNTIME-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED of RA-AUTH-1: Director signed-in read-only check of /agents (May propose / May prepare), /approvals and /operations at 5b1bb853 |
+| RA-AUTH-1-AUTH-RUNTIME-1 | RA-AUTH-1 | `docs/product-vision/runtime/hebun-ra-auth-1-closure.md` | Verification gap | CLOSED | Closed by the Director 2026-11-01 on the signed-in read at 94949084; the positive MAY PREPARE path remains unobserved in production |
 | RA-EAI-1-WEB-SEARCH-1 | RA-EAI-1 | `docs/product-vision/runtime/hebun-ra-eai-1-closure.md` | Data-use scope | DEFERRED | Anthropic web-search transfers search queries and third-party results; not covered by the research × conversation cell; needs its own Director decision (P4) before any web-search transport |
 | RA-PREP-1-NO-SURFACE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Product reach | DEFERRED | No route, action or component calls assignResearchReport; a research surface needs its own Director decision |
 | RA-PREP-1-RESEARCH-REVISE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Lifecycle | DEFERRED | A research report takes no revision from anyone; a change request is answered only by a new report until a research reviser is decided |
@@ -6031,4 +6031,4 @@ before §16.1 are not yet indexed (Phase B).
 | AOT-LEGACY-SPEND-UNKNOWN-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Evidence durability | DEFERRED | Spends before the link stay unknown; filling them in would invent a record |
 | AOT-CARD-GLANCE-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | A Director design decision on a fourth card count; unknown shows on the office page and in Details |
 | AOT-NO-ATTEMPT-WORDING-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | Attention and SIA-2 count attempts only, truly worded; a Director decision if they should read outcomes |
-| LMO-A11Y-HEADING-SKIP-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Accessibility | DEFERRED | `/live-map` goes from H1 to H3; a small markup change, not selected |
+| LMO-A11Y-HEADING-SKIP-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Accessibility | DEFERRED | Fixed locally in 2886f0d2 by Director decision; closes on a signed-in read after release. `next build` not run: disk watchdog at 9.41 GiB |

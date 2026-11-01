@@ -125,7 +125,7 @@ reviser, and an authority boundary (writer authority, human revise) moves.
 - Test environment: worktree .claude/worktrees/ra-prep-1 and disposable detached worktree full-a12f770f (scratchpad, real node_modules via APFS clone); session-created PostgreSQL 18 clusters on 127.0.0.1:55494 (en_US.UTF-8, system_identifier 7702077506908358914) and 127.0.0.1:55495 (C locale, system_identifier 7702091228980822985); baseline disposable detached copy base-03817c82; macOS Darwin 25.2.0, Node 24.16.0
 - Deployment evidence: dpl_B9w4jJGs6HL48c8DAB1i2uH2EN9z, READY, PROMOTED, target production, ref main, githubCommitSha 471e0dc81d2c9a3634e0c56a25dc31f97671dc02; www.hebuntech.com and hebuntech.com aliased, measured 2026-11-01
 - Production acceptance evidence: N/A — dormant release: nothing in production can perform the capability, so no research behaviour has been observed; the deployment itself was accepted by the Director, 2026-11-01
-- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-PREP-1-NO-SURFACE-1 (DEFERRED); RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED); RA-PREP-1-MANDATE-PROVENANCE-1 (CLOSED); RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED); RA-EAI-1-WEB-SEARCH-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
+- Deferred risks: RA-AUTH-1-HUMAN-REVISE-1 (CLOSED); RA-PREP-1-NO-SURFACE-1 (DEFERRED); RA-PREP-1-RESEARCH-REVISE-1 (DEFERRED); RA-PREP-1-MANDATE-PROVENANCE-1 (CLOSED); RA-PREP-1-CONCURRENT-DISPATCH-1 (DEFERRED); RA-EAI-1-WEB-SEARCH-1 (DEFERRED); RA-AUTH-1-AUTH-RUNTIME-1 (CLOSED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
 - Director approvals: implementation, local verification and local implementation commit on feat/ra-prep-1, 2026-10-29 ("RA-PREP-1 — SECURE RESEARCH PREPARATION SEAM IMPLEMENTATION"); no push, migration, deployment, provider call, tenant authorization or Governance approval was authorized or made; push of 471e0dc8 to main with no migration, 2026-11-01 ("DIRECTOR RELEASE AUTHORIZATION"); deployment accepted and record update prepared locally, 2026-11-01 ("DIRECTOR DECISION")
 
 ### Deferred risk detail
@@ -146,7 +146,7 @@ reviser, and an authority boundary (writer authority, human revise) moves.
   per-(work, agent) advisory lock: two simultaneous requests both dispatch and both file. No bypass: the
   persistent dispatch cap holds under the race (R9c) and each filing names its checked revision (R9b).
   Exposure none until a surface exists; decide a lock or open-report rule with the surface.
-- **RA-EAI-1-WEB-SEARCH-1 (DEFERRED)**, **RA-AUTH-1-AUTH-RUNTIME-1 (DEFERRED)**, **GATE-D-PROVIDER-RECONCILIATION-1
+- **RA-EAI-1-WEB-SEARCH-1 (DEFERRED)**, **RA-AUTH-1-AUTH-RUNTIME-1 (CLOSED)**, **GATE-D-PROVIDER-RECONCILIATION-1
   (BLOCKED)** — owned by their phases, unchanged here. GATE-D blocks any production research execution.
 
 ## Release readiness review (2026-10-29)
