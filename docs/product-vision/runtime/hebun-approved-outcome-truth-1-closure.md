@@ -1,7 +1,7 @@
-# APPROVED-OUTCOME-TRUTH-1 · What became of approved agent proposals · closure record · VERIFIED
+# APPROVED-OUTCOME-TRUTH-1 · What became of approved agent proposals · closure record · PRODUCTION-ACCEPTED
 
-Local fix for two defects the signed-in Live Map acceptance found on 2026-11-01. Not pushed, not deployed:
-production still shows the old numbers and the old focus ring.
+Fix for two defects the signed-in Live Map acceptance found on 2026-11-01. Released in `94949084`, and read
+back on the Director's signed-in session the same day: see *Production acceptance*.
 
 ## Root causes
 
@@ -52,20 +52,19 @@ from it may exist; no persisted record proves which, so it stays `unknown` and i
 
 - Phase: APPROVED-OUTCOME-TRUTH-1
 - Owner: features/agent-outcome-observation (classes, read, composition) + features/live-map and components/agents (surfaces) + globals.css (card focus)
-- Reached state: VERIFIED
+- Reached state: PRODUCTION-ACCEPTED
 - Implementation commit: 4149c43f
 - Verification level: V3 — a new tenant-scoped read inside a shared seam, and model-facing grounding text; no schema, authority or provider change
 - Verification evidence: 2026-11-01 on 4149c43f, node_modules matching the lockfile: `next build` exit 0, 46 s, minimum 11.48 GiB, 0 seam or secret-shaped hits in `.next/static`; full suite 1131 exit 0, 0 FAIL, 1 BLOCKED of 1132, tree clean, 0 REGRESSION; approved-outcome-classes 56 combinations; approved-outcome-postgres 10 cases; ra-prep-1, sia1, e23 and live-map-experience bite-proofs exit 0; `tsc --noEmit` exit 0; `eslint` on changed files exit 0. Nine mutations: seven bit their named suites, the tenant predicate bit the exact firewall pin and survived the Postgres suite because the view is keyed by the tenant's own identities, and dropping the agent-proposer filter is equivalent because a human id matches no agent. `plan-step-idempotency-1/bite-proofs` exited 0 in this run; it is PRE-EXISTING and flaky (`HW1-PSI-BITE-FLAKE-1`), so that green is not a PASS. `r3w-flow/ambient-database-safety` is BLOCKED (`OR2-R3W-AMBIENT-DB-BLOCKED-1`), not a PASS. Pins changed with reason: e23 firewall tenant bindings 13 to 16, e23 query-shape statements 9 to 10 and aggregates 8 to 9, card-anatomy ring selector and offset, e23 bite M14 anchor
 - Test environment: disposable detached worktree at 4149c43f; session-created PostgreSQL 18.6 on 127.0.0.1:55496, C locale, system_identifier 7703168786362907610, removed after the run. Disk gate CONDITIONAL, minimum 11.45 GiB; an earlier build attempt was stopped by the 10 GiB watchdog at 9.58 GiB and is not evidence
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed; the read of production rows above measures the data, not a release
-- Deferred risks: AOT-NOT-RELEASED-1 (DEFERRED); AOT-LEGACY-SPEND-UNKNOWN-1 (DEFERRED); AOT-CARD-GLANCE-1 (DEFERRED); AOT-NO-ATTEMPT-WORDING-1 (DEFERRED)
-- Director approvals: root cause, minimal fix, tests and local commit, 2026-11-01 ("HEBUN AI, DIRECTOR DECISION", both findings); no push, deployment, migration or production data change was authorized or made
+- Deployment evidence: dpl_HyXkPShcXaAsuZCAAePA6cV9THsc, READY, PROMOTED, target production, ref main, githubCommitSha 949490846da8e11bd77e75fff6b969ac82d91700; www.hebuntech.com and hebuntech.com aliased, 0 error lines in build events, measured 2026-11-01
+- Production acceptance evidence: signed-in read on the Director's session at 94949084, 2026-11-01: Engineering never executed 0, internal 1; Heby never executed 0, internal 1, unknown 1, on the card, office page, Details and `/agents`; focus ring whole on all 4 cards at 350 px and on the second and third columns at 1280 px; a read-only session over production rows agrees; ledger converged 83 of 83
+- Deferred risks: AOT-NOT-RELEASED-1 (CLOSED); AOT-LEGACY-SPEND-UNKNOWN-1 (DEFERRED); AOT-CARD-GLANCE-1 (DEFERRED); AOT-NO-ATTEMPT-WORDING-1 (DEFERRED)
+- Director approvals: root cause, minimal fix, tests and local commit, 2026-11-01 ("HEBUN AI, DIRECTOR DECISION", both findings); fast-forward push of 94949084 with no migration, 2026-11-01 ("DIRECTOR RELEASE AUTHORIZATION"); deployment accepted and interface checks ordered, 2026-11-01 ("HEBUN AI, DIRECTOR DECISION"). No migration or production data change was made
 
 ### Deferred risk detail
 
-- **AOT-NOT-RELEASED-1 (DEFERRED).** Production still serves `471e0dc8`. The focus ring in a real browser and the
-  corrected counts on the page are unproven until a Director-gated release and a signed-in re-read.
+- **AOT-NOT-RELEASED-1 (CLOSED).** Released in `94949084`, and the ring and counts were read back signed in.
 - **AOT-LEGACY-SPEND-UNKNOWN-1 (DEFERRED).** `fdc0e57b` and any spend before the link stay `unknown`. Filling
   them in would be a production data change and an invented record.
 - **AOT-CARD-GLANCE-1 (DEFERRED).** The card keeps its three counts, so Heby's card reads "never executed 0" and
@@ -74,3 +73,9 @@ from it may exist; no persisted record proves which, so it stays `unknown` and i
 - **AOT-NO-ATTEMPT-WORDING-1 (DEFERRED).** Tenant-level attention (`approvedWithoutAttempt`) and SIA-2
   (`authorizedWithAttempt`) still count attempts only. Their words say "attempt", so they are true, and an
   executed internal act still counts as having none there.
+
+## Production acceptance (2026-11-01)
+
+Read-only on the Director's session; no form or action was used. Not observed: a live Heby answer carrying the
+two new grounding fields, so that text is proven by test only, and a real provider, failed or refused outcome on
+screen, because production holds none for these agents: those classes are proven in Postgres.

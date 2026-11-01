@@ -75,5 +75,9 @@ called, no research mandate is granted and no research report exists.
   - 2026-11-01, measured on the Director's signed-in session at `471e0dc8`, read-only: 4 mandates under
     "May propose", 0 "May prepare", every `prepare-research` option unchecked; `/approvals` and `/operations`
     open. Reached state and disposition are unchanged here: closing this is the Director's decision.
+  - 2026-11-01, repeated at `94949084`, read-only: the same 4 and 0, every `prepare-research` option unchecked,
+    0 `prepare-research` mandate revisions by a read-only production query; `/approvals` and `/operations` open
+    with no form or action used. Those are the agent's readings of the Director's session. The contract's last
+    line, the Director's explicit confirmation, is the Director's to give.
 - **GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED).** Owned by HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1.
   Production Anthropic credential binding is unverified; any research execution package depends on it.
