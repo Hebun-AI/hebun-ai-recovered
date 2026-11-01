@@ -36,10 +36,13 @@ import { sql } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import type { readGovernedWorkOutcomes } from "@/features/organizational-work/read-governed-work-outcomes.server";
 
 export interface AgentOutcomeFactsDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
+  /** The Work Authority's read of what a spend produced. Injected only so a test can fail it. */
+  readonly readWorkOutcomes?: typeof readGovernedWorkOutcomes;
   /** The bound on the provider/model breakdown only. Every count above it is unbounded. */
   readonly distributionLimit?: number;
 }
@@ -96,6 +99,15 @@ export interface AgentExecutionFacts {
   readonly refused: number;
   readonly failed: number;
   readonly unknown: number;
+}
+
+/** One approved agent proposal, with its one permit and that permit's one attempt, where they exist. */
+export interface AgentApprovedRequestFact {
+  readonly agentId: string;
+  readonly actionKind: string;
+  readonly permitStatus: string | null;
+  readonly handoffId: string | null;
+  readonly attemptStatus: string | null;
 }
 
 /** One agent's LINKED model invocations. See {@link readAgentInvocationFacts} for what "linked" costs. */
@@ -346,6 +358,56 @@ export async function readAgentExecutionFacts(
         refused: toCount(row.refused),
         failed: toCount(row.failed),
         unknown: toCount(row.unknown),
+      })),
+    };
+  } catch {
+    return { status: "unavailable", reason: "read-failed" };
+  }
+}
+
+/**
+ * Every approved agent proposal and what its permit and attempt hold.
+ *
+ * Rows, not counts: an internal act's outcome is the Work Authority's to state, and it is asked by
+ * `handoff_id`. One row per proposal: `action_permits_request_uq` and
+ * `action_execution_attempts_permit_uq` leave these joins nothing to fan out.
+ */
+export async function readAgentApprovedRequestFacts(
+  tenant: TenantContext | null,
+  deps: AgentOutcomeFactsDeps = {},
+): Promise<AgentOutcomeFactsRead<AgentApprovedRequestFact>> {
+  const resolved = guard(tenant, deps);
+  if ("reason" in resolved) return { status: "unavailable", reason: resolved.reason };
+
+  const statement = sql`
+    select
+      "heby_action_requests"."proposed_by_actor_id"::text as "agentId",
+      "heby_action_requests"."action_kind"                as "actionKind",
+      "action_permits"."status"::text                     as "permitStatus",
+      "action_permits"."handoff_id"::text                 as "handoffId",
+      "action_execution_attempts"."status"::text          as "attemptStatus"
+    from "heby_action_requests"
+    left join "action_permits"
+      on "action_permits"."action_request_id" = "heby_action_requests"."id"
+     and "action_permits"."tenant_id" = ${resolved.tenantId}
+    left join "action_execution_attempts"
+      on "action_execution_attempts"."permit_id" = "action_permits"."id"
+     and "action_execution_attempts"."tenant_id" = ${resolved.tenantId}
+    where "heby_action_requests"."tenant_id" = ${resolved.tenantId}
+      and "heby_action_requests"."proposed_by_actor_type" = 'agent'
+      and "heby_action_requests"."status" = 'approved'`;
+
+  try {
+    const executed = await resolved.db.execute(statement);
+    const rows = executed.rows as unknown as readonly Record<string, string | null>[];
+    return {
+      status: "read",
+      rows: rows.map((row) => ({
+        agentId: String(row.agentId ?? ""),
+        actionKind: String(row.actionKind ?? ""),
+        permitStatus: row.permitStatus ?? null,
+        handoffId: row.handoffId ?? null,
+        attemptStatus: row.attemptStatus ?? null,
       })),
     };
   } catch {

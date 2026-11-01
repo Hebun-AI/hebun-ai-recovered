@@ -282,7 +282,7 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M14 the approval gap is collapsed into the approval count",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: `            value: observed.governance.approvedWithoutExecution,`,
+    find: `            value: observed.governance.approvedOutcomes.notStarted,`,
     replace: `            value: observed.governance.approved,`,
     expect: "governance.Approved, never executed",
   },

@@ -107,6 +107,7 @@ const OUTCOME_A: LiveMapAgentOutcome = {
     permitsConsumed: 8,
     permitsRevoked: 9,
     approvedWithoutExecution: 13,
+    approvedOutcomes: { notStarted: 19, internalRecorded: 20, providerAccepted: 21, failedOrRefused: 22, unknown: 23 },
   },
   execution: { attempts: 17, pending: 10, accepted: 14, refused: 15, failed: 16, unknown: 18 },
 };
@@ -337,7 +338,7 @@ async function unavailableIsNeverZeroActivity(): Promise<void> {
       permitsExpired: 0,
       permitsConsumed: 0,
       permitsRevoked: 0,
-      approvedWithoutExecution: 0,
+      approvedWithoutExecution: 0, approvedOutcomes: { notStarted: 0, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
     },
     execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
   };
@@ -470,7 +471,12 @@ async function lifecycleDistinctionsSurvive(): Promise<void> {
     ["governance", "Permits expired", 6],
     ["governance", "Permits consumed", 8],
     ["governance", "Permits revoked", 9],
-    ["governance", "Approved, never executed", 13],
+    /* Not the external attempt gap (13): an internal act writes no attempt, so that gap is not "never executed". */
+    ["governance", "Approved, never executed", 19],
+    ["governance", "Approved, internal act on record", 20],
+    ["governance", "Approved, accepted by a provider", 21],
+    ["governance", "Approved, failed or refused", 22],
+    ["governance", "Approved, execution unknown", 23],
     ["execution", "Attempts", 17],
     ["execution", "Awaiting an answer", 10],
     ["execution", "Accepted by the provider", 14],

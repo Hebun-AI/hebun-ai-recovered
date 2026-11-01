@@ -61,6 +61,7 @@ import {
 } from "@/features/agent-identity/read-durable-agent-identity.server";
 import {
   MODEL_DISTRIBUTION_LIMIT,
+  readAgentApprovedRequestFacts,
   readAgentExecutionFacts,
   readAgentInvocationFacts,
   readAgentModelDistribution,
@@ -69,6 +70,7 @@ import {
   readAgentSelectionFacts,
   readInvocationProvenanceIntegrity,
   readUnattributedInvocationCount,
+  type AgentApprovedRequestFact,
   type AgentExecutionFacts,
   type AgentInvocationFacts,
   type AgentModelDistributionFact,
@@ -77,6 +79,10 @@ import {
   type AgentProposalFacts,
   type AgentSelectionFacts,
 } from "./read-agent-outcome-facts.server";
+import { NO_APPROVED_OUTCOMES, tallyApprovedOutcomes, type ApprovedOutcomeCounts } from "./contracts";
+import { RECORD_WORK_ACTION_KIND, SET_WORK_DECLARED_STATE_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { readGovernedWorkOutcomes } from "@/features/organizational-work/read-governed-work-outcomes.server";
+import { WORK_AUDIT_RECORDED, WORK_AUDIT_STATE_DECLARED } from "@/features/organizational-work/work-contracts";
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * THE VIEW
@@ -106,12 +112,13 @@ export interface AgentGovernanceView {
   readonly permitsConsumed: number;
   readonly permitsRevoked: number;
   /**
-   * Approved proposals with no execution attempt behind them.
-   *
-   * The clearest statement this surface makes that APPROVED IS NOT EXECUTED. Computed as
-   * `approved - attempts` and floored at zero — see {@link approvedButUnexecuted}.
+   * Approved proposals with no row in the EXTERNAL attempt ledger. Not "never executed": an internal
+   * act writes no attempt. Computed as `approved - attempts` and floored at zero — see
+   * {@link approvedButUnexecuted}. What actually became of each is {@link approvedOutcomes}.
    */
   readonly approvedWithoutExecution: number;
+  /** What became of each approved proposal: exactly one class each, summing to `approved`. */
+  readonly approvedOutcomes: ApprovedOutcomeCounts;
 }
 
 /** Execution outcomes — what the machine tried and what came back. Stages EXECUTED..UNKNOWN. */
@@ -270,6 +277,7 @@ export interface AgentOutcomeFacts {
   readonly invocations: readonly AgentInvocationFacts[];
   readonly distribution: readonly AgentModelDistributionFact[];
   readonly selection: readonly AgentSelectionFacts[];
+  readonly approvedOutcomes: ReadonlyMap<string, ApprovedOutcomeCounts>;
 }
 
 /**
@@ -353,6 +361,34 @@ function index<T extends { readonly agentId: string }>(rows: readonly T[]): Read
  * into `unresolvedAgentProposals`, because a join that discards rows under-reports, and an
  * under-report here reads as an agent having proposed less than it did.
  */
+/* The governed work acts whose spend the Work Authority links to a work item, and the link it declares. */
+const WORK_OUTCOME_LINK = {
+  [RECORD_WORK_ACTION_KIND]: WORK_AUDIT_RECORDED,
+  [SET_WORK_DECLARED_STATE_ACTION_KIND]: WORK_AUDIT_STATE_DECLARED,
+} as const;
+
+/**
+ * Each agent's approved proposals by outcome, asking the Work Authority only about spends that left
+ * no attempt row. `null` when it cannot answer: an unread proof must not read as "unknown execution".
+ */
+async function readApprovedOutcomes(
+  tenant: TenantContext,
+  facts: readonly AgentApprovedRequestFact[],
+  deps: AgentOutcomeFactsDeps,
+): Promise<ReadonlyMap<string, ApprovedOutcomeCounts> | null> {
+  const proven = new Set<string>();
+  for (const [kind, action] of Object.entries(WORK_OUTCOME_LINK)) {
+    const spends = facts
+      .filter((f) => f.actionKind === kind && f.permitStatus === "consumed" && f.attemptStatus === null)
+      .flatMap((f) => (f.handoffId === null ? [] : [f.handoffId]));
+    if (spends.length === 0) continue;
+    const read = await (deps.readWorkOutcomes ?? readGovernedWorkOutcomes)(tenant, spends, { getDb: deps.getDb }, action);
+    if (read.status !== "read") return null;
+    for (const handoffId of read.byHandoff.keys()) proven.add(handoffId);
+  }
+  return tallyApprovedOutcomes(facts, proven);
+}
+
 export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
   readonly agents: readonly AgentOutcomeObservation[];
   /**
@@ -412,6 +448,7 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
         permitsConsumed: m.consumed,
         permitsRevoked: m.revoked,
         approvedWithoutExecution: approvedButUnexecuted(p.approved, e.attempts),
+        approvedOutcomes: facts.approvedOutcomes.get(identity.agentId) ?? NO_APPROVED_OUTCOMES,
       },
       execution: {
         attempts: e.attempts,
@@ -524,6 +561,7 @@ async function readAgentOutcomeCore(
     unattributed,
     selection,
     integrity,
+    approvedRequests,
   ] = await Promise.all([
     readDurableAgentIdentityState(tenant, { getDb: deps.getDb }),
     readAgentProposalFacts(tenant, bounded),
@@ -534,6 +572,7 @@ async function readAgentOutcomeCore(
     readUnattributedInvocationCount(tenant, bounded),
     readAgentSelectionFacts(tenant, bounded),
     readInvocationProvenanceIntegrity(tenant, bounded),
+    readAgentApprovedRequestFacts(tenant, bounded),
   ]);
 
   if (identityState.status !== "known") {
@@ -547,6 +586,10 @@ async function readAgentOutcomeCore(
   if (unattributed.status !== "read") return { status: "unavailable", reason: unattributed.reason };
   if (selection.status !== "read") return { status: "unavailable", reason: selection.reason };
   if (integrity.status !== "read") return { status: "unavailable", reason: integrity.reason };
+  if (approvedRequests.status !== "read") return { status: "unavailable", reason: approvedRequests.reason };
+
+  const approvedOutcomes = await readApprovedOutcomes(tenant, approvedRequests.rows, deps);
+  if (!approvedOutcomes) return { status: "unavailable", reason: "work-outcome-authority-unavailable" };
 
   const composed = composeAgentOutcomes({
     identities: identityState.identities,
@@ -556,6 +599,7 @@ async function readAgentOutcomeCore(
     invocations: invocations.rows,
     distribution: distribution.rows,
     selection: selection.rows,
+    approvedOutcomes,
   });
 
   return {

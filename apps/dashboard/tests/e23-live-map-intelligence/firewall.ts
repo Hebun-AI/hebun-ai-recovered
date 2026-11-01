@@ -300,13 +300,13 @@ function tenantIsolationSurvives(): void {
   );
   /*
    * PINNED EXACTLY, not "at least". A floor cannot tell a removed predicate from a statement that
-   * never had one: thirteen bindings is what the released reader carries, and a twelfth or a
-   * fourteenth is a change to how this data is scoped, which is exactly what must fail here.
+   * never had one: sixteen bindings is what the released reader carries (the approved-outcome read
+   * binds its three tables), and a fifteenth or a seventeenth is a change to how this data is scoped, which is exactly what must fail here.
    */
   const bindings = reader.match(/\$\{resolved\.tenantId\}/g) ?? [];
   assert.equal(
     bindings.length,
-    13,
+    16,
     `every statement binds the resolved tenant on every table it touches (found ${bindings.length})`,
   );
 

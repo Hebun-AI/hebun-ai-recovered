@@ -182,6 +182,8 @@ function detailFor(agent: AgentOutcomeObservation): string {
     `governance rejections ${governance.rejected}`,
     `permits issued ${governance.permitsIssued}`,
     `approvals with no execution attempt ${governance.approvedWithoutExecution}`,
+    `approvals with an internal act on record ${governance.approvedOutcomes.internalRecorded}`,
+    `approvals with an unproven outcome ${governance.approvedOutcomes.unknown}`,
     `execution attempts ${execution.attempts}`,
     `provider acceptances ${execution.accepted}`,
     `provider refusals ${execution.refused}`,

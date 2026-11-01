@@ -121,6 +121,10 @@ function HeadlineCounts({ node }: { node: LiveMapNode }) {
             <dd>{counts.neverExecuted}</dd>
             <dt>Never executed</dt>
           </div>
+          <div>
+            <dd>{counts.executionUnknown}</dd>
+            <dt>Execution unknown</dt>
+          </div>
         </dl>
       ) : (
         <p className="lm-intel-detail">

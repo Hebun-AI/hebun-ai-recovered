@@ -406,10 +406,29 @@ function agentIntelligence(
           { label: "Permits revoked", value: observed.governance.permitsRevoked },
           {
             label: "Approved, never executed",
-            value: observed.governance.approvedWithoutExecution,
+            value: observed.governance.approvedOutcomes.notStarted,
             note:
-              "Approved proposals with no execution attempt behind them — the clearest statement " +
-              "here that an approval is not a thing that happened.",
+              "Approved proposals with no spent authorization and no attempt behind them — the " +
+              "clearest statement here that an approval is not a thing that happened.",
+          },
+          {
+            label: "Approved, internal act on record",
+            value: observed.governance.approvedOutcomes.internalRecorded,
+            note: "The authorization was spent, and the work record that spend produced is on file.",
+          },
+          {
+            label: "Approved, accepted by a provider",
+            value: observed.governance.approvedOutcomes.providerAccepted,
+            note: "Accepted is not delivered, not received and not read.",
+          },
+          { label: "Approved, failed or refused", value: observed.governance.approvedOutcomes.failedOrRefused },
+          {
+            label: "Approved, execution unknown",
+            value: observed.governance.approvedOutcomes.unknown,
+            note:
+              "Something may have happened, and no record proves what. An authorization was spent " +
+              "with no outcome on file, or a provider's answer is missing. It is not a success and " +
+              "not a failure.",
           },
         ],
       },

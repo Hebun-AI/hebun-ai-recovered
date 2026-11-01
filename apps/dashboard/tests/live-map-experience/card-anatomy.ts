@@ -93,7 +93,7 @@ const outcome = (agentId: string, filed: number, approved: number, unexecuted: n
       permitsExpired: 0,
       permitsConsumed: 0,
       permitsRevoked: 0,
-      approvedWithoutExecution: unexecuted,
+      approvedWithoutExecution: unexecuted, approvedOutcomes: { notStarted: unexecuted, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
     },
     execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
   },
@@ -252,12 +252,12 @@ async function main(): Promise<void> {
   assert.ok(/--topbar-h:\s*\d+px;/.test(read("src/styles/tokens.css")), "and the bar's height is a real token");
 
   assert.ok(
-    /\.lm-node:focus-visible \{[^}]*outline: 2px solid var\(--color-primary-ring\);/.test(block),
+    /\.lm-agent:has\(\.lm-node:focus-visible\) \{[^}]*outline: 2px solid var\(--color-primary-ring\);/.test(block),
     "keyboard focus draws a solid ring in the scope's own ring token",
   );
   assert.ok(
-    /\.lm-node:focus-visible \{[^}]*outline-offset: -2px;/.test(block),
-    "the card clips its overflow, so the focus ring sits inside it",
+    /\.lm-agent:has\(\.lm-node:focus-visible\) \{[^}]*outline-offset: 1px;/.test(block) && /\.lm-node:focus-visible \{ outline: none; \}/.test(block),
+    "the card clips its overflow and `.lm-field` paints over an outline within it, so the card draws the ring outside its edge",
   );
 
   console.log("Live Map card anatomy: all checks passed.");

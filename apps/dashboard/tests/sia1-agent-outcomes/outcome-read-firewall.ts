@@ -541,6 +541,7 @@ function observesWithoutEvaluating(): void {
    * caught by its NAME rather than by somebody remembering to update a list.
    */
   const composed = composeAgentOutcomes({
+    approvedOutcomes: new Map(),
     identities: [
       {
         agentId: "11111111-1111-4111-8111-111111111111",
@@ -702,6 +703,7 @@ function approvalGapIsHonest(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function zeroRowAgentSurvivesTheJoin(): void {
   const composed = composeAgentOutcomes({
+    approvedOutcomes: new Map(),
     identities: [
       {
         agentId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -731,6 +733,7 @@ function zeroRowAgentSurvivesTheJoin(): void {
    * under-reports, and an under-report here reads as an agent having proposed less than it did.
    */
   const orphaned = composeAgentOutcomes({
+    approvedOutcomes: new Map(),
     identities: [],
     proposals: [
       {
@@ -784,6 +787,7 @@ function provenanceIsNeverInvented(): void {
 
   /* The coverage split is a PARTITION of the proposals — one cannot be silently lost. */
   const composed = composeAgentOutcomes({
+    approvedOutcomes: new Map(),
     identities: [
       {
         agentId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",

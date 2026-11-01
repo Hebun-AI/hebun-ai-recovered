@@ -179,7 +179,7 @@ function agentsLinksToDecisions(): void {
     agentName: "Heby", inService: true, serviceStatus: "in-service", suspendedAt: null, retiredAt: null,
     establishedAt: "2026-10-01T00:00:00.000Z",
     activity: { proposalsFiled: 2, pending: 1, withdrawn: 0 },
-    governance: { approved: 1, rejected: 0, permitsIssued: 1, permitsActive: 0, permitsExpired: 0, permitsConsumed: 1, permitsRevoked: 0, approvedWithoutExecution: 0 },
+    governance: { approved: 1, rejected: 0, permitsIssued: 1, permitsActive: 0, permitsExpired: 0, permitsConsumed: 1, permitsRevoked: 0, approvedWithoutExecution: 0, approvedOutcomes: { notStarted: 0, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 } },
     execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
     modelUsage: { linkedInvocations: 0, inputTokens: 0, outputTokens: 0, invocationsWithoutReportedUsage: 0, distribution: [] },
     selection: { attributed: 0, registered: 0, notDispatched: 0, dispatchFailed: 0, selectionInvalid: 0, noAction: 0, selectionValid: 0, filingNotAttempted: 0, filingProposed: 0, filingRefused: 0, filingFailed: 0 },

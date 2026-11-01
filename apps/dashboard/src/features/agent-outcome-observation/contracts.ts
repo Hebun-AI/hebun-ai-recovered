@@ -164,6 +164,72 @@ export function isExpiredPermit(status: string, expiresAt: Date, now: Date): boo
   return status === "active" && expiresAt.getTime() <= now.getTime();
 }
 
+/**
+ * WHAT BECAME OF ONE APPROVED PROPOSAL. Exactly one class each, so the five sum to `approved`.
+ *
+ * `action_execution_attempts` is the external ledger: a governed internal act writes no row there
+ * (GIA-1). Its outcome record is the work item and the audit event naming the permit's `handoff_id`,
+ * so "approved minus attempts" reports every executed internal act as never executed.
+ *
+ *     notStarted         no attempt and no spend: a live, expired or revoked permit, or none
+ *     internalRecorded   the permit was spent AND the Work Authority's link to that spend is proven
+ *     providerAccepted   an attempt ended `accepted`, which is not delivered
+ *     failedOrRefused    an attempt ended `failed` or `refused`
+ *     unknown            an attempt ended `pending` or `unknown`, or a permit was spent and nothing
+ *                        proves what followed: a legacy spend, a contradictory link, another kind
+ *
+ * A SPENT PERMIT ALONE IS NEVER A SUCCESS. A failed internal act rolls its spend back, so it leaves
+ * a live permit and reads as `notStarted`: Hebun records no failure for it, and none is implied.
+ */
+export const APPROVED_OUTCOME_CLASSES = Object.freeze([
+  "notStarted",
+  "internalRecorded",
+  "providerAccepted",
+  "failedOrRefused",
+  "unknown",
+] as const);
+
+export type ApprovedOutcomeClass = (typeof APPROVED_OUTCOME_CLASSES)[number];
+export type ApprovedOutcomeCounts = Readonly<Record<ApprovedOutcomeClass, number>>;
+
+export const NO_APPROVED_OUTCOMES: ApprovedOutcomeCounts = Object.freeze({
+  notStarted: 0,
+  internalRecorded: 0,
+  providerAccepted: 0,
+  failedOrRefused: 0,
+  unknown: 0,
+});
+
+export function classifyApprovedOutcome(
+  fact: { readonly permitStatus: string | null; readonly attemptStatus: string | null },
+  workOutcomeProven: boolean,
+): ApprovedOutcomeClass {
+  if (fact.attemptStatus === "accepted") return "providerAccepted";
+  if (fact.attemptStatus === "failed" || fact.attemptStatus === "refused") return "failedOrRefused";
+  if (fact.attemptStatus !== null) return "unknown";
+  if (fact.permitStatus !== "consumed") return "notStarted";
+  return workOutcomeProven ? "internalRecorded" : "unknown";
+}
+
+export function tallyApprovedOutcomes(
+  facts: readonly {
+    readonly agentId: string;
+    readonly permitStatus: string | null;
+    readonly attemptStatus: string | null;
+    readonly handoffId: string | null;
+  }[],
+  provenHandoffs: ReadonlySet<string>,
+): ReadonlyMap<string, ApprovedOutcomeCounts> {
+  const byAgent = new Map<string, ApprovedOutcomeCounts>();
+  for (const fact of facts) {
+    const proven = fact.handoffId !== null && provenHandoffs.has(fact.handoffId);
+    const name = classifyApprovedOutcome(fact, proven);
+    const counts = byAgent.get(fact.agentId) ?? NO_APPROVED_OUTCOMES;
+    byAgent.set(fact.agentId, { ...counts, [name]: counts[name] + 1 });
+  }
+  return byAgent;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * PROVENANCE COVERAGE
  * ═════════════════════════════════════════════════════════════════════════ */

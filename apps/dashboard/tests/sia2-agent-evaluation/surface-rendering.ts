@@ -58,7 +58,7 @@ function observation(over: Partial<AgentOutcomeObservation> = {}): AgentOutcomeO
       permitsExpired: 0,
       permitsConsumed: 4,
       permitsRevoked: 0,
-      approvedWithoutExecution: 1,
+      approvedWithoutExecution: 1, approvedOutcomes: { notStarted: 1, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
     },
     execution: { attempts: 4, pending: 0, accepted: 1, refused: 1, failed: 1, unknown: 1 },
     modelUsage: {
@@ -244,7 +244,7 @@ function zeroEvidenceReadsAsAbsence(): void {
       permitsExpired: 0,
       permitsConsumed: 0,
       permitsRevoked: 0,
-      approvedWithoutExecution: 0,
+      approvedWithoutExecution: 0, approvedOutcomes: { notStarted: 0, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
     },
     execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
     modelUsage: {

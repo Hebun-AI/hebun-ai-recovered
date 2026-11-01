@@ -98,7 +98,7 @@ const OUTCOME: LiveMapAgentOutcomeRead = {
           permitsExpired: 6,
           permitsConsumed: 8,
           permitsRevoked: 9,
-          approvedWithoutExecution: 13,
+          approvedWithoutExecution: 99, approvedOutcomes: { notStarted: 13, internalRecorded: 40, providerAccepted: 41, failedOrRefused: 42, unknown: 43 },
         },
         execution: { attempts: 17, pending: 10, accepted: 14, refused: 15, failed: 16, unknown: 18 },
       },
@@ -299,6 +299,7 @@ async function theHeadlineCountsAreReal(): Promise<void> {
   assert.match(markup, /11 Filed/, "the filed count is the observation's");
   assert.match(markup, /5 Approved/, "so is the approved count");
   assert.match(markup, /13 Never executed/, "and the unexecuted count");
+  assert.match(markup, /43 Execution unknown/, "and what no record can prove, named rather than folded in");
 
   const unread = await office(SERVING, {
     readAgentOutcome: async () => ({ status: "unavailable", reason: "read-failed" }),

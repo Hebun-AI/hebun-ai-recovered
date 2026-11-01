@@ -142,8 +142,12 @@ function AgentBlock({ agent }: { agent: AgentOutcomeObservation }) {
           <Figure label="Permit revoked" value={agent.governance.permitsRevoked} />
           <Figure
             label="Authorized, never executed"
-            value={agent.governance.approvedWithoutExecution}
+            value={agent.governance.approvedOutcomes.notStarted}
           />
+          <Figure label="Authorized, internal act on record" value={agent.governance.approvedOutcomes.internalRecorded} />
+          <Figure label="Authorized, accepted by a provider" value={agent.governance.approvedOutcomes.providerAccepted} />
+          <Figure label="Authorized, failed or refused" value={agent.governance.approvedOutcomes.failedOrRefused} />
+          <Figure label="Authorized, execution unknown" value={agent.governance.approvedOutcomes.unknown} />
         </div>
         {/*
           * ENTERPRISE-OPERATIONS-1 — a count of decisions still owed, or of authorizations still

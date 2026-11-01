@@ -83,7 +83,7 @@ const OUTCOME: LiveMapAgentOutcomeRead = {
           permitsExpired: 0,
           permitsConsumed: 0,
           permitsRevoked: 0,
-          approvedWithoutExecution: 1,
+          approvedWithoutExecution: 1, approvedOutcomes: { notStarted: 1, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
         },
         execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
       },

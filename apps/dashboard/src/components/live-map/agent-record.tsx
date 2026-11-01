@@ -135,7 +135,7 @@ export function AttentionAnnotation({ attention }: { attention: LiveMapNodeAtten
  */
 export function headlineCounts(
   intelligence: LiveMapNodeIntelligence,
-): { readonly filed: number; readonly approved: number; readonly neverExecuted: number } | null {
+): { readonly filed: number; readonly approved: number; readonly neverExecuted: number; readonly executionUnknown: number } | null {
   if (intelligence.status === "unavailable") return null;
   const at = (groupId: string, label: string): number | null => {
     const group = intelligence.groups.find((g) => g.groupId === groupId);
@@ -145,6 +145,7 @@ export function headlineCounts(
   const filed = at("proposals", "Filed");
   const approved = at("governance", "Approved");
   const neverExecuted = at("governance", "Approved, never executed");
-  if (filed === null || approved === null || neverExecuted === null) return null;
-  return { filed, approved, neverExecuted };
+  const executionUnknown = at("governance", "Approved, execution unknown");
+  if (filed === null || approved === null || neverExecuted === null || executionUnknown === null) return null;
+  return { filed, approved, neverExecuted, executionUnknown };
 }

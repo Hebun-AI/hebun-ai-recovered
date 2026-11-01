@@ -64,7 +64,7 @@ const agent = (over: Partial<AgentOutcomeObservation> = {}): AgentOutcomeObserva
     permitsExpired: 0,
     permitsConsumed: 3,
     permitsRevoked: 0,
-    approvedWithoutExecution: 1,
+    approvedWithoutExecution: 9, approvedOutcomes: { notStarted: 1, internalRecorded: 21, providerAccepted: 22, failedOrRefused: 23, unknown: 24 },
   },
   execution: { attempts: 3, pending: 0, accepted: 1, refused: 0, failed: 1, unknown: 1 },
   modelUsage: {
@@ -147,7 +147,7 @@ function threeStatesStayThree(): void {
           permitsExpired: 0,
           permitsConsumed: 0,
           permitsRevoked: 0,
-          approvedWithoutExecution: 0,
+          approvedWithoutExecution: 0, approvedOutcomes: { notStarted: 0, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
         },
         execution: { attempts: 0, pending: 0, accepted: 0, refused: 0, failed: 0, unknown: 0 },
         modelUsage: {
@@ -257,6 +257,17 @@ function approvalGapIsRendered(): void {
     "the page names the approved-but-unexecuted gap as its own figure",
   );
   assert.ok(markup.includes("Permitted"), "and permits are their own stage, not folded into execution");
+
+  /* Each figure is its own class, and "never executed" is not the external attempt gap (9). */
+  for (const [label, value] of [
+    ["Authorized, never executed", 1],
+    ["Authorized, internal act on record", 21],
+    ["Authorized, accepted by a provider", 22],
+    ["Authorized, failed or refused", 23],
+    ["Authorized, execution unknown", 24],
+  ] as const) {
+    assert.ok(new RegExp(`${value}\\s+${label}|${label}\\s+${value}\\b`).test(markup), `${label} shows ${value}`);
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

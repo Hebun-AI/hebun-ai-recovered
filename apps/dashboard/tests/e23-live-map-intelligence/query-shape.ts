@@ -113,10 +113,12 @@ async function theReadDoesNotGrowWithTheOrganization(): Promise<void> {
   );
 
   /*
-   * AND THE NUMBER IS PINNED, not merely equal. One identity read plus eight grouped aggregates.
+   * AND THE NUMBER IS PINNED, not merely equal. One identity read, eight grouped aggregates and the
+   * approved-proposal read; spends the Work Authority must judge add one read per declared link, not
+   * per agent.
    * Pinning it means a tenth statement arrives as a failure here rather than as a slow page.
    */
-  assert.equal(one.statements.length, 9, "one identity read and eight grouped aggregates");
+  assert.equal(one.statements.length, 10, "one identity read, eight grouped aggregates, one approved-proposal read");
   assert.equal(
     one.statements.filter((s) => s === "select:agents").length,
     1,
@@ -124,7 +126,7 @@ async function theReadDoesNotGrowWithTheOrganization(): Promise<void> {
   );
   assert.equal(
     one.statements.filter((s) => s === "execute:aggregate").length,
-    8,
+    9,
     "and every aggregate is issued once, grouped, for the whole organization",
   );
 }
@@ -188,6 +190,7 @@ function theComposerKeysByDurableId(): void {
   ];
 
   const composed = composeAgentOutcomes({
+    approvedOutcomes: new Map(),
     identities,
     proposals: [
       {

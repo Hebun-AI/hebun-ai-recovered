@@ -447,6 +447,11 @@ async function main(): Promise<void> {
       1,
       "APPROVED IS NOT EXECUTED — one authorized act never happened",
     );
+    assert.deepEqual(
+      heby.governance.approvedOutcomes,
+      { notStarted: 1, internalRecorded: 0, providerAccepted: 1, failedOrRefused: 1, unknown: 1 },
+      "each approved send has one class: an attempt speaks for itself, and unknown stays unknown",
+    );
 
     /* ── EXECUTION: three attempts, three different outcomes, never folded ── */
     assert.equal(heby.execution.attempts, 3);

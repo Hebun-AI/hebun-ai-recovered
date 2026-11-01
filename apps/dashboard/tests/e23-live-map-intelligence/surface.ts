@@ -79,7 +79,7 @@ const EVIDENCE: LiveMapAgentOutcomeRead = {
           permitsExpired: 6,
           permitsConsumed: 8,
           permitsRevoked: 9,
-          approvedWithoutExecution: 13,
+          approvedWithoutExecution: 13, approvedOutcomes: { notStarted: 13, internalRecorded: 0, providerAccepted: 0, failedOrRefused: 0, unknown: 0 },
         },
         execution: { attempts: 17, pending: 10, accepted: 14, refused: 15, failed: 16, unknown: 18 },
       },
