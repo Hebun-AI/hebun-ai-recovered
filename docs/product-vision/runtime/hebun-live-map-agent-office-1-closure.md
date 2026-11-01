@@ -54,8 +54,8 @@ Items 1–4, 6 and 7 are a Director signed-in read (`LMO-PROD-SIGNED-IN-1`); ite
 - Reached state: DEPLOYED
 - Implementation commit: e284bf3c, 68deee7d, 56578b11, 803ab995, 5c6a1674
 - Verification level: V2 — a shared Live Map surface and a tenant-scoped office read; no schema, provider, authority or lifecycle change
-- Verification evidence: 2026-11-01 on integration commit 265d6afd (source identical to 5c6a1674 for every Live Map file): firewall l4-live-map, e23-live-map-intelligence, ap2-agent-placement, live-map-experience; surface e2-4 and e23; live-map-experience agent-office, card-anatomy, dark-scope, map-surface, office-scene; agent-office-postgres, all exit 0; `tsc --noEmit` exit 0. Not run: live-map-experience bite-proofs and the full suite, withheld by the disk gate (BLOCKED, minimum 9.00 GiB)
-- Test environment: worktree .claude/worktrees/ra-prep-1-integration; session-created PostgreSQL 18.6 on 127.0.0.1:55496, C locale, system_identifier 7703038436500671166, removed after the run
+- Verification evidence: 2026-11-01 on e7b0c0d3 (source identical to 5c6a1674 for every Live Map file), with a node_modules matching the lockfile: full suite 1128 PASS, 1 FAIL, 1 BLOCKED of 1130, 0 REGRESSION, every live-map-experience, l4-live-map and e23-live-map-intelligence suite among the PASS, including live-map-experience bite-proofs and agent-office-postgres; `tsc --noEmit` exit 0; `next build` exit 0. The one FAIL (plan-step-idempotency-1 bite-proofs) and the one BLOCKED (r3w ambient) are classified in hebun-ra-prep-1-closure.md and touch no Live Map file
+- Test environment: disposable detached worktree at e7b0c0d3; session-created PostgreSQL 18.6 on 127.0.0.1:55496, C locale, system_identifier 7703148169181862376, removed after the run
 - Deployment evidence: dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm (READY, PROMOTED, 5c6a1674, www and apex aliased), measured 2026-11-01
 - Production acceptance evidence: N/A — no signed-in production read has been made; seven checklist items are PENDING
 - Deferred risks: LMO-PROD-SIGNED-IN-1 (DEFERRED); LMO-PROD-CROSS-TENANT-1 (DEFERRED)

@@ -205,3 +205,43 @@ the newer disposition of each row.
 The build is required before release (CLAUDE.md test rule 6). Whether the full suite must run again is a
 Director release decision: the two sides are disjoint in source, and the merged tree has not been run
 end to end.
+
+## Re-verification on e7b0c0d3 (2026-11-01)
+
+Reached state unchanged: **VERIFIED**. Not pushed, not deployed. This section supersedes the *Integration*
+table above for `tsc`, `eslint`, build, bite-proofs and the full suite.
+
+**Correction.** The checks recorded above ran through a symlink to the primary tree's `node_modules`, which
+holds Next 16.2.10 while the candidate's lockfile pins 16.3.8. Their results are not evidence for this
+candidate and are replaced here. This run used a clone of a lock-matching `node_modules`, compared package by
+package against `package-lock.json`: 0 missing, 0 version differences.
+
+Why the full suite ran: RA-PREP-1 is V3 (data-use purpose through the shared gateway, shared artifact
+writer, writer and revise authority), and the merged tree had never been run end to end. Reusing either
+parent's baseline would prove neither the merge nor this dependency set.
+
+| Check on e7b0c0d3 | Result |
+|---|---|
+| Disk gate T0–T5 (10:15–10:25Z) | PASS: minimum 18.04 GiB, largest drop 0.07 GiB, no new swapfile; re-measure before any later heavy run |
+| `tsc --noEmit` | exit 0, 0 lines |
+| `eslint` on the 27 changed `.ts`/`.tsx` files | exit 0; 0 errors, 1 pre-existing warning (sci1 import) |
+| `next build`, disposable detached worktree | exit 0, 45 s, minimum 15.52 GiB; route table unchanged in kind, no research route |
+| Client bundle | the seam's names appear only in the capability's `performedBy` label string; no server module, no secret-shaped string |
+| ra-prep-1 bite-proofs | 11 mutations bit, 0 void; tree clean after |
+| Full suite, disposable detached worktree | **1128 PASS, 1 FAIL, 1 BLOCKED of 1130**, 29 minutes; tree clean after |
+| Test database | session-created PostgreSQL 18.6, 127.0.0.1:55496, C locale, system_identifier 7703148169181862376, removed after the run |
+| Migration ledger | authored 83; production 83 applied, equal by count, through `platform:preflight` in a read-only session on 2026-11-01. Digest not compared |
+
+**Classification.** 0 REGRESSION.
+
+- `plan-step-idempotency-1/bite-proofs` — **PRE-EXISTING** (`HW1-PSI-BITE-FLAKE-1`): FAIL 5/6 on unchanged
+  `5c6a1674`, 2/6 on `e7b0c0d3`, same first failure in all seven ("B1 no open-plan-step index: failed, but
+  not for I3"). The candidate touches no plan-step file.
+- `r3w-flow/ambient-database-safety` — **BLOCKED** (`OR2-R3W-AMBIENT-DB-BLOCKED-1`): its URL is fixed to
+  :55432, held by another session's cluster, which was left alone. Not a PASS. It passed against a
+  session-owned stand-in on the earlier candidate (`4821ee89`), and neither side of this merge changes it or
+  the disposable harness.
+
+**Release readiness.** No migration and no reachable path. Ready for a dormant production release, subject
+to the Director's push gate: re-read remote `main` immediately before the push, prove fast-forward, and verify
+the deployment record afterwards. Rollback target: `dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm`.

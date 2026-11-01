@@ -73,3 +73,10 @@ the candidate is now merge `265d6afd` on `5c6a1674`, branch `release/ra-prep-1-i
 pushed or deployed.** Evidence and what is still unrun: `hebun-ra-prep-1-closure.md`, *Integration onto
 current main*. The push shape stays a fast-forward of `main`, now from `5c6a1674`. The disk gate is
 BLOCKED at this writing, so the release gate above stays open.
+
+## Release candidate state — 2026-11-01
+
+Final candidate: the tip of `release/ra-prep-1-integration` on base `5c6a1674`. **Nothing was pushed or
+deployed.** Build exit 0; full suite 1128 PASS, 1 FAIL (PRE-EXISTING), 1 BLOCKED, 0 REGRESSION; production
+ledger 83 = authored 83. Evidence, including the dependency correction: `hebun-ra-prep-1-closure.md`,
+*Re-verification on e7b0c0d3*. The push remains a Director gate.
