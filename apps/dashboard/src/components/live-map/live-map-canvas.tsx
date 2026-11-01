@@ -81,7 +81,7 @@ function OrganizationNode({ node }: { node: LiveMapNode }) {
       <span className="lm-org-mark" aria-hidden="true">
         <Building2 className="size-5" />
       </span>
-      <h3 className="lm-org-name">{node.label}</h3>
+      <h2 className="lm-org-name">{node.label}</h2>
       <p className="lm-truth">
         <span className="lm-truth-class">{node.truth}</span>
         <span aria-hidden="true"> · </span>
@@ -259,13 +259,13 @@ function PresentDomain({ domain }: { domain: LiveMapDomain }) {
   const nodes = domain.state.nodes;
   return (
     <section className="lm-absent" aria-labelledby={`live-map-${domain.domainId}`}>
-      <h3 id={`live-map-${domain.domainId}`} className="lm-absent-title">
+      <h2 id={`live-map-${domain.domainId}`} className="lm-absent-title">
         <Icon className="size-4 text-fg-muted" aria-hidden="true" />
         {domain.label}
         <span className="lm-group-count">
           {nodes.length} {nodes.length === 1 ? "record" : "records"}
         </span>
-      </h3>
+      </h2>
       <ul className="lm-record">
         {nodes.map((node) => (
           <li key={node.nodeId}>
@@ -295,10 +295,10 @@ function AbsentDomain({ domain }: { domain: LiveMapDomain }) {
   if (domain.state.status === "available") return null;
   return (
     <section className="lm-absent" aria-labelledby={`live-map-${domain.domainId}`}>
-      <h3 id={`live-map-${domain.domainId}`} className="lm-absent-title">
+      <h2 id={`live-map-${domain.domainId}`} className="lm-absent-title">
         <Icon className="size-4 text-fg-muted" aria-hidden="true" />
         {domain.label}
-      </h3>
+      </h2>
       <StateNotice>{domain.state.detail}</StateNotice>
     </section>
   );
@@ -325,10 +325,10 @@ export function LiveMapCanvas({ projection }: { projection: LiveMapProjection })
             <OrganizationNode node={organizationNode} />
           ) : organization ? (
             <div className="lm-org-absent">
-              <h3 className="lm-absent-title">
+              <h2 className="lm-absent-title">
                 <Building2 className="size-4 text-fg-muted" aria-hidden="true" />
                 {organization.label}
-              </h3>
+              </h2>
               {organization.state.status !== "available" ? (
                 <StateNotice>{organization.state.detail}</StateNotice>
               ) : null}
@@ -339,14 +339,14 @@ export function LiveMapCanvas({ projection }: { projection: LiveMapProjection })
         <div className="lm-branch" aria-hidden={connected ? undefined : "true"} />
 
         <div className="lm-agents-group">
-          <h3 className="lm-group-label">
+          <h2 className="lm-group-label">
             {agents?.label ?? "Agents"}
             {agentNodes.length > 0 ? (
               <span className="lm-group-count">
                 {agentNodes.length} {agentNodes.length === 1 ? "agent" : "agents"}
               </span>
             ) : null}
-          </h3>
+          </h2>
           {agentNodes.length > 0 ? (
             <div className="lm-agents">
               <AgentOfficeSprite />

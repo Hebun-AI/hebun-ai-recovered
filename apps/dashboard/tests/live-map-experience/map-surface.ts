@@ -14,6 +14,7 @@
  * Rendered with `renderToStaticMarkup` against the released projection. No database, no browser.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 
@@ -220,6 +221,25 @@ async function agentsAndTheirRelationship(): Promise<void> {
   assert.ok(!orphaned.page.includes("agents.tenant_id"), "and no relationship is asserted");
 }
 
+/*
+ * The page's title is the H1 (`PageHeader`), so the map's own sections are H2. A skipped level hides the
+ * outline from anyone navigating by heading. Every branch that prints a heading is rendered: the organization
+ * and the domains, present and unreadable.
+ */
+async function theHeadingsDoNotSkipALevel(): Promise<void> {
+  const levels = (markup: string): number[] => [...markup.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1]));
+  const { markup: present } = await render(EVIDENCE);
+  const { markup: absent } = await render(EVIDENCE, IDENTITIES, { status: "unavailable", reason: "read-failed" });
+  for (const [label, markup] of [["present", present], ["unavailable", absent]] as const) {
+    const found = levels(markup);
+    assert.ok(found.length >= 2, `${label}: the map prints section headings`);
+    assert.equal(found[0], 2, `${label}: the first heading under the page title is an H2`);
+    assert.ok(found.every((level) => level === 2), `${label}: every map section is a sibling H2, found ${found.join(",")}`);
+  }
+  assert.match(readFileSync("src/app/(dashboard)/live-map/page.tsx", "utf8"), /<PageHeader\b/, "the H1 is the page header's");
+  assert.match(readFileSync("src/components/layout/page-header.tsx", "utf8"), /<h1\b/, "and that header prints one");
+}
+
 /* ── E + F · SELECTING AN AGENT REVEALS THE DERIVED OBSERVATION ───────────── */
 async function theInspectorRevealsOutcomeIntelligence(): Promise<void> {
   const { markup, page } = await renderOffice(EVIDENCE);
@@ -390,6 +410,7 @@ async function main(): Promise<void> {
   await unavailableIsNotZero();
   await noFictionIsDrawn();
   await theMapOffersNoControl();
+  await theHeadingsDoNotSkipALevel();
   await oneAgentAndNoAgents();
   console.log("live-map-experience — map surface checks passed");
 }
