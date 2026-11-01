@@ -72,5 +72,8 @@ called, no research mandate is granted and no research report exists.
     correctly absent and cannot be observed without a grant, which is not made for acceptance.
   - Still open: the Director's explicit confirmation that existing mandates on `/agents` are listed under
     "May propose" and none shows "May prepare". The agent has no signed-in session and cannot supply it.
+  - 2026-11-01, measured on the Director's signed-in session at `471e0dc8`, read-only: 4 mandates under
+    "May propose", 0 "May prepare", every `prepare-research` option unchecked; `/approvals` and `/operations`
+    open. Reached state and disposition are unchanged here: closing this is the Director's decision.
 - **GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED).** Owned by HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1.
   Production Anthropic credential binding is unverified; any research execution package depends on it.

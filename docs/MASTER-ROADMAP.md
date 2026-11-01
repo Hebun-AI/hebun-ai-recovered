@@ -5817,6 +5817,7 @@ re-graded here.
 | SELF-SERVICE-GOVERNANCE-E2E-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` |
 | RA-PREP-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
 | LIVE-MAP-AGENT-OFFICE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` |
+| APPROVED-OUTCOME-TRUTH-1 | VERIFIED | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` |
 
 ---
 
@@ -6023,5 +6024,10 @@ before §16.1 are not yet indexed (Phase B).
 | RA-PREP-1-RESEARCH-REVISE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Lifecycle | DEFERRED | A research report takes no revision from anyone; a change request is answered only by a new report until a research reviser is decided |
 | RA-PREP-1-MANDATE-PROVENANCE-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Provenance | CLOSED | Filing transaction re-reads the effective mandate, files only under the dispatch's revision and appends work-artifact.research-report.filed with mandateId and mandateRevision; no migration |
 | RA-PREP-1-CONCURRENT-DISPATCH-1 | RA-PREP-1 | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` | Cost control | DEFERRED | Low severity, no exposure (no surface): simultaneous requests each dispatch and file under their checked revision; persistent dispatch cap holds under the race; decide a lock or open-report rule with the surface |
-| LMO-PROD-SIGNED-IN-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED: a Director signed-in read of checklist items 1–4, 6 and 7 |
+| LMO-PROD-SIGNED-IN-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Verification gap | DEFERRED | Blocks PRODUCTION-ACCEPTED: a signed-in re-read of items 6b and 9 after the fix is released |
 | LMO-PROD-CROSS-TENANT-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Verification gap | DEFERRED | A read of the office route by a second signed-in organization |
+| LMO-PROD-LIFECYCLE-UNOBSERVED-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Verification gap | DEFERRED | An organic suspended or retired agent, read only; a state is not forced to test it |
+| AOT-NOT-RELEASED-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Release | DEFERRED | A Director-gated release, then a signed-in re-read of the focus ring and counts |
+| AOT-LEGACY-SPEND-UNKNOWN-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Evidence durability | DEFERRED | Spends before the link stay unknown; filling them in would invent a record |
+| AOT-CARD-GLANCE-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | A Director design decision on a fourth card count; unknown shows on the office page and in Details |
+| AOT-NO-ATTEMPT-WORDING-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | Attention and SIA-2 count attempts only, truly worded; a Director decision if they should read outcomes |
