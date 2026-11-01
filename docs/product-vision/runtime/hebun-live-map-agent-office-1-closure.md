@@ -1,8 +1,8 @@
 # LIVE-MAP-AGENT-OFFICE-1 · Live Map Phases 1–4B · closure record · DEPLOYED
 
 The base Agent section of Live Map as production serves it: scoped dark theme, accessible agent cards,
-static isometric scenes and the dynamic agent office route. Deployed, not accepted: **no signed-in
-production read has been made**, so nothing below claims that a page renders correctly for a person.
+static isometric scenes and the dynamic agent office route. Deployed, not accepted: the signed-in reads
+below pass, and the lifecycle and cross-tenant items stay open.
 
 ## Scope
 
@@ -43,7 +43,7 @@ The anonymous reads prove the session gate, not the page. Rollback target for 4B
 | 5 | Another tenant's agent renders the same not-found | PENDING — needs a second signed-in organization |
 | 6a | Dark theme and scenes render; phone width (375 px) has no horizontal scroll on `/live-map`, the office and `/agents`; one H1, scene `aria-hidden`, every control named | PASS |
 | 6b | Keyboard focus stays visible | PASS at `94949084`: whole ring on all 4 cards at 350 px, and on the second and third columns at 1280 px; Enter opens the office |
-| 6c | Headings do not skip a level | NOT PASS in production: `/live-map` goes H1 then H3, since `8fb299e1`. Fixed locally in `2886f0d2`, unverified until released (`LMO-A11Y-HEADING-SKIP-1`). The office page is ordered |
+| 6c | Headings do not skip a level | PASS at `2c1b43a1`: `/live-map` goes H1 then H2 on the populated view, no skip (`LMO-A11Y-HEADING-SKIP-1`, fix `2886f0d2`). The office page is ordered |
 | 7 | No console or hydration error on `/live-map` and the office route | PASS: only the two deliberate 404s |
 | 8 | Lifecycle words are true | PASS for `In service`, on all 4 agents, agreeing with `/agents`. Suspended and retired are PENDING: no such agent exists to observe (`LMO-PROD-LIFECYCLE-UNOBSERVED-1`) |
 | 9 | Counts are true | PASS at `94949084`: Engineering never executed 0, internal 1; Heby never executed 0, internal 1, unknown 1 (`hebun-approved-outcome-truth-1-closure.md`) |
@@ -51,6 +51,8 @@ The anonymous reads prove the session gate, not the page. Rollback target for 4B
 Item 5 is `LMO-PROD-CROSS-TENANT-1`. The tests below prove source and read seams only.
 
 **Signed-in acceptance, 2026-11-01.** Read-only in the built-in browser on the Director's own session, tenant Hebun AI, production `471e0dc8`. No form or action was used. Items 6b and 9 failed there, were fixed in `94949084`, and passed on a second signed-in read the same day (`dpl_HyXkPShcXaAsuZCAAePA6cV9THsc`). Each `/operations` load raises React #418 and no other page does: a separate existing issue, OPEN as `MEDIA3-ADMITTED-AT-HYDRATION-1`, not a Live Map defect. Live Map is not closed.
+
+**Signed-in acceptance, 2026-11-01, at `2c1b43a1`.** Read-only on the Director's own session, production `dpl_DCL42JTfBmwNjimxHM2phVWg6HAH`. H1 then H2, no skipped level; the four real agents show; keyboard focus rings work; the mobile view is verified; execution counts are correct. The Director accepted these results and closed `LMO-A11Y-HEADING-SKIP-1`; Live Map stays DEPLOYED. React #418 stays open: nothing here closes it. One #418 was seen once during this pass and did not reproduce on `/live-map`, the office route or `/agents`; its source is unknown.
 
 **Correction.** The first reading called `/live-map` headings ordered; only the office page had been measured, and item 6c records the truth.
 
@@ -65,21 +67,21 @@ person's own Chrome was not used. All seven items stay PENDING, and the state st
 - Phase: LIVE-MAP-AGENT-OFFICE-1
 - Owner: features/live-map (read seam, contracts, theme) + components/live-map (surface)
 - Reached state: DEPLOYED
-- Implementation commit: e284bf3c, 68deee7d, 56578b11, 803ab995, 5c6a1674
+- Implementation commit: e284bf3c, 68deee7d, 56578b11, 803ab995, 5c6a1674; heading fix 2886f0d2
 - Verification level: V2 — a shared Live Map surface and a tenant-scoped office read; no schema, provider, authority or lifecycle change
 - Verification evidence: 2026-11-01 on e7b0c0d3 (source identical to 5c6a1674 for every Live Map file), with a node_modules matching the lockfile: full suite 1128 PASS, 1 FAIL, 1 BLOCKED of 1130, 0 REGRESSION, every live-map-experience, l4-live-map and e23-live-map-intelligence suite among the PASS, including live-map-experience bite-proofs and agent-office-postgres; `tsc --noEmit` exit 0; `next build` exit 0. The one FAIL (plan-step-idempotency-1 bite-proofs) and the one BLOCKED (r3w ambient) are classified in hebun-ra-prep-1-closure.md and touch no Live Map file
 - Test environment: disposable detached worktree at e7b0c0d3; session-created PostgreSQL 18.6 on 127.0.0.1:55496, C locale, system_identifier 7703148169181862376, removed after the run
-- Deployment evidence: dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm (READY, PROMOTED, 5c6a1674, www and apex aliased), measured 2026-11-01
-- Production acceptance evidence: N/A — not accepted: heading item 6c is not passed, and lifecycle and cross-tenant items remain PENDING; every other item passed the signed-in reads recorded in the checklist
-- Deferred risks: LMO-PROD-SIGNED-IN-1 (CLOSED); LMO-PROD-CROSS-TENANT-1 (DEFERRED); LMO-PROD-LIFECYCLE-UNOBSERVED-1 (DEFERRED); LMO-A11Y-HEADING-SKIP-1 (DEFERRED)
-- Director approvals: closure record from verified evidence only, 2026-11-01 ("RA-PREP-1, ADIM 1", item 4); the approvals of the original Phase 1–4B pushes are not recorded in the repository and are not restated here
+- Deployment evidence: dpl_5HZuaK7pgTNTQJqKcH4FMLMd3dQm (READY, PROMOTED, 5c6a1674, www and apex aliased), measured 2026-11-01; the heading fix serves from dpl_DCL42JTfBmwNjimxHM2phVWg6HAH (READY, production, 2c1b43a1, www and apex aliased), measured 2026-11-01
+- Production acceptance evidence: N/A — not accepted: lifecycle and cross-tenant items remain PENDING; every other item passed the signed-in reads recorded in the checklist
+- Deferred risks: LMO-PROD-SIGNED-IN-1 (CLOSED); LMO-PROD-CROSS-TENANT-1 (DEFERRED); LMO-PROD-LIFECYCLE-UNOBSERVED-1 (DEFERRED); LMO-A11Y-HEADING-SKIP-1 (CLOSED)
+- Director approvals: closure record from verified evidence only, 2026-11-01 ("RA-PREP-1, ADIM 1", item 4); the approvals of the original Phase 1–4B pushes are not recorded in the repository and are not restated here; LMO-A11Y-HEADING-SKIP-1 closure on the signed-in production results, documentation only, local commit, push and deploy NOT approved, 2026-11-01
 
 ### Deferred risk detail
 
 - **LMO-PROD-SIGNED-IN-1 (CLOSED).** Signed-in reads on 2026-11-01 at `471e0dc8` and `94949084`.
-- **LMO-A11Y-HEADING-SKIP-1 (DEFERRED).** `PageHeader` prints the H1 and `LiveMapCanvas` printed every section as
-  an H3. Fixed locally in `2886f0d2`: the five section headings are H2, by Director decision. Closes on a
-  signed-in read after release. Evidence so far: `map-surface` asserts every map section is a sibling H2 on the
+- **LMO-A11Y-HEADING-SKIP-1 (CLOSED).** `PageHeader` prints the H1 and `LiveMapCanvas` printed every section as
+  an H3. Fixed in `2886f0d2`: the five section headings are H2, by Director decision. Closed on the signed-in
+  read at `2c1b43a1` (acceptance above). Evidence before release: `map-surface` asserts every map section is a sibling H2 on the
   present and unavailable branches, red before the change, and the four heading sites each bit a mutation; 30
   affected suites exit 0 including four bite-proofs; `tsc` and `eslint` exit 0; 14 computed style properties and
   the geometry of all 4 headings unchanged when the tags were swapped in the production DOM of one tab. The full
@@ -92,7 +94,7 @@ person's own Chrome was not used. All seven items stay PENDING, and the state st
 | TypeScript in that build | PASS: `Finished TypeScript in 7.6s` |
 | Preview `/live-map` headings | PASS: H1, then H2 Organization, Agents, Departments & teams, People; no skip; console clean |
 | What the preview covers | The tenant-less branch only: 0 environment variables, no database, 0 agent cards |
-| Populated Live Map headings | PENDING until production acceptance |
+| Populated Live Map headings | PASS: signed-in production read at `2c1b43a1` |
 
   The preview's remote branch was deleted after the read; production stayed on `94949084` throughout.
 - **LMO-PROD-LIFECYCLE-UNOBSERVED-1 (DEFERRED).** All 4 agents are in service, so the suspended and retired words
