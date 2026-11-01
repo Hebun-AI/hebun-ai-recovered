@@ -177,3 +177,31 @@ it activates nothing. No migration (ledger 83).
 2. GATE-D-PROVIDER-RECONCILIATION-1 closed before any production research call.
 3. A tenant research authorization through Governance, and a `prepare-research` mandate, each its own decision.
 4. A surface (RA-PREP-1-NO-SURFACE-1) — until then the seam is unreachable in production.
+
+## Integration onto current main (2026-11-01)
+
+Reached state unchanged: **VERIFIED**. Not pushed, not deployed.
+
+The candidate `d404e8a3` was merged onto remote `main` `5c6a1674` as `265d6afd` on
+`release/ra-prep-1-integration`. The 8 commits `main` gained since `03817c82` touch Live Map and
+`auth-email-ownership`; no source or test file overlaps the candidate's, and all 27 candidate source and
+test files are byte-identical to `d404e8a3` (`git diff --quiet`, exit 0). Authored ledger: 83, no `src/db`
+change. Two conflicts, both appends: §21 and `learnings.md`; every line of both sides is kept, and §22 kept
+the newer disposition of each row.
+
+| Check on 265d6afd | Result |
+|---|---|
+| Firewall, census and continuity suites, in sequence | 30/30 exit 0 |
+| Postgres suites, including ra-prep-1 R1–R9 | 14/14 exit 0; session-created PostgreSQL 18.6, 127.0.0.1:55496, C locale, system_identifier 7703038436500671166; constraint refusals seen in its server log |
+| `tsc --noEmit` | exit 0, 0 lines |
+| `eslint` on the 27 changed `.ts`/`.tsx` files | exit 0; 0 errors, 1 pre-existing warning (sci1 import) |
+| Secret-shaped strings in the added lines | none |
+| Disk gate T0–T5 (03:10–03:20Z) | **BLOCKED**: minimum 9.00 GiB at T2–T3, from a new 1 GiB `swapfile6`; VM volume 6.4 → 7.5 GB, closed by T4 |
+| `next build` | **NOT RUN** — withheld by the disk gate |
+| ra-prep-1 bite-proofs | **NOT RUN here** — withheld by the disk gate; 11/11 on `4821ee89` stands for byte-identical files |
+| Full suite | **NOT RUN here**; 1123/1124 on `4821ee89` predates the `main` side |
+| r3w ambient safety | **NOT RUN** — the listener on :55432 is another session's cluster |
+
+The build is required before release (CLAUDE.md test rule 6). Whether the full suite must run again is a
+Director release decision: the two sides are disjoint in source, and the merged tree has not been run
+end to end.

@@ -65,3 +65,11 @@ Open at freeze: **local disk 9.65 GiB, below the 10 GiB working minimum** (other
 during preparation; not measured). The candidate itself is verified. Before a push: re-read remote `main`,
 prove fast-forward, push without force, then verify the deployment record (READY, `githubCommitSha`,
 aliases) and an anonymous runtime read — push success is not deployment success.
+
+## Superseded base — integration 2026-11-01
+
+The tables above describe `4821ee89` on `03817c82` and stand as that candidate's record. The base moved:
+the candidate is now merge `265d6afd` on `5c6a1674`, branch `release/ra-prep-1-integration`. **Nothing was
+pushed or deployed.** Evidence and what is still unrun: `hebun-ra-prep-1-closure.md`, *Integration onto
+current main*. The push shape stays a fast-forward of `main`, now from `5c6a1674`. The disk gate is
+BLOCKED at this writing, so the release gate above stays open.
