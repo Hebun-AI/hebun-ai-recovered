@@ -127,12 +127,39 @@ export function isLiveCredentialPresent(
   return Boolean(env[ANTHROPIC_API_KEY_ENV]?.trim());
 }
 
-/** Map an HTTP status to a typed, redacted connectivity error. No provider text is surfaced. */
-function mapStatus(status: number): ModelConnectivityError {
+/** How long a refused response may take to yield its error type. Past it, the status alone decides. */
+const ERROR_BODY_READ_TIMEOUT_MS = 2_000;
+
+/**
+ * AI-FAILURE-TRUTH-1 — the one structured value read from a refused response: whether its
+ * `error.type` is `billing_error`. A closed comparison, so the provider's free text is never read,
+ * returned, stored or logged, and an unreadable body is simply `false`.
+ */
+async function hasBillingErrorType(response: { json(): Promise<unknown> }): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const body = await Promise.race([
+      response.json(),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ERROR_BODY_READ_TIMEOUT_MS);
+      }),
+    ]);
+    const error = (body as { error?: { type?: unknown } } | null)?.error;
+    return error?.type === "billing_error";
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Map an HTTP status and closed error type to a typed, redacted connectivity error. */
+function mapStatus(status: number, billingErrorType: boolean): ModelConnectivityError {
+  if (status === 402 || billingErrorType) return new ModelConnectivityError("provider-billing");
   if (status === 401 || status === 403) return new ModelConnectivityError("authentication-failed");
-  if (status === 429) return new ModelConnectivityError("rate-limited");
-  if (status === 400 || status === 404 || status === 422) return new ModelConnectivityError("invalid-configuration");
+  if (status === 429) return new ModelConnectivityError("provider-rate-limited");
   if (status >= 500) return new ModelConnectivityError("provider-unavailable");
+  if (status >= 400) return new ModelConnectivityError("provider-request-rejected");
   return new ModelConnectivityError("unknown-provider-error");
 }
 
@@ -228,7 +255,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       /*
        * EVERY GATE IS CHECKED BEFORE ANY NETWORK I/O, IN THIS ORDER, AND THE ORDER MATTERS.
        *
-       *   1. the output bound      — a configuration error, and it costs nothing to detect
+       *   1. the output bound      — a local refusal, and it costs nothing to detect
        *   2. this instance's cap   — pure, no shared state consumed
        *   3. the PROCESS budget    — the only one that MUTATES, so it is consumed last
        *
@@ -257,12 +284,12 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       }
       if (request.maxTokens > MAX_LIVE_OUTPUT_TOKENS) {
         throw new ModelConnectivityError(
-          "invalid-configuration",
+          "output-bound-exceeded",
           `Requested output tokens exceed the live budget of ${MAX_LIVE_OUTPUT_TOKENS}.`,
         );
       }
       if (calls >= maxCalls) {
-        throw new ModelConnectivityError("rate-limited", "This transport instance has already made its live call.");
+        throw new ModelConnectivityError("transport-call-limit", "This transport instance has already made its live call.");
       }
       /* AP-3 — a unit prepaid at admission is this send's unit; otherwise it is taken here. */
       if (prepaid) {
@@ -292,14 +319,14 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
           signal: controller.signal,
         });
       } catch (error) {
-        // Abort → timeout; anything else → provider unavailable. The raw error never surfaces.
+        // Abort → timeout; anything else → unreachable. Neither proves receipt. The raw error never surfaces.
         const aborted = error instanceof Error && error.name === "AbortError";
-        throw new ModelConnectivityError(aborted ? "timeout" : "provider-unavailable");
+        throw new ModelConnectivityError(aborted ? "timeout" : "provider-unreachable");
       } finally {
         clearTimeout(timer);
       }
 
-      if (!response.ok) throw mapStatus(response.status);
+      if (!response.ok) throw mapStatus(response.status, await hasBillingErrorType(response));
 
       let payload: unknown;
       try {

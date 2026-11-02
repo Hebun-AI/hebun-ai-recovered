@@ -42,6 +42,7 @@ import {
   generateHebyModelAnswer,
   selectModelTransport,
   ModelConnectivityError,
+  dispatchStateForFailure,
 } from "@/features/heby-model";
 import type { ModelGenerationRequest } from "@/features/heby-runtime";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
@@ -179,9 +180,6 @@ function refused(reason: WorkStateOriginationRefusal, detail?: string): Originat
   return detail === undefined ? { status: "refused", reason } : { status: "refused", reason, detail };
 }
 
-/** Codes the released transport raises BEFORE any network I/O (the released origination's list). */
-const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze(["invalid-configuration", "rate-limited", "budget-exhausted", "missing-credential"]);
-
 /**
  * Ask the agent once. ORDER: the proposer, the target and the human's state are all resolved before
  * any invocation is registered or any provider is called, so a refusal Hebun could already see costs
@@ -281,8 +279,7 @@ export async function originateWorkStateChange(
     };
   } catch (error) {
     if (error instanceof ModelConnectivityError) {
-      const dispatched = !PRE_DISPATCH_FAILURE_CODES.includes(error.code);
-      await settle(dispatched ? "dispatch-failed" : "not-dispatched", { failureCode: error.code, filingOutcome: "not-attempted" });
+      await settle(dispatchStateForFailure(error.code), { failureCode: error.code, filingOutcome: "not-attempted" });
       return refused("model-unavailable");
     }
     throw error;

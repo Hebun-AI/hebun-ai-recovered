@@ -201,13 +201,13 @@ async function main(): Promise<void> {
     {
       const result = await originateAgentAction(
         { workScope: { kind: "organization" as const }, goal: GOAL },
-        baseDeps(throwing("rate-limited")),
+        baseDeps(throwing("transport-call-limit")),
       );
       assert.equal(result.status, "refused");
       const rows = await invocations();
       const row = rows[rows.length - 1]!;
       assert.equal(row.state, "not-dispatched", "a pre-dispatch gate spent nothing");
-      assert.equal(row.failure_code, "rate-limited");
+      assert.equal(row.failure_code, "transport-call-limit");
       assert.equal(row.provider, null, "no provider facts exist for a call that never went out");
       assert.equal(row.filing_outcome, "not-attempted");
       assert.notEqual(row.state, "registered", "the row was finalized, not left ambiguous");
@@ -221,6 +221,22 @@ async function main(): Promise<void> {
       assert.equal(row.state, "dispatch-failed", "this one DID go out");
       assert.equal(row.failure_code, "provider-unavailable");
       assert.equal(row.input_tokens, null, "a failed dispatch returned no usage");
+    }
+
+    /* ═══ 4b. AI-FAILURE-TRUTH-1 — a provider refusal went out; a fence refusal did not ═══ */
+    for (const [code, state] of [
+      ["provider-billing", "dispatch-failed"],
+      ["provider-request-rejected", "dispatch-failed"],
+      ["provider-rate-limited", "dispatch-failed"],
+      ["provider-unreachable", "dispatch-failed"],
+      ["boundary-unavailable", "not-dispatched"],
+      ["output-bound-exceeded", "not-dispatched"],
+    ] as const) {
+      await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, baseDeps(throwing(code)));
+      const rows = await invocations();
+      const row = rows[rows.length - 1]!;
+      assert.equal(row.state, state, code);
+      assert.equal(row.failure_code, code);
     }
 
     /* ═══ 6. INVALID SELECTION — result kept, no proposal ═══ */

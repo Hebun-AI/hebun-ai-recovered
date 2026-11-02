@@ -253,6 +253,15 @@ async function main(): Promise<void> {
     );
     assert.equal(await agentIdOf(notDispatched), acmeAgentId, "an undispatched call is attributed");
 
+    /* 2d-bis. AI-FAILURE-TRUTH-1 — historical rows whose code cannot prove the state: read, not rewritten. */
+    for (const failureCode of ["invalid-configuration", "rate-limited"]) {
+      await finalizeInvocation(
+        acmeCtx,
+        { invocationId: await register(acmeCtx, acmeProposer), state: "not-dispatched", failureCode, filingOutcome: "not-attempted" },
+        baseDeps,
+      );
+    }
+
     /* 2e. registered and never finalized — the UNKNOWN outcome. Still attributed. */
     const stranded = await register(acmeCtx, acmeProposer);
     assert.equal(await agentIdOf(stranded), acmeAgentId, "a stranded call is attributed");
@@ -381,7 +390,8 @@ async function main(): Promise<void> {
     if (observation.status !== "read") throw new Error("unreachable");
     const heby = observation.agents[0]!;
 
-    assert.equal(heby.selection.attributed, 7, "seven attributed calls — the historical one is not");
+    assert.equal(heby.selection.attributed, 9, "nine attributed calls — the historical one is not");
+    assert.equal(heby.selection.dispatchUnverified, 2, "a historical code cannot prove the call stayed home");
     assert.equal(heby.selection.selectionInvalid, 1);
     assert.equal(heby.selection.noAction, 1);
     assert.equal(heby.selection.dispatchFailed, 1);
@@ -390,12 +400,13 @@ async function main(): Promise<void> {
     assert.equal(heby.selection.selectionValid, 2, "the refused filing and the proposed one");
     assert.equal(heby.selection.filingRefused, 1);
     assert.equal(heby.selection.filingProposed, 1);
-    assert.equal(heby.selection.filingNotAttempted, 5);
+    assert.equal(heby.selection.filingNotAttempted, 7);
 
     /* NO CLASS IS COLLAPSED — the six states partition the attributed calls exactly. */
     assert.equal(
       heby.selection.registered +
         heby.selection.notDispatched +
+        heby.selection.dispatchUnverified +
         heby.selection.dispatchFailed +
         heby.selection.selectionInvalid +
         heby.selection.noAction +
@@ -470,7 +481,8 @@ async function main(): Promise<void> {
       assert.ok(m, `observed metric "${key}" exists`);
       return m!;
     };
-    assert.equal(observedOf("selection-attributed").value, 7);
+    assert.equal(observedOf("selection-attributed").value, 9);
+    assert.equal(observedOf("selection-dispatch-unverified").value, 2);
     assert.equal(observedOf("selection-invalid").value, 1);
     assert.equal(observedOf("selection-no-action").value, 1);
     assert.equal(observedOf("selection-outcome-unrecorded").value, 1);
@@ -481,10 +493,10 @@ async function main(): Promise<void> {
     assert.equal(coverage.availability.state, "available");
     assert.equal(
       coverage.numerator,
-      6,
-      "six of seven calls have a KNOWN outcome — invalid and failed included",
+      8,
+      "eight of nine calls have a recorded outcome — invalid, failed and unverified included",
     );
-    assert.equal(coverage.denominator, 7);
+    assert.equal(coverage.denominator, 9);
     assert.notEqual(
       coverage.numerator,
       observedOf("selection-valid").value,

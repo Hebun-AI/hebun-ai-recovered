@@ -70,7 +70,7 @@ async function main(): Promise<void> {
   {
     const s = scriptedFetch(200, ANTHROPIC_OK);
     const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
-    await rejectsCode(() => transport.send({ ...REQUEST, maxTokens: MAX_LIVE_OUTPUT_TOKENS + 1 }), "invalid-configuration");
+    await rejectsCode(() => transport.send({ ...REQUEST, maxTokens: MAX_LIVE_OUTPUT_TOKENS + 1 }), "output-bound-exceeded");
     assert.equal(s.last(), undefined, "no request was dispatched over budget");
   }
 
@@ -100,11 +100,11 @@ async function main(): Promise<void> {
     const s = scriptedFetch(200, ANTHROPIC_OK);
     const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     await transport.send(REQUEST);
-    await rejectsCode(() => transport.send(REQUEST), "rate-limited");
+    await rejectsCode(() => transport.send(REQUEST), "transport-call-limit");
   }
 
   // 5. Error mapping — statuses map to typed, redacted errors.
-  for (const [status, code] of [[401, "authentication-failed"], [429, "rate-limited"], [400, "invalid-configuration"], [500, "provider-unavailable"]] as const) {
+  for (const [status, code] of [[401, "authentication-failed"], [429, "provider-rate-limited"], [400, "provider-request-rejected"], [500, "provider-unavailable"]] as const) {
     const s = scriptedFetch(status, { error: "should never surface" });
     const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl, maxLiveCalls: 5 });
     await rejectsCode(() => transport.send(REQUEST), code);

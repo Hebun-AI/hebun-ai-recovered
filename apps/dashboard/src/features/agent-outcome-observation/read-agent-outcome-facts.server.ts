@@ -145,6 +145,8 @@ export interface AgentSelectionFacts {
   /* ── The model-side lifecycle. `registered` means UNKNOWN, never "nothing happened". ── */
   readonly stateRegistered: number;
   readonly stateNotDispatched: number;
+  /* AI-FAILURE-TRUTH-1 — historical `not-dispatched` rows whose code cannot prove it. Never rewritten. */
+  readonly stateDispatchUnverified: number;
   readonly stateDispatchFailed: number;
   readonly stateSelectionInvalid: number;
   readonly stateNoAction: number;
@@ -600,7 +602,8 @@ export async function readAgentSelectionFacts(
       "heby_origination_invocations"."agent_id"::text as "agentId",
       count(*)                                        as "attributed",
       count(*) filter (where "heby_origination_invocations"."state" = 'registered')        as "stateRegistered",
-      count(*) filter (where "heby_origination_invocations"."state" = 'not-dispatched')    as "stateNotDispatched",
+      count(*) filter (where "heby_origination_invocations"."state" = 'not-dispatched' and "heby_origination_invocations"."failure_code" is distinct from 'invalid-configuration' and "heby_origination_invocations"."failure_code" is distinct from 'rate-limited') as "stateNotDispatched",
+      count(*) filter (where "heby_origination_invocations"."state" = 'not-dispatched' and "heby_origination_invocations"."failure_code" in ('invalid-configuration','rate-limited')) as "stateDispatchUnverified",
       count(*) filter (where "heby_origination_invocations"."state" = 'dispatch-failed')   as "stateDispatchFailed",
       count(*) filter (where "heby_origination_invocations"."state" = 'selection-invalid') as "stateSelectionInvalid",
       count(*) filter (where "heby_origination_invocations"."state" = 'no-action')         as "stateNoAction",
@@ -624,6 +627,7 @@ export async function readAgentSelectionFacts(
         attributed: toCount(row.attributed),
         stateRegistered: toCount(row.stateRegistered),
         stateNotDispatched: toCount(row.stateNotDispatched),
+        stateDispatchUnverified: toCount(row.stateDispatchUnverified),
         stateDispatchFailed: toCount(row.stateDispatchFailed),
         stateSelectionInvalid: toCount(row.stateSelectionInvalid),
         stateNoAction: toCount(row.stateNoAction),

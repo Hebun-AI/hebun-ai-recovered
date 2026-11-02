@@ -40,6 +40,7 @@ import type { PreparationBrief } from "@/features/work-artifacts/preparation-bri
 import {
   generateHebyModelAnswer,
   selectModelTransport,
+  MODEL_DISPATCH_FACTS,
   ModelConnectivityError,
   type ModelTransportSelection,
 } from "@/features/heby-model";
@@ -1601,7 +1602,7 @@ async function produceAnswer(args: {
     return {
       response: {
         ...withNote(deterministic, `Model generation failed (${code}); this answer is deterministic.`),
-        modelFallback: { kind: "provider-failed", code },
+        modelFallback: { kind: "provider-failed", code, dispatch: MODEL_DISPATCH_FACTS[code] },
       },
     };
   }

@@ -52,6 +52,7 @@ import {
   generateHebyModelAnswer,
   selectModelTransport,
   ModelConnectivityError,
+  dispatchStateForFailure,
 } from "@/features/heby-model";
 import { validateHebyPrompt, type ModelGenerationRequest } from "@/features/heby-runtime";
 /*
@@ -886,18 +887,6 @@ type SelectionOutcome =
       readonly result?: InvocationResultFacts;
     };
 
-/** Codes the released transport raises BEFORE any network I/O. Nothing was spent for these. */
-const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
-  /* Output bound exceeded — a configuration error, detected before anything goes out. */
-  "invalid-configuration",
-  /* The per-instance cap raises this; it does not dispatch. */
-  "rate-limited",
-  /* B1-C — an exhausted process budget, refused before any network I/O. */
-  "budget-exhausted",
-  /* Raised when the transport is CONSTRUCTED without a key, so no request can have been made. */
-  "missing-credential",
-]);
-
 /**
  * Run one model turn and turn its text into a selection, or a refusal.
  *
@@ -971,16 +960,13 @@ async function selectAction(
   } catch (error) {
     if (error instanceof ModelConnectivityError) {
       /*
-       * The code decides whether anything was spent. The released transport checks its output
-       * bound, its per-instance cap and the process budget BEFORE any I/O and raises those codes
-       * there; everything else arises at or after `fetch`. That is the whole basis for the claim,
-       * and it is why `provider-contacted` is never recorded.
+       * AI-FAILURE-TRUTH-1 — the code decides, through one table: only a code raised before any
+       * `fetch` may say `not-dispatched`. Every other code keeps the attempt on the record.
        */
-      const dispatched = !PRE_DISPATCH_FAILURE_CODES.includes(error.code);
       return {
         status: "refused",
         reason: "model-unavailable",
-        invocationState: dispatched ? "dispatch-failed" : "not-dispatched",
+        invocationState: dispatchStateForFailure(error.code),
         failureCode: error.code,
       };
     }

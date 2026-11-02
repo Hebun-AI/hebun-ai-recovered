@@ -191,7 +191,7 @@ async function main(): Promise<void> {
     let result = await revise(deps);
     assert.equal(result.status === "refused" && result.reason, "no-model-answer", "F1 a provider failure serves no model answer");
     let client = toPreparationClientResult(result);
-    assert.deepEqual(client.status === "refused" && client.modelFallback, { kind: "provider-failed", code: "timeout" }, "F1 named as a provider failure");
+    assert.deepEqual(client.status === "refused" && client.modelFallback, { kind: "provider-failed", code: "timeout", dispatch: "receipt-unknown" }, "F1 named as a provider failure");
     assert.notEqual(client.status === "refused" && client.modelFallback?.kind, "unavailable", "F1 never reported as a data-use refusal");
     assertClientSafe("F1", client);
     assert.deepEqual(await world(), before, "F1 nothing was written, permitted, requested or attempted");

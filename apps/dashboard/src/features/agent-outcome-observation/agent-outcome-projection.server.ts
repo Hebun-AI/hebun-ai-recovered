@@ -161,6 +161,7 @@ export interface AgentSelectionView {
   readonly attributed: number;
   readonly registered: number;
   readonly notDispatched: number;
+  readonly dispatchUnverified: number;
   readonly dispatchFailed: number;
   readonly selectionInvalid: number;
   readonly noAction: number;
@@ -327,6 +328,7 @@ const EMPTY_SELECTION: Omit<AgentSelectionFacts, "agentId"> = {
   attributed: 0,
   stateRegistered: 0,
   stateNotDispatched: 0,
+  stateDispatchUnverified: 0,
   stateDispatchFailed: 0,
   stateSelectionInvalid: 0,
   stateNoAction: 0,
@@ -475,6 +477,7 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
         attributed: sel.attributed,
         registered: sel.stateRegistered,
         notDispatched: sel.stateNotDispatched,
+        dispatchUnverified: sel.stateDispatchUnverified,
         dispatchFailed: sel.stateDispatchFailed,
         selectionInvalid: sel.stateSelectionInvalid,
         noAction: sel.stateNoAction,

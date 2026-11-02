@@ -11,7 +11,7 @@
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ModelConnectivityError } from "../../src/features/heby-model";
+import { dispatchStateForFailure, ModelConnectivityError } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import { modelFallbackSentence } from "../../src/components/operations-preparation/prepare-with-hebun";
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     const f = fetchWith(429);
     const budget = createLiveSpendBudget(2);
     const code = await codeOf(() => createLiveClaudeTransport({ apiKey: "k", fetchImpl: f.fetchImpl, spendBudget: budget }).send(REQ));
-    assert.equal(code, "rate-limited", "C2: a provider 429 keeps its code");
+    assert.equal(code, "provider-rate-limited", "C2: a provider 429 has its own code");
     assert.deepEqual([f.count(), budget.spent()], [1, 1], "C2: a 429 went out, so it spent a unit");
   }
 
@@ -63,7 +63,7 @@ async function main(): Promise<void> {
     const f = fetchWith(200);
     const t = createLiveClaudeTransport({ apiKey: "k", fetchImpl: f.fetchImpl, spendBudget: createLiveSpendBudget(5) });
     await t.send(REQ);
-    assert.equal(await codeOf(() => t.send(REQ)), "rate-limited", "C3: the instance cap is unchanged");
+    assert.equal(await codeOf(() => t.send(REQ)), "transport-call-limit", "C3: the instance cap has its own code");
   }
 
   /* C4 */
@@ -74,11 +74,10 @@ async function main(): Promise<void> {
     assert.match(said, /No revision was written/, "C4: and that nothing was filed");
   }
 
-  /* C5 */
+  /* C5 — AI-FAILURE-TRUTH-1: one table replaced the two code lists, and both origination paths read it. */
+  assert.equal(dispatchStateForFailure("budget-exhausted"), "not-dispatched", "C5: budget-exhausted is pre-dispatch");
   for (const file of ["src/features/agent-origination/originate-action.server.ts", "src/features/agent-origination/originate-work-state.server.ts"]) {
-    const src = readFileSync(file, "utf8");
-    const list = src.slice(src.indexOf("const PRE_DISPATCH_FAILURE_CODES"), src.indexOf("]);", src.indexOf("const PRE_DISPATCH_FAILURE_CODES")));
-    assert.match(list, /"budget-exhausted"/, `C5: ${file} counts budget-exhausted as pre-dispatch`);
+    assert.match(readFileSync(file, "utf8"), /dispatchStateForFailure\(error\.code\)/, `C5: ${file} reads the one table`);
   }
 
   /* C6 */

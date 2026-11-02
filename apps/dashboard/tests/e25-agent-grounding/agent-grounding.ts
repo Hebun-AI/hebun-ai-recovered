@@ -91,6 +91,7 @@ function agent(overrides: Partial<AgentOutcomeObservation> = {}): AgentOutcomeOb
       attributed: 0,
       registered: 0,
       notDispatched: 0,
+      dispatchUnverified: 0,
       dispatchFailed: 0,
       selectionInvalid: 0,
       noAction: 0,

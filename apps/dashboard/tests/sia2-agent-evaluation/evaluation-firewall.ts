@@ -128,6 +128,7 @@ function observation(over: Partial<AgentOutcomeObservation> = {}): AgentOutcomeO
       attributed: 0,
       registered: 0,
       notDispatched: 0,
+      dispatchUnverified: 0,
       dispatchFailed: 0,
       selectionInvalid: 0,
       noAction: 0,

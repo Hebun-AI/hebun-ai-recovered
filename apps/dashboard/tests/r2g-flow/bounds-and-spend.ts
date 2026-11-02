@@ -196,7 +196,7 @@ async function main(): Promise<void> {
     await assert.rejects(
       () => transport.send({ ...REQ, maxTokens: MAX_LIVE_OUTPUT_TOKENS + 1 }),
       (e: unknown) =>
-        e instanceof ModelConnectivityError && e.code === "invalid-configuration",
+        e instanceof ModelConnectivityError && e.code === "output-bound-exceeded",
     );
     assert.equal(s.count(), 0, "an over-bound request never reaches fetch");
     assert.equal(

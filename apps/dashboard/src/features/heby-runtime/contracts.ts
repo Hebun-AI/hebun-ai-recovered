@@ -258,8 +258,8 @@ export type HebyModelFallback =
   | { readonly kind: "director-disabled" }
   /** A gate refused before the transport — connectivity, data use, instruction channel or cap. */
   | { readonly kind: "unavailable"; readonly state: Exclude<ModelAvailabilityState, "AVAILABLE"> }
-  /** The transport raised. Whether the provider received the request is not known. */
-  | { readonly kind: "provider-failed"; readonly code: string }
+  /** The transport raised. `dispatch` is what the code proves; absent on records made before AI-FAILURE-TRUTH-1. */
+  | { readonly kind: "provider-failed"; readonly code: string; readonly dispatch?: "not-sent" | "receipt-unknown" | "provider-responded" }
   /**
    * The provider answered, and the answer failed validation and was withheld. AOR-1a: `issueCodes` names
    * which checks failed (the validator's closed codes, never its prose and never the withheld text);

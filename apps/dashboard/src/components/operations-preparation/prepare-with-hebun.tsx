@@ -120,7 +120,27 @@ export function modelFallbackSentence(fallback: HebyModelFallback): string {
       if (fallback.code === "budget-exhausted") {
         return `Hebun reached its short-term limit on live model calls, so the model was not asked. Try again in a minute. ${NOTHING_FILED}`;
       }
-      return `The request to the model provider did not succeed (${fallback.code}). Whether the provider received it is not known. ${NOTHING_FILED}`;
+      /* AI-FAILURE-TRUTH-1 — each sentence claims only what the failure code proves. A response is not completed work. */
+      if (fallback.code === "provider-billing") {
+        return `The model provider refused this request with a billing error. ${NOTHING_FILED}`;
+      }
+      if (fallback.code === "provider-rate-limited") {
+        return `The model provider limited this request. Try again later. ${NOTHING_FILED}`;
+      }
+      if (fallback.code === "provider-request-rejected") {
+        return `The model provider rejected this request. ${NOTHING_FILED}`;
+      }
+      if (fallback.code === "malformed-response") {
+        return `The model provider responded, but the response could not be read. ${NOTHING_FILED}`;
+      }
+      switch (fallback.dispatch) {
+        case "not-sent":
+          return `Hebun stopped this request before sending it (${fallback.code}), so the model was not asked. ${NOTHING_FILED}`;
+        case "provider-responded":
+          return `The model provider responded with an error (${fallback.code}). ${NOTHING_FILED}`;
+        default:
+          return `The request to the model provider did not succeed (${fallback.code}). Whether the provider received it is not known. ${NOTHING_FILED}`;
+      }
     case "withheld":
       return `The model answered, but its answer failed Hebun's validation and was withheld. ${NOTHING_FILED}`;
     case "unavailable":

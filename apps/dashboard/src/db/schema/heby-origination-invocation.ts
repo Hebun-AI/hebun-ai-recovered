@@ -59,9 +59,9 @@ import { agents } from "./agent";
  * `registered` is the initial state and is NOT a claim that anything was sent. A row left in it
  * means the outcome is UNKNOWN — a call may or may not have gone out — never "no call occurred".
  *
- * `not-dispatched` is the only state that positively proves nothing was spent: the released
- * transport refuses on its output bound, its per-instance cap, or an exhausted process budget
- * BEFORE any network I/O.
+ * `not-dispatched` is the only state that positively proves nothing was spent, ONLY for a failure
+ * code raised before any `fetch` (AI-FAILURE-TRUTH-1). Rows holding `invalid-configuration` or
+ * `rate-limited` predate that split and prove nothing: readers count them as dispatch unverified.
  *
  * There is no `provider-contacted`. The released adapter maps a DNS failure and a refused socket
  * to the same code, so "contacted" is not a fact Hebun can prove.
@@ -141,7 +141,7 @@ export const hebyOriginationInvocations = pgTable(
      *
      * Both are literal unions declared in this repository, so the column can hold no provider
      * message, no model text, no goal text and no fragment of a malformed response. That is a
-     * property of what the two writers can pass, not a convention: raw bodies are never read.
+     * property of what the two writers can pass, not a convention: a raw body is never stored.
      *
      * There is deliberately no CHECK enumerating the union. The two vocabularies belong to
      * released modules that evolve on their own schedules, and a storage constraint that had to be

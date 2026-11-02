@@ -22,7 +22,9 @@ export {
   type AvailabilityInputs,
 } from "./model-availability";
 export {
+  MODEL_DISPATCH_FACTS,
   ModelConnectivityError,
+  dispatchStateForFailure,
   toSafeConnectivityError,
   type ModelConnectivityErrorCode,
 } from "./model-error";

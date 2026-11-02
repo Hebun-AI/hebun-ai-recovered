@@ -27,7 +27,7 @@ import {
 import { evaluateModelAvailability } from "./model-availability";
 import { createClaudeModelClient } from "./claude-model-client";
 import type { ClaudeTransport } from "./claude-transport";
-import { ModelConnectivityError } from "./model-error";
+import { ModelConnectivityError, modelFailureLogLine } from "./model-error";
 import { isAnthropicMessagesEgress, prepayLiveDispatch } from "@/features/heby-model-live/claude-http-transport.server";
 import { liveBudgetExhaustedError } from "@/features/heby-model-live/live-spend-budget.server";
 import { admitAiDispatch, type AdmitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
@@ -104,7 +104,7 @@ function unavailable(
   const modelStatus = unavailableStatusFor(state);
   if (!modelStatus) {
     // Unreachable: only AVAILABLE returns null. Fail closed defensively.
-    throw new ModelConnectivityError("invalid-configuration");
+    throw new ModelConnectivityError("transport-unavailable");
   }
   return { status: "unavailable", state, modelStatus };
 }
@@ -212,7 +212,7 @@ export async function generateHebyModelAnswer(
     provider: config.provider!,
     transport: deps.transport,
   });
-  const result = await client.generate({
+  const generation = client.generate({
     ...request,
     ...(authorizedEvidence ? { evidence: authorizedEvidence } : {}),
     // The model id is authoritative from server config, not from the request.
@@ -234,5 +234,13 @@ export async function generateHebyModelAnswer(
       config.maxOutputTokens,
     ),
   });
-  return { status: "generated", result };
+  try {
+    return { status: "generated", result: await generation };
+  } catch (error) {
+    /* AI-FAILURE-TRUTH-1 — the live transport itself logs nothing; its one failure line is written here. */
+    if (isAnthropicMessagesEgress(deps.transport) && error instanceof ModelConnectivityError) {
+      console.warn(modelFailureLogLine(error.code));
+    }
+    throw error;
+  }
 }

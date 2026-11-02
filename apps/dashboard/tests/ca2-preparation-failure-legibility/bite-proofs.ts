@@ -34,7 +34,7 @@ const MUTATIONS: readonly { label: string; file: string; suite: string; apply: (
     label: "B2 a provider failure is reported as a data-use refusal",
     file: ANSWER,
     suite: PG,
-    apply: once(`modelFallback: { kind: "provider-failed", code },`, `modelFallback: { kind: "unavailable", state: "DATA_USE_NOT_AUTHORIZED" },`),
+    apply: once(`modelFallback: { kind: "provider-failed", code, dispatch: MODEL_DISPATCH_FACTS[code] },`,`modelFallback: { kind: "unavailable", state: "DATA_USE_NOT_AUTHORIZED" },`),
     expect: /F1 named as a provider failure/,
   },
   {

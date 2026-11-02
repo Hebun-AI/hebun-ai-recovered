@@ -5818,6 +5818,7 @@ re-graded here.
 | RA-PREP-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
 | LIVE-MAP-AGENT-OFFICE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` |
 | APPROVED-OUTCOME-TRUTH-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` |
+| AI-FAILURE-TRUTH-1 | VERIFIED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
 
 ---
 
@@ -5946,7 +5947,7 @@ before §16.1 are not yet indexed (Phase B).
 | OR2-PROD-DB-IMMUTABILITY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A Director-authorized read-only count of tenant_ai_data_use_authorizations revisions per tenant |
 | OR2-PROD-DECISION-EXECUTION-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification gap | DEFERRED | A real decision by an organization's own Governance holder, observed read-only |
 | OR1-ARMING-COPY-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-enterprise-operations-1-closure.md` | Legibility | CLOSED | — |
-| OR2-R3W-AMBIENT-DB-BLOCKED-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification environment | DEFERRED | A run with the canonical hebun_r1 at :55432 up, or a Director decision on the test's environment |
+| OR2-R3W-AMBIENT-DB-BLOCKED-1 | ORGANIZATION-READINESS-2 | `docs/product-vision/runtime/hebun-organization-readiness-2-closure.md` | Verification environment | DEFERRED | A run with the canonical hebun_r1 at :55432 up, or a Director decision on the test's environment. AI-FAILURE-TRUTH-1 passed it on an empty synthetic hebun_r1 on a disposable cluster: stand-in evidence, not a canonical run |
 | TA1-PROD-PENDING-UI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Verification gap | DEFERRED | A signed-in read-only render by the owner of an existing legitimate self-service organization that has no nomination |
 | TA1-PROD-PENDING-CLI-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-self-service-governance-e2e-1-closure.md` | Verification gap | CLOSED | — |
 | SIGNUP-EMAIL-UNVERIFIED-1 | TENANT-ACTIVATION-1 | `docs/product-vision/runtime/hebun-tenant-activation-1-closure.md` | Identity assurance | DEFERRED | A Director decision on email-ownership proof (mail runtime integration gate) and on existing self-service identities (schema gate) |
@@ -6032,3 +6033,8 @@ before §16.1 are not yet indexed (Phase B).
 | AOT-CARD-GLANCE-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | A Director design decision on a fourth card count; unknown shows on the office page and in Details |
 | AOT-NO-ATTEMPT-WORDING-1 | APPROVED-OUTCOME-TRUTH-1 | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` | Legibility | DEFERRED | Attention and SIA-2 count attempts only, truly worded; a Director decision if they should read outcomes |
 | LMO-A11Y-HEADING-SKIP-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Accessibility | DEFERRED | Fixed in 2886f0d2. Vercel Preview build and H1 to H2 pass on the tenant-less branch; the populated view stays pending until a signed-in production read. Local `next build` blocked by the disk watchdog |
+| AFT1-CA2-PIN-REGRESSION-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification reliability | CLOSED | — |
+| AFT1-FULL-SUITE-COMPOSITE-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | Evidence is 1131 from one full run plus 2 targeted files, never one run of 1133; a rerun is a Director decision |
+| AFT1-PROD-OBSERVATION-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | Release, deployment record and a Director-defined production read; not deployed and not observed |
+| AFT1-CREDIT-400-UNSPECIFIC-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Provider evidence | DEFERRED | A measured provider response to an exhausted balance; free text stays out of classification |
+| AFT1-DISPATCH-BITE-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | A Director decision on a permanent `dispatch` mutation in the CA2 bite-proofs |

@@ -221,6 +221,7 @@ function AgentBlock({ agent }: { agent: AgentOutcomeObservation }) {
           <Figure label="Chose no action" value={agent.selection.noAction} />
           <Figure label="Dispatch failed" value={agent.selection.dispatchFailed} />
           <Figure label="Never dispatched" value={agent.selection.notDispatched} />
+          <Figure label="Dispatch unverified" value={agent.selection.dispatchUnverified} tone="warn" />
           <Figure label="Outcome unrecorded" value={agent.selection.registered} tone="warn" />
           <Figure label="Filing refused" value={agent.selection.filingRefused} />
         </div>
