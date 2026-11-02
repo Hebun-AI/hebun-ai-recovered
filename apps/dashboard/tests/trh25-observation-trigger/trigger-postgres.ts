@@ -198,7 +198,8 @@ async function main(): Promise<void> {
     const blind = await scanDueObservations({ getDb: () => null });
     assert.deepEqual(
       blind,
-      { status: "unavailable", reason: "persistence-unavailable" },
+      /* SCAN-FAILURE-LEGIBILITY-1: no database handle is `not-configured`. */
+      { status: "unavailable", reason: "persistence-unavailable", cause: "not-configured" },
       "an unreadable register FAILS CLOSED and is never reported as an empty scan",
     );
 

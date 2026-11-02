@@ -217,7 +217,8 @@ const MUTATIONS: readonly Mutation[] = [
     file: SCAN,
     edits: [
       {
-        find: '    return { status: "unavailable", reason: "persistence-unavailable" };',
+        /* SCAN-FAILURE-LEGIBILITY-1: the unavailable result now also carries the closed cause. */
+        find: '    return { status: "unavailable", reason: "persistence-unavailable", cause: register.cause };',
         replace: '    return { status: "scanned", considered: 0, attempted: 0, recorded: 0, outcomes: [] };',
       },
     ],

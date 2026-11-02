@@ -175,7 +175,8 @@ async function unreadableIsNotEmpty(): Promise<void> {
   });
   assert.deepEqual(
     result,
-    { status: "unavailable", reason: "persistence-unavailable" },
+    /* SCAN-FAILURE-LEGIBILITY-1: a thrown error with no structured code is `unknown`. */
+    { status: "unavailable", reason: "persistence-unavailable", cause: "unknown" },
     "an unreadable register is UNAVAILABLE — never `scanned` with zero candidates",
   );
   assert.equal(calls, 0, "and nothing was attempted");

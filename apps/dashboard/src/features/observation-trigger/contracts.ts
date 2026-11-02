@@ -16,6 +16,7 @@
  * Server-safe: pure types and one pure classifier. No I/O, no database, no provider.
  */
 import type { ObserveOnceOutcome } from "@/features/provider-observation-history/observe-once-under-authorization.server";
+import type { PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 
 /**
  * What became of ONE authorization during ONE scan.
@@ -88,7 +89,7 @@ export type ScanResult =
       readonly outcomes: readonly ScannedAuthorizationOutcome[];
     }
   /** The authorization register could not be read. Nothing was attempted. */
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 /**
  * Translate one released composition outcome into this phase's vocabulary.

@@ -57,6 +57,7 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
+import { classifyPersistenceFailure, type PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { MACHINE_EXECUTABLE_ACTION_KINDS } from "@/features/governed-machine-execution/contracts";
 
@@ -98,7 +99,7 @@ export interface StandingIssuableRequest {
 export type StandingIssuableRequestsResult =
   | { readonly status: "read"; readonly requests: readonly StandingIssuableRequest[] }
   /** The control plane could not be read. NOTHING was discovered — which is not the same as none. */
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 function assertServerOnly(): void {
   if (typeof window !== "undefined") {
@@ -118,7 +119,7 @@ export async function listStandingIssuableRequestsForRuntime(
   assertServerOnly();
 
   const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
-  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable", cause: "not-configured" };
 
   const limit = Math.min(
     deps.limit ?? STANDING_ISSUABLE_REQUEST_SCAN_LIMIT,
@@ -196,8 +197,8 @@ export async function listStandingIssuableRequestsForRuntime(
       status: "read",
       requests: rows.map((row) => ({ requestId: row.requestId, tenantId: row.tenantId })),
     };
-  } catch {
+  } catch (error) {
     /* FAIL CLOSED, AND HONESTLY: we could not find out. Never "there were none". */
-    return { status: "unavailable", reason: "persistence-unavailable" };
+    return { status: "unavailable", reason: "persistence-unavailable", cause: classifyPersistenceFailure(error) };
   }
 }

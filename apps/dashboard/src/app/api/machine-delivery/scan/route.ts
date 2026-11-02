@@ -87,8 +87,9 @@ export async function GET(request: Request): Promise<Response> {
     /* The candidate register could not be read, so nothing was attempted. Reported as a server
      * fault rather than as an empty scan, because "nothing was deliverable" and "we could not find
      * out" are different facts and a scheduler dashboard must be able to tell them apart. */
-    /* OPERATIONAL-OBSERVABILITY-V1 — one log line, status and counts only; the response is unchanged. */
-    warnUnsuccessfulScan("machine-delivery", { status: "unavailable" });
+    /* OPERATIONAL-OBSERVABILITY-V1 — one log line, status and counts only; the response is unchanged.
+     * SCAN-FAILURE-LEGIBILITY-1 — the line names the closed cause; the body still does not. */
+    warnUnsuccessfulScan("machine-delivery", { status: "unavailable", cause: result.cause });
     return Response.json({ status: result.status, reason: result.reason }, { status: 503 });
   }
 

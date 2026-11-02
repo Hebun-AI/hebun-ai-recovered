@@ -107,7 +107,7 @@ export async function scanDeliverablePermits(
   if (register.status !== "read") {
     /* FAIL CLOSED. An unreadable register is not an empty one, and must never be reported as
      * "nothing was deliverable" — that would turn an outage into a silent, permanent pause. */
-    return { status: "unavailable", reason: "persistence-unavailable" };
+    return { status: "unavailable", reason: "persistence-unavailable", cause: register.cause };
   }
 
   const execute = deps.execute ?? executeRecordWorkAsMachine;

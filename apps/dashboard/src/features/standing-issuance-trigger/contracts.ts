@@ -34,6 +34,7 @@
  * Server-safe: pure types. No I/O, no database, no issuer call.
  */
 import type { StandingIssuanceResult } from "@/features/standing-mutation-authority/issue-permit-under-standing-authorization.server";
+import type { PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 
 /**
  * What became of ONE candidate request during ONE scan.
@@ -90,7 +91,7 @@ export type IssuanceScanResult =
    * Distinct from a scan that considered nothing: "there was nothing issuable" and "we could not
    * find out" are different facts, and a scheduler dashboard must be able to tell them apart.
    */
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 /**
  * Project the issuer's own result into this scan's report. A pure rename of shape, never of

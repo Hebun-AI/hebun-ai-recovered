@@ -17,7 +17,8 @@
  *
  * ── WHAT A LINE MAY CARRY ────────────────────────────────────────────────────
  *
- * The scan name, the tick status, the number of candidates considered, and per-STATUS counts. Every
+ * The scan name, the tick status, the number of candidates considered, and per-STATUS counts — or,
+ * for an unreadable register, one closed cause word (SCAN-FAILURE-LEGIBILITY-1). Every
  * key is a literal from the tables below, never a value read from an outcome: no reason word (some
  * are free strings), no tenant, permit, authorization or invocation id, no payload, no secret.
  *
@@ -29,6 +30,7 @@
 import type { ScanOutcome } from "@/features/observation-trigger/contracts";
 import type { DeliveryOutcome } from "@/features/machine-delivery-trigger/contracts";
 import type { IssuanceOutcome } from "@/features/standing-issuance-trigger/contracts";
+import type { PersistenceFailureCause } from "./classify-persistence-failure";
 
 export const CRON_SCAN_WARNING_EVENT = "cron-scan-unsuccessful";
 
@@ -65,9 +67,23 @@ export const UNSUCCESSFUL_SCAN_OUTCOMES = Object.freeze({
 
 export type CronScanName = keyof typeof UNSUCCESSFUL_SCAN_OUTCOMES;
 
+/** The words an unavailable line may carry. TOTAL over the cause union, so a new cause fails to compile here. */
+const LOGGABLE_CAUSES: Readonly<Record<PersistenceFailureCause, true>> = Object.freeze({
+  "not-configured": true,
+  connection: true,
+  authentication: true,
+  query: true,
+  unknown: true,
+});
+
+/** Re-closed at the boundary: whatever arrives, only one of the closed words is ever written. */
+function loggableCause(value: unknown): PersistenceFailureCause {
+  return typeof value === "string" && Object.hasOwn(LOGGABLE_CAUSES, value) ? (value as PersistenceFailureCause) : "unknown";
+}
+
 /** What one tick reported, reduced to what a log line may carry. */
 export type CronScanReport =
-  | { readonly status: "unavailable" }
+  | { readonly status: "unavailable"; readonly cause: PersistenceFailureCause }
   | {
       readonly status: "scanned";
       readonly considered: number;
@@ -103,7 +119,8 @@ export function warnUnsuccessfulScan(
   log: (line: string) => void = (line) => console.warn(line),
 ): boolean {
   if (report.status === "unavailable") {
-    log(JSON.stringify({ event: CRON_SCAN_WARNING_EVENT, scan, status: "unavailable" }));
+    const cause = loggableCause(report.cause);
+    log(JSON.stringify({ event: CRON_SCAN_WARNING_EVENT, scan, status: "unavailable", cause }));
     return true;
   }
   const unsuccessful = countUnsuccessfulOutcomes(scan, report.outcomes);

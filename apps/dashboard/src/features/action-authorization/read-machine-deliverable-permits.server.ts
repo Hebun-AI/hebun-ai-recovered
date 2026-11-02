@@ -52,6 +52,7 @@
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
+import { classifyPersistenceFailure, type PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { MACHINE_EXECUTABLE_ACTION_KINDS } from "@/features/governed-machine-execution/contracts";
 
@@ -90,7 +91,7 @@ export interface MachineDeliverablePermit {
 export type MachineDeliverablePermitsResult =
   | { readonly status: "read"; readonly permits: readonly MachineDeliverablePermit[] }
   /** The control plane could not be read. NOTHING was discovered — which is not the same as none. */
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 function assertServerOnly(): void {
   if (typeof window !== "undefined") {
@@ -110,7 +111,7 @@ export async function listMachineDeliverablePermitsForRuntime(
   assertServerOnly();
 
   const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
-  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable", cause: "not-configured" };
 
   const limit = Math.min(deps.limit ?? MACHINE_DELIVERABLE_PERMIT_SCAN_LIMIT, MACHINE_DELIVERABLE_PERMIT_SCAN_LIMIT);
 
@@ -158,8 +159,8 @@ export async function listMachineDeliverablePermitsForRuntime(
       .limit(limit);
 
     return { status: "read", permits: rows };
-  } catch {
+  } catch (error) {
     /* FAIL CLOSED, AND HONESTLY: we could not find out. Never "there were none". */
-    return { status: "unavailable", reason: "persistence-unavailable" };
+    return { status: "unavailable", reason: "persistence-unavailable", cause: classifyPersistenceFailure(error) };
   }
 }

@@ -28,6 +28,7 @@
  * Server-safe: pure types and one pure classifier. No I/O, no database, no executor call.
  */
 import type { MachineRecordWorkResult } from "@/features/governed-machine-execution/execute-record-work-as-machine.server";
+import type { PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 
 /**
  * What became of ONE candidate permit during ONE scan.
@@ -80,7 +81,7 @@ export type DeliveryScanResult =
       readonly outcomes: readonly ScannedPermitOutcome[];
     }
   /** The candidate register could not be read. Nothing was attempted. */
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 /**
  * Translate one released executor result into this phase's envelope.

@@ -148,7 +148,8 @@ function firewall(): void {
   }
   const helper = read("src/features/cron-scan-warning/warn-unsuccessful-scan.ts");
   const imports = [...helper.matchAll(/^import\s+(type\s+)?[^;]*from\s+"([^"]+)"/gm)];
-  assert.equal(imports.length, 3);
+  /* SCAN-FAILURE-LEGIBILITY-1 added a fourth, type-only import: the closed cause union. */
+  assert.equal(imports.length, 4);
   assert.ok(imports.every((m) => m[1]), "the warning helper imports types only");
   for (const banned of ["insert(", "update(", "delete(", "db.", "fetch(", "setTimeout", "setInterval"]) {
     assert.ok(!helper.includes(banned), `the warning helper contains no ${banned}`);

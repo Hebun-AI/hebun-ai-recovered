@@ -59,10 +59,15 @@ function oneLinePerUnsuccessfulTick(): void {
     unsuccessful: { refused: 2, failed: 1 },
   });
 
-  /* Unavailable writes one line with no counts. */
+  /* Unavailable writes one line with no counts. SCAN-FAILURE-LEGIBILITY-1 added the closed cause word. */
   const u = capture();
-  assert.equal(warnUnsuccessfulScan("observation", { status: "unavailable" }, u.log), true);
-  assert.deepEqual(JSON.parse(u.lines[0]!), { event: CRON_SCAN_WARNING_EVENT, scan: "observation", status: "unavailable" });
+  assert.equal(warnUnsuccessfulScan("observation", { status: "unavailable", cause: "connection" }, u.log), true);
+  assert.deepEqual(JSON.parse(u.lines[0]!), {
+    event: CRON_SCAN_WARNING_EVENT,
+    scan: "observation",
+    status: "unavailable",
+    cause: "connection",
+  });
 }
 
 function nothingButCategoriesAndCounts(): void {
@@ -132,7 +137,8 @@ async function routesKeepTheirContract(): Promise<void> {
       assert.equal(unavailable.status, 503, `${scan}: an unreadable register stays 503`);
       assert.deepEqual(await unavailable.json(), { status: "unavailable", reason: "persistence-unavailable" });
       assert.equal(warned.length, 1, `${scan}: exactly one line`);
-      assert.deepEqual(JSON.parse(warned[0]!), { event: CRON_SCAN_WARNING_EVENT, scan, status: "unavailable" });
+      /* SCAN-FAILURE-LEGIBILITY-1: no database configured is named as such, in the line only. */
+      assert.deepEqual(JSON.parse(warned[0]!), { event: CRON_SCAN_WARNING_EVENT, scan, status: "unavailable", cause: "not-configured" });
       assert.ok(!warned[0]!.includes(SECRET_LIKE), `${scan}: the bearer secret is not logged`);
       delete process.env[env];
     }

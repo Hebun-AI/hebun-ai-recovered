@@ -95,7 +95,7 @@ export async function scanDueObservations(
   if (register.status !== "read") {
     /* FAIL CLOSED. An unreadable register is not an empty one, and must never be reported as
      * "nothing was due" — that would turn an outage into a silent, permanent pause. */
-    return { status: "unavailable", reason: "persistence-unavailable" };
+    return { status: "unavailable", reason: "persistence-unavailable", cause: register.cause };
   }
 
   const now = deps.now ?? (() => new Date());

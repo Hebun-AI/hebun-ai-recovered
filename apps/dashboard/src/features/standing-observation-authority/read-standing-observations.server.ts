@@ -26,6 +26,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { standingObservationAuthorizations } from "@/db/schema/standing-observation-authorization";
+import { classifyPersistenceFailure, type PersistenceFailureCause } from "@/features/cron-scan-warning/classify-persistence-failure";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type {
   StandingObservationAuthorizationRecord,
@@ -287,7 +288,7 @@ export interface EffectiveStandingObservation {
 
 export type ActiveStandingObservationsResult =
   | { readonly status: "read"; readonly authorizations: readonly EffectiveStandingObservation[] }
-  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable"; readonly cause: PersistenceFailureCause };
 
 /**
  * Every ACTIVE, EFFECTIVE standing observation authorization in the deployment.
@@ -300,7 +301,7 @@ export async function listActiveStandingObservationsForRuntime(
 ): Promise<ActiveStandingObservationsResult> {
   assertServerOnly();
   const db = resolveDbOrNull(deps);
-  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable", cause: "not-configured" };
 
   try {
     const rows = (await db
@@ -335,7 +336,7 @@ export async function listActiveStandingObservationsForRuntime(
       });
     }
     return { status: "read", authorizations: active };
-  } catch {
-    return { status: "unavailable", reason: "persistence-unavailable" };
+  } catch (error) {
+    return { status: "unavailable", reason: "persistence-unavailable", cause: classifyPersistenceFailure(error) };
   }
 }
