@@ -64,6 +64,52 @@ Hebun holds `work-planning`. Order: run `--tenant=hebun --work-planning --revoke
 `--confirm`, phrase `REVOKE EXTERNAL AI DATA USE`), verify six scopes and zero `work-planning` rows, then
 roll back.
 
+## 5 · GATE-D provider reconciliation — correction (2026-10-22)
+
+This section corrects how GATE-D-PROVIDER-RECONCILIATION-1 may close. It changes no status: the phase stays
+`DEPLOYED` and the risk stays `BLOCKED`.
+
+**Authority boundary.** EAI disclosure evidence (`external-ai.disclosure.authorized` / `…refused` in
+`audit_log`) is written by the generator **before dispatch**, inside the dispatch-cap transaction, and is
+the cap's charge. It records the authorization decision only; its recorder states that `authorized` never
+means the call was sent or accepted. A provider result (message id, usage) does not exist when that row is
+written, and adding it afterwards would either rewrite append-only evidence or make the disclosure
+authority the owner of dispatch outcomes. Provider results belong to the established outcome authorities:
+`messages` (conversation turns, R2D provenance) and `heby_origination_invocations` (agent origination),
+joined to the disclosure decision by `correlation_id`. The earlier suggestion in this record to persist
+the message id and usage in disclosure evidence is withdrawn.
+
+**What a provider message id proves.** A message id (`msg_…`) or request id identifies one response. It
+does not establish the organization, workspace or API key that served it. Recording one — as
+HEBY-PLAN-DELEGATION-1 did for its origination, `msg_011Cg18B2G6b4fEfSktYeqB7` — is not reconciliation
+on its own.
+
+**Console corroboration (Director-reported, 2026-10-22).** The Director's Anthropic Console shows, for
+2026-10-13 UTC, workspace Dashboard, model Claude Haiku 4.5: 22:00–22:59
+535 input / 283 output tokens; 23:00–23:59 1 409 input / 294 output tokens. Hebun records one authorized
+work-planning dispatch at 22:38:15Z (Gate D) and two at 23:42–23:43Z (one planning call and one origination
+recorded at 875 / 68 tokens). The transport makes at most one call per instance and never retries. These
+records corroborate each other in time, model and workspace. They do not attribute individual
+requests: hourly totals are not per-request records, a key label is not proof of which credential
+production holds, and the earlier reading of 0 tokens for 2026-10-13 (section 3) is not explained by
+evidence, only plausibly by date boundary and observation time. State: **BLOCKED / CORROBORATED**.
+
+**Director decisions (2026-10-22).**
+
+1. No existing writer can hold AI Plan provider provenance without content: `messages` requires a
+   conversation, a role and content (all NOT NULL); `audit_log` is the Governance and disclosure
+   authority; `heby_origination_invocations` is owned by the agent-origination path only. AI Plan
+   metadata-only persistence is therefore not supported by an existing legitimate writer.
+2. Persisting AI Plan user input or plan content is not authorized. The runtime's published contract —
+   it persists no prompt or response — stands.
+3. No new provenance table is authorized.
+4. Existing origination provenance (`heby_origination_invocations`: provider message id and usage, over
+   the same transport and credential as the AI plan) may support future reconciliation.
+5. Any new provider call, including a verification call, requires separate Director approval.
+6. Capturing provider response headers (`anthropic-organization-id`, `anthropic-workspace-id`,
+   `request-id`) requires a separate design gate.
+7. Attribution of the historical Gate D call remains unresolved. Nothing recorded later proves it.
+
 ## Closure Contract (v1)
 
 - Phase: HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1
@@ -76,16 +122,17 @@ roll back.
 - Deployment evidence: dpl_7hZy2EcCWRCHnTomkQb1oP8mP6Hw READY production at e0c96157 (www.hebuntech.com, hebuntech.com)
 - Production acceptance evidence: N/A — withheld: GATE-D-PROVIDER-RECONCILIATION-1 is BLOCKED; browser and contract acceptance alone are not the full evidence package
 - Deferred risks: GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED); AI-PLAN-UI-THROW-1 (DEFERRED); AI-PLAN-RUNTIME-BROWSER-1 (CLOSED); RELEASE-ROLLBACK-FLOOR-1 (DEFERRED); AI-PLAN-INDIRECT-PROFILING-1 (DEFERRED); AI-PLAN-TITLE-PII-1 (DEFERRED)
-- Director approvals: Gate B production migration 77 (executed by the Director, 2026-10-13); Gate C Hebun-only work-planning grant and bounded acceptance of AI-PLAN-INDIRECT-PROFILING-1 for Hebun only (2026-10-13); Gate D exactly one real invocation from the Director's own authenticated session (2026-10-13); this record prepared on Director decision D3 (2026-10-14); commit, push and deploy NOT approved
+- Director approvals: Gate B production migration 77 (executed by the Director, 2026-10-13); Gate C Hebun-only work-planning grant and bounded acceptance of AI-PLAN-INDIRECT-PROFILING-1 for Hebun only (2026-10-13); Gate D exactly one real invocation from the Director's own authenticated session (2026-10-13); this record prepared on Director decision D3 (2026-10-14); commit, push and deploy NOT approved; documentation-only GATE-D correction (section 5) and its local commit (2026-10-22), push NOT approved
 
 ### Deferred risk detail
 
 - **GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)** — blocks `PRODUCTION-ACCEPTED` of this phase. Production's
-  Anthropic credential is not proven to belong to the Console organization/workspace observed, and no
-  provider-side identifier exists for the Gate D call. Closes with either Console usage and key "last
-  used" matching production's call days (2026-10-06/07/08/10/11/12/14 Europe/Istanbul), or a
-  Director-approved change that persists the provider message id and usage in disclosure evidence plus one
-  approved verification call.
+  Anthropic credential is not proven to belong to the Console organization, workspace or API key observed,
+  and no provider-side identifier exists for the Gate D call. Corrected 2026-10-22 (section 5): the
+  earlier suggestion to persist the provider message id and usage in disclosure evidence is withdrawn, and
+  a provider message id alone would not close this risk. It closes only on provider-side evidence that
+  binds production's calls to the organization, workspace and key — see section 5 for what may and may
+  not count. The historical Gate D call stays unattributed whatever is recorded later.
 - **AI-PLAN-UI-THROW-1 (DEFERRED)** — `runAiOperationalPlan` rethrows any error that is not a
   `ModelConnectivityError`; `use-heby-conversation.ts` awaits it in `try/finally` without `catch`, so such
   an error leaves "Preparing an AI plan…" on screen. Fails closed (nothing shown, nothing sent twice); a
