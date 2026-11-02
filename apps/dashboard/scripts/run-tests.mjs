@@ -31,6 +31,12 @@
  * names a file the suite does not have, names one twice, or omits a reason or a reassessment
  * condition is refused before any test runs: a stale exclusion would hide nothing today and anything
  * tomorrow.
+ *
+ * In that mode passes are counted, not derived, and the summary names "not run": total minus what was
+ * observed. A completed run prints "0 not run"; anything else fails. A run that dies early prints no
+ * summary at all, so its missing files are never read as passes. BLOCKED is not a result this runner
+ * can see: the test protocol is the exit code, and a blocked test exits non-zero like a failing one.
+ * It is counted as failed and names itself in its own output; the runner does not guess from text.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -84,6 +90,7 @@ if (manifestFlag >= 0 && !process.argv[manifestFlag + 1]) {
 const tests = collectTests("tests").sort();
 const exclusions = manifestFlag >= 0 ? readExclusions(process.argv[manifestFlag + 1], tests) : null;
 const failures = [];
+let passed = 0;
 
 for (const test of tests) {
   const excludedClass = exclusions?.get(relative(process.cwd(), test));
@@ -101,6 +108,7 @@ for (const test of tests) {
 
   if (result.status === 0) {
     console.log(`PASS ${label}`);
+    passed += 1;
     continue;
   }
 
@@ -120,13 +128,15 @@ for (const test of tests) {
   if (result.stderr) console.error(result.stderr.trim());
 }
 
+let notRun = 0;
 if (exclusions) {
-  const ran = tests.length - exclusions.size;
-  console.log(`\nTest summary: ${ran - failures.length} passed, ${failures.length} failed, ${exclusions.size} excluded, ${tests.length} total.`);
+  notRun = tests.length - passed - failures.length - exclusions.size;
+  console.log(`\nTest summary: ${passed} passed, ${failures.length} failed, ${exclusions.size} excluded, ${notRun} not run, ${tests.length} total.`);
+  console.log("BLOCKED is not a separate count: a blocked test exits non-zero and is counted as failed; its own output names it.");
 } else {
   console.log(`\nTest summary: ${tests.length - failures.length} passed, ${failures.length} failed, ${tests.length} total.`);
 }
 /* The identity travels with the count — see the header. */
 for (const failure of failures) console.log(`FAILED ${failure.label} (${failure.cause})`);
 for (const [label, excludedClass] of exclusions ?? []) console.log(`EXCLUDED ${label} (${excludedClass})`);
-if (failures.length > 0) process.exitCode = 1;
+if (failures.length > 0 || notRun !== 0) process.exitCode = 1;

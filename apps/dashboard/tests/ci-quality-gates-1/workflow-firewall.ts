@@ -178,17 +178,21 @@ function runnerChecks(): void {
     "a-pass.ts": "export {};\n",
     "b-excluded.ts": `console.log("B-RAN");\nprocess.exit(1);\n`,
     "c-fail.ts": "process.exit(1);\n",
+    "d-blocked.ts": `throw new Error("FIXTURE BLOCKED — dependency unreachable; this is NOT a pass");\n`,
   };
   const entry = (file: string) => ({ file, class: "BLOCKED", risk: "FIXTURE-1", reason: "fixture reason", reassess: "fixture reassessment" });
 
   const plain = runFixture(files, null);
   assert.equal(plain.status, 1);
-  assert.match(plain.stdout, /^Test summary: 1 passed, 2 failed, 3 total\.$/m, "without the flag the summary is unchanged");
+  assert.match(plain.stdout, /^Test summary: 1 passed, 3 failed, 4 total\.$/m, "without the flag the summary is unchanged");
   assert.ok(!plain.stdout.includes("EXCLUDED"), "without the flag nothing is excluded");
 
   const run = runFixture(files, { version: 1, exclusions: [entry("tests/b-excluded.ts")] });
   assert.equal(run.status, 1, "a real failure still fails the run");
-  assert.match(run.stdout, /^Test summary: 1 passed, 1 failed, 1 excluded, 3 total\.$/m, "an excluded file is counted on its own, never as a pass");
+  assert.match(run.stdout, /^Test summary: 1 passed, 2 failed, 1 excluded, 0 not run, 4 total\.$/m, "every file is accounted for; an excluded file is counted on its own, never as a pass");
+  assert.match(run.stdout, /^FAILED tests\/d-blocked\.ts \(exit 1\)$/m, "a blocked test is never a pass: it fails and is named");
+  assert.ok(!/^PASS tests\/d-blocked\.ts$/m.test(run.stdout), "a blocked test is not a pass");
+  assert.match(run.stdout, /^BLOCKED is not a separate count: /m, "the summary says BLOCKED is not distinguished, instead of reporting zero blocked");
   assert.ok(!run.stdout.includes("B-RAN") && !run.stdout.includes("PASS tests/b-excluded.ts"), "an excluded file does not run and is not a pass");
   assert.equal(run.stdout.match(/^EXCLUDED tests\/b-excluded\.ts \(BLOCKED\)$/gm)?.length, 2, "named when skipped and again next to the summary");
   assert.match(run.stdout, /^FAILED tests\/c-fail\.ts/m, "a failure outside the manifest is not hidden");
