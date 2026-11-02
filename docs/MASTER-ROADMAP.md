@@ -5818,7 +5818,8 @@ re-graded here.
 | RA-PREP-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ra-prep-1-closure.md` |
 | LIVE-MAP-AGENT-OFFICE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` |
 | APPROVED-OUTCOME-TRUTH-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` |
-| AI-FAILURE-TRUTH-1 | VERIFIED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
+| AI-FAILURE-TRUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
+| SCAN-FAILURE-LEGIBILITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` |
 
 ---
 
@@ -5931,7 +5932,7 @@ before §16.1 are not yet indexed (Phase B).
 | EXEC-RECON-V1-AUTH-UI-1 | EXECUTION-RECONCILIATION-V1 | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` | Verification gap | DEFERRED | A signed-in production read of `/approvals` while an `unknown` or `pending` attempt exists (ledger, section, empty state and accepted row already verified by the Director) |
 | EXEC-RECON-V1-WINDOW-BOUND-1 | EXECUTION-RECONCILIATION-V1 | `docs/product-vision/runtime/hebun-execution-reconciliation-v1-closure.md` | Verification gap | DEFERRED | Director decision to measure the `/approvals` maxDuration bound or keep the 180 s mark advisory |
 | OBS-V1-AUTH-UI-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | A signed-in production read of a timing state on an active, unconsumed agent-proposed record-work permit (page and consumed-permit absence already observed by the Director); no permit created to force it |
-| OBS-V1-CRON-LOG-PROD-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | An organically unsuccessful tick read from the Vercel runtime log; no failure induced |
+| OBS-V1-CRON-LOG-PROD-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Verification gap | DEFERRED | An organically unsuccessful tick read from the Vercel runtime log; no failure induced. Candidate evidence of 2026-11-01 20:00:18Z is held locally only (see the record); closing it is a Director decision |
 | OBS-V1-ISSUANCE-SURFACE-1 | OPERATIONAL-OBSERVABILITY-V1 | `docs/product-vision/runtime/hebun-operational-observability-v1-closure.md` | Product reach | DEFERRED | Director decision on a tenant-scoped reader of standing-issuable requests |
 | SH1-PROD-ACCEPTANCE-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Verification gap | CLOSED | Closed 2026-10-22: complete log window 08:38–11:09Z (310 records) with 0 5xx and 0 fatal, and Director-authenticated observations placed in the logs; Heby Server Action outcomes NOT VERIFIED (record section 6) |
 | SH1-RUNTIME-LOGS-1 | SECURITY-HARDENING-1 | `docs/product-vision/runtime/hebun-security-hardening-1-closure.md` | Verification gap | CLOSED | Closed 2026-10-22: deployment record read directly (READY, sha a6ba1dae) and the runtime-log window paged complete (record section 6) |
@@ -6035,6 +6036,9 @@ before §16.1 are not yet indexed (Phase B).
 | LMO-A11Y-HEADING-SKIP-1 | LIVE-MAP-AGENT-OFFICE-1 | `docs/product-vision/runtime/hebun-live-map-agent-office-1-closure.md` | Accessibility | CLOSED | Fixed in 2886f0d2. Signed-in production read at 2c1b43a1, 2026-11-01: H1 then H2 on the populated view, no skip |
 | AFT1-CA2-PIN-REGRESSION-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification reliability | CLOSED | — |
 | AFT1-FULL-SUITE-COMPOSITE-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | Evidence is 1131 from one full run plus 2 targeted files, never one run of 1133; a rerun is a Director decision |
-| AFT1-PROD-OBSERVATION-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | Release, deployment record and a Director-defined production read; not deployed and not observed |
+| AFT1-PROD-OBSERVATION-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | Deployed (`dpl_HTcopGBfQoWRY4tiZm6xovUJsJJe`); still needs a signed-in read (BLOCKED) and a natural provider failure (NOT OBSERVED) or a Director-defined scoped acceptance |
 | AFT1-CREDIT-400-UNSPECIFIC-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Provider evidence | DEFERRED | A measured provider response to an exhausted balance; free text stays out of classification |
 | AFT1-DISPATCH-BITE-1 | AI-FAILURE-TRUTH-1 | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` | Verification gap | DEFERRED | A Director decision on a permanent `dispatch` mutation in the CA2 bite-proofs |
+| SFL1-CAUSE-PROD-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Verification gap | DEFERRED | A deployment of this change and an organically unsuccessful tick with a `cause`, read from the runtime log; no failure induced |
+| SFL1-LOG-RETENTION-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Observability | DEFERRED | Retention is not known exactly (about 15 hours reachable on 2026-11-02); a Director decision on paid retention or a report cadence |
+| SFL1-NOTIFY-CHANNEL-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Observability | DEFERRED | A Director decision on a notification channel (cost confirmed first) or on who runs the report and when |

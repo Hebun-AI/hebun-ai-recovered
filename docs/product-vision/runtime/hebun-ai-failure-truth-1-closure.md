@@ -1,10 +1,14 @@
-# AI-FAILURE-TRUTH-1 · A failure record claims only what the failure proves · closure record · VERIFIED
+# AI-FAILURE-TRUTH-1 · A failure record claims only what the failure proves · closure record · DEPLOYED
 
-Package 1 of the Director's six-package development plan. **This package is NOT closed.** It is
-verified in a disposable copy and nothing more: the change is one local commit on
-`feat/ai-failure-truth-1`, it is not pushed, it is not on `main`, it is not deployed, and production was
-not observed.
-No state below `VERIFIED` is claimed, and none above it.
+Package 1 of the Director's six-package development plan. **Deployed, NOT production-accepted.** The
+change was verified in a disposable copy, released to `main` on 2026-11-02 and is running in production
+deployment `dpl_HTcopGBfQoWRY4tiZm6xovUJsJJe` (see *Release and deployment*). Production acceptance was
+not approved: the authenticated UI could not be read and no natural provider failure has occurred.
+No state above `DEPLOYED` is claimed.
+
+*Corrected 2026-11-02 by the SCAN-FAILURE-LEGIBILITY-1 documentation change. Sections below, until
+*Release and deployment*, are the record as written at `VERIFIED`; "local commit", "not pushed" and "not
+deployed" there describe that moment.*
 
 Unchanged by this package: GATE-D stays BLOCKED (`GATE-D-PROVIDER-RECONCILIATION-1`), the Research Agent
 stays passive, the tenant dispatch cap behaves as before, and historical records are not rewritten.
@@ -98,19 +102,34 @@ run against the canonical `hebun_r1`, and it proves nothing about any real datab
   shown these sentences or the `Dispatch unverified` figure. All provider behaviour here is a scripted fetch.
 - No paid model call, migration, credential or billing change, retry, or Research Agent activation.
 
+## Release and deployment (2026-11-02)
+
+| Gate | Measured |
+|---|---|
+| Release | `git push origin 7ea190bc…:refs/heads/main` at 11:33:25 +03, fast-forward `2c1b43a1..7ea190bc`, no force. Remote `main` read back as `7ea190bc063d94f01978827409a5d16a9d8252ce`. The release carried three commits: `eba803da` (implementation and this record), `2d6613c4` (LMO-A11Y-HEADING-SKIP-1 closure) and `7ea190bc` (GATE-D correction and dated assessment) |
+| Deployment | `dpl_HTcopGBfQoWRY4tiZm6xovUJsJJe`, target production, Ready, created 11:33:32 +03, build 54 s; Vercel `githubCommitSha` `7ea190bc063d94f01978827409a5d16a9d8252ce` (control: none for `2c1b43a1`). `www.hebuntech.com`, `hebuntech.com` and `hebun-ai-recovered.vercel.app` resolve to it (re-read 13:06 +03) |
+| Smoke | `/` 200, `/login` 200, apex 308 → `www`; signed-out `/agents`, `/approvals`, `/heby`, `/operations` 307 → `/login`; anonymous `/api/observation/scan` 401 |
+| Runtime log | Two cron rounds (12:00 and 13:00 +03): all three scans 200; the only `error` lines are the `pg` SSL-mode notice on a 200 observation tick, as before the release. No 5xx, no `fatal`, no `model-request-failed` line since the deployment |
+| Authenticated UI | **BLOCKED.** The session's built-in browser held no Hebun session (`/agents` → `/login`); no credentials were entered |
+| Natural provider failure | **NOT OBSERVED.** No `model-request-failed` line in the deployment's runtime log; no model call was made and no failure induced |
+| Production acceptance | **NOT APPROVED** (Director, 2026-11-02, read-only acceptance check: NO-GO) |
+
+Rollback target if one is ever approved: the previous production deployment
+`dpl_DCL42JTfBmwNjimxHM2phVWg6HAH` (`2c1b43a1`). No rollback was performed.
+
 ## Closure Contract (v1)
 
 - Phase: AI-FAILURE-TRUTH-1
 - Owner: features/heby-model (failure codes and dispatch facts) + features/heby-model-live (classification)
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Reached state: DEPLOYED
+- Implementation commit: eba803da54a57c62007695dac1a50656f48dd31a — released on `main` in the fast-forward 2c1b43a1..7ea190bc
 - Verification level: V3 — provider and execution boundary, with a changed client-bound contract; no schema, authority or tenant behaviour change
 - Verification evidence: final full suite `node scripts/run-tests.mjs` on a disposable detached copy of 2c1b43a1 plus the candidate diff: 1131 PASS, 2 FAIL, 0 BLOCKED, 0 NOT RUN, exit 1; both FAIL classified REGRESSION and repaired in test expectations only, production code unchanged; after the repair `surface-and-firewall` exit 0, `fallback-postgres` exit 0, `bite-proofs` exit 0 with 10 mutations bit, `failure-truth` T1–T12 exit 0; M1–M8 8/8 KILLED on the final code; `tsc --noEmit` exit 0; `eslint` on both changed tests exit 0; `next build` exit 0 before the repair. 1133 PASS was never reported by a single run.
 - Test environment: disposable copy outside the repository, HEAD 2c1b43a1; disposable PostgreSQL 18 at 127.0.0.1:55432 only, system_identifier 7703319182503336424, created in the implementation session, identity re-measured before each run, no foreign clients; synthetic empty `hebun_r1` as above; macOS Darwin 25.2.0, Node 24.16.0; logs retained locally, not in the repository
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — production was not observed; no real provider failure has been measured
+- Deployment evidence: dpl_HTcopGBfQoWRY4tiZm6xovUJsJJe, target production, Ready, githubCommitSha 7ea190bc063d94f01978827409a5d16a9d8252ce, created 2026-11-02 11:33:32 +03; aliases www.hebuntech.com, hebuntech.com, hebun-ai-recovered.vercel.app
+- Production acceptance evidence: N/A — NOT APPROVED; authenticated UI BLOCKED (no session in this session's browser); natural provider failure NOT OBSERVED; only smoke and two cron rounds were read
 - Deferred risks: AFT1-CA2-PIN-REGRESSION-1 (CLOSED); AFT1-FULL-SUITE-COMPOSITE-1 (DEFERRED); AFT1-PROD-OBSERVATION-1 (DEFERRED); AFT1-CREDIT-400-UNSPECIFIC-1 (DEFERRED); AFT1-DISPATCH-BITE-1 (DEFERRED); OR2-R3W-AMBIENT-DB-BLOCKED-1 (DEFERRED); EHO-1-RED-SUITE-BASELINE-1 (DEFERRED); GATE-D-PROVIDER-RECONCILIATION-1 (BLOCKED)
-- Director approvals: scope, 2026-11-01 ("MASTER ROADMAP APPROVAL & PHASE 0 CONTROL"); implementation, 2026-11-02 ("IMPLEMENTATION GO"); final validation on the disposable cluster, 2026-11-02 ("OPTION A APPROVED, STRICTLY SCOPED"); test-expectation repair, 2026-11-02 ("LIMITED REPAIR GO"); this record, 2026-11-02 ("DOCUMENTATION-ONLY GO"); one local commit, 2026-11-02 ("CONDITIONAL LOCAL COMMIT GO"). No push, merge, deploy, production observation or closure has been approved.
+- Director approvals: scope, 2026-11-01 ("MASTER ROADMAP APPROVAL & PHASE 0 CONTROL"); implementation, 2026-11-02 ("IMPLEMENTATION GO"); final validation on the disposable cluster, 2026-11-02 ("OPTION A APPROVED, STRICTLY SCOPED"); test-expectation repair, 2026-11-02 ("LIMITED REPAIR GO"); this record, 2026-11-02 ("DOCUMENTATION-ONLY GO"); one local commit, 2026-11-02 ("CONDITIONAL LOCAL COMMIT GO"). production push of 7ea190bc, deployment verification and read-only observation, 2026-11-02 ("PRODUCTION PUSH GO"); read-only acceptance check, 2026-11-02 ("READ-ONLY ACCEPTANCE GO"), result NO-GO; this correction to DEPLOYED, 2026-11-02 ("DOCUMENTATION GO", Package 2). Production acceptance and rollback NOT approved.
 
 ### Deferred risk detail
 
@@ -119,9 +138,10 @@ run against the canonical `hebun_r1`, and it proves nothing about any real datab
 - **AFT1-FULL-SUITE-COMPOSITE-1 (DEFERRED).** The final evidence is 1131 from one full run plus 2 targeted
   files, so no single run proves all 1133 together. Only two test files changed after that run. A rerun needs
   a Director decision and at least 15.2 GiB free.
-- **AFT1-PROD-OBSERVATION-1 (DEFERRED).** Every result is synthetic. Production acceptance needs a release, a
-  deployment record and a measured production failure or a Director-defined read. Anthropic readiness itself
-  stays blocked by GATE-D.
+- **AFT1-PROD-OBSERVATION-1 (DEFERRED).** Released and deployed (`dpl_HTcopGBfQoWRY4tiZm6xovUJsJJe`), but every
+  classification result is still synthetic. Still needed: a signed-in read of `/agents`, `/approvals`,
+  `/operations` and `/heby` (BLOCKED in this session), and a natural provider failure (NOT OBSERVED) or a
+  Director-defined scoped acceptance. Anthropic readiness itself stays blocked by GATE-D.
 - **AFT1-CREDIT-400-UNSPECIFIC-1 (DEFERRED).** A credit refusal delivered as HTTP 400 without
   `error.type: billing_error` becomes `provider-request-rejected`, by decision: free text decides nothing. The
   record is true but does not name billing. The transport's real response to an exhausted balance after this
@@ -137,7 +157,7 @@ run against the canonical `hebun_r1`, and it proves nothing about any real datab
 
 Also recorded: `contracts.ts` says `dispatch` is absent on records made before this package, but `modelFallback`
 is not persisted. A comment only; left alone under the no-code rule of this documentation step. Production's
-deployed SHA was not measured for this record: UNAVAILABLE.
+deployed SHA was not measured when this record was first written; it is measured in *Release and deployment*.
 
 ## Weekly three questions
 

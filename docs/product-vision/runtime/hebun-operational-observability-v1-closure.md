@@ -104,3 +104,19 @@ implementation reports (2026-10-20).
 **Lesson.** Operational visibility for a trigger that by design persists nothing comes from two
 places only: a redacted log line for the tick, and the authoritative rows' own state on screen. Any
 in-product "why" needs a separately decided record, not a trigger that remembers.
+
+## Amendment, 2026-11-02 — candidate evidence for OBS-V1-CRON-LOG-PROD-1 (risk unchanged)
+
+Recorded by the SCAN-FAILURE-LEGIBILITY-1 documentation change. **This amendment closes nothing**:
+OBS-V1-CRON-LOG-PROD-1 stays DEFERRED until the Director decides.
+
+During the Package 1 release preflight a runtime-log read (`vercel logs --environment production --json`,
+read-only) returned an organically unsuccessful tick: `/api/observation/scan` on deployment
+`dpl_DCL42JTfBmwNjimxHM2phVWg6HAH` at 2026-11-01T20:00:18Z answered 503, and its log entry carried the
+released line `{"event":"cron-scan-unsuccessful","scan":"observation","status":"unavailable"}`. No failure
+was induced. The other two scans in that tick answered 200.
+
+**Where the evidence is.** Only in a local file of that session (`ret-48h.txt` in its scratchpad), outside
+the repository. Vercel kept about 15 hours of runtime log when it was measured, so the entry **may no
+longer be reachable in Vercel**, and it cannot be re-read to confirm it. Why the register was unreadable
+is UNAVAILABLE: the line predates SCAN-FAILURE-LEGIBILITY-1, which adds the cause.
