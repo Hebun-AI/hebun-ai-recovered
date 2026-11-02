@@ -22,8 +22,17 @@
  * more than that was KILLED and reported as failing even when it asserted nothing and would have
  * exited 0. That is a false failure manufactured by the runner. The measured worst case in this
  * suite is ~3KB, so this changes no present result — it removes a trap that grows with the suite.
+ *
+ * ── --exclude-manifest <path> (CI-QUALITY-GATES-1) ───────────────────────────
+ *
+ * Without the flag nothing changes: every file runs and the summary line is the one above. With it,
+ * the files a manifest names are not run, and each is printed as EXCLUDED with its class, next to the
+ * summary, which then counts them on their own. An excluded file is never a pass. A manifest that
+ * names a file the suite does not have, names one twice, or omits a reason or a reassessment
+ * condition is refused before any test runs: a stale exclusion would hide nothing today and anything
+ * tomorrow.
  */
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -40,10 +49,48 @@ function collectTests(directory) {
   });
 }
 
+const EXCLUSION_CLASSES = new Set(["BLOCKED", "PRE-EXISTING"]);
+
+function readExclusions(manifestPath, discovered) {
+  const refuse = (why) => {
+    console.error(`run-tests: exclusion manifest refused: ${why}`);
+    process.exit(2);
+  };
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch (error) {
+    refuse(`${manifestPath} is not readable JSON (${error.message})`);
+  }
+  if (manifest?.version !== 1 || !Array.isArray(manifest.exclusions)) refuse("expected { version: 1, exclusions: [...] }");
+  const known = new Set(discovered.map((test) => relative(process.cwd(), test)));
+  const excluded = new Map();
+  for (const entry of manifest.exclusions) {
+    const text = (key) => typeof entry?.[key] === "string" && entry[key].trim() !== "";
+    if (!text("file") || !text("reason") || !text("reassess") || !text("risk")) refuse(`entry ${JSON.stringify(entry?.file)} needs file, reason, reassess and risk`);
+    if (!EXCLUSION_CLASSES.has(entry.class)) refuse(`${entry.file}: class must be one of ${[...EXCLUSION_CLASSES].join(", ")}`);
+    if (!known.has(entry.file)) refuse(`${entry.file} is not a test file of this suite`);
+    if (excluded.has(entry.file)) refuse(`${entry.file} is named twice`);
+    excluded.set(entry.file, entry.class);
+  }
+  return excluded;
+}
+
+const manifestFlag = process.argv.indexOf("--exclude-manifest");
+if (manifestFlag >= 0 && !process.argv[manifestFlag + 1]) {
+  console.error("run-tests: --exclude-manifest needs a path");
+  process.exit(2);
+}
 const tests = collectTests("tests").sort();
+const exclusions = manifestFlag >= 0 ? readExclusions(process.argv[manifestFlag + 1], tests) : null;
 const failures = [];
 
 for (const test of tests) {
+  const excludedClass = exclusions?.get(relative(process.cwd(), test));
+  if (excludedClass) {
+    console.log(`EXCLUDED ${relative(process.cwd(), test)} (${excludedClass})`);
+    continue;
+  }
   const result = spawnSync(process.execPath, ["--import", "tsx", test], {
     cwd: process.cwd(),
     encoding: "utf8",
@@ -73,7 +120,13 @@ for (const test of tests) {
   if (result.stderr) console.error(result.stderr.trim());
 }
 
-console.log(`\nTest summary: ${tests.length - failures.length} passed, ${failures.length} failed, ${tests.length} total.`);
+if (exclusions) {
+  const ran = tests.length - exclusions.size;
+  console.log(`\nTest summary: ${ran - failures.length} passed, ${failures.length} failed, ${exclusions.size} excluded, ${tests.length} total.`);
+} else {
+  console.log(`\nTest summary: ${tests.length - failures.length} passed, ${failures.length} failed, ${tests.length} total.`);
+}
 /* The identity travels with the count — see the header. */
 for (const failure of failures) console.log(`FAILED ${failure.label} (${failure.cause})`);
+for (const [label, excludedClass] of exclusions ?? []) console.log(`EXCLUDED ${label} (${excludedClass})`);
 if (failures.length > 0) process.exitCode = 1;
