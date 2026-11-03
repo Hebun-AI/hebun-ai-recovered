@@ -538,7 +538,8 @@ const counts = (record: Readonly<Record<string, number>>): string =>
 
 const describeChildren = (children: readonly ChildProcSample[]): string =>
   children
-    .map((c) => (c.status === "read" ? `${c.type}:${c.state}/${c.cpuMs}ms/${c.wchan}/${c.threads}t` : `${c.type}:${c.status}`))
+    /* ":" separates fields and "," separates children: no "/" anywhere, so the no-path check stays absolute. */
+    .map((c) => (c.status === "read" ? `${c.type}:${c.state}:${c.cpuMs}ms:${c.wchan}:${c.threads}t` : `${c.type}:${c.status}`))
     .sort()
     .join(",") || "none";
 

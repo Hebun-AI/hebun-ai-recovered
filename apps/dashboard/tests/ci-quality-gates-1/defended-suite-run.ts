@@ -30,6 +30,7 @@ import {
   readProcIdentity,
   runDefendedSuite,
   type DefendedSuiteRun,
+  type ProcMetadata,
 } from "../helpers/defended-suite-run";
 
 const ROOT = process.cwd();
@@ -105,6 +106,22 @@ async function run(name: string, short = true): Promise<{ run: DefendedSuiteRun;
   return { run: result, pid, mode };
 }
 
+/* The closed grammar of one childProc entry: class, then either a sample or the reason there is none. */
+const CHILD_PROC_ENTRY =
+  /^(node|esbuild|python|postgres|shell|other):((R|S|D|Z|T|other):\d+ms:(running|futex|pipe|poll|wait|sleep|io|other|unknown):\d+t|exited|identity-mismatch|unavailable)$/;
+
+function childProcField(line: string): string {
+  const m = / childProc=(\S+)/.exec(line);
+  assert.ok(m, `childProc is described: ${line}`);
+  return m[1]!;
+}
+
+function assertChildProcGrammar(label: string, line: string): void {
+  const field = childProcField(line);
+  if (field === "none") return;
+  for (const entry of field.split(",")) assert.match(entry, CHILD_PROC_ENTRY, `${label}: childProc entry ${entry}`);
+}
+
 /* Nothing in the returned values may carry a path, the sentinel, or Node's report notice. */
 function assertClosed(name: string, result: DefendedSuiteRun): void {
   const metadata = JSON.stringify(result.diagnostic) + JSON.stringify(result.proc) + describeDiagnostic(result);
@@ -125,6 +142,14 @@ function assertClosed(name: string, result: DefendedSuiteRun): void {
       assert.ok(childClasses.includes(c.type), `${name}: child sample class ${c.type}`);
     }
   }
+}
+
+/* A run carrying a given /proc sample, to check how it is described. */
+function syntheticRun(proc: ProcMetadata): DefendedSuiteRun {
+  return {
+    ok: false, output: "", timedOut: true, ended: "sigterm", cleanupComplete: true, stdio: "closed", proc,
+    diagnostic: { status: "absent", handles: {}, jsFrames: null, workers: null },
+  };
 }
 
 /* ── A synthetic /proc tree: the logic, on every platform. ── */
@@ -175,6 +200,23 @@ async function syntheticProc(): Promise<void> {
     childProcs: [{ type: "esbuild", status: "read", state: "S", cpuMs: 50, threads: 6, wchan: "poll" }],
   });
   assert.ok(!JSON.stringify(read).includes("node (x)") && !JSON.stringify(read).includes("futex_wait"), "no raw name or symbol");
+
+  /* The described line: path-safe fields, the closed grammar, and the same no-path rule as every run. */
+  const described = describeDiagnostic(syntheticRun(read));
+  assert.equal(childProcField(described), "esbuild:S:50ms:poll:6t");
+  assertChildProcGrammar("synthetic", described);
+  assert.ok(!described.includes("/"), `no "/" in the described line: ${described}`);
+  assert.ok(!described.includes("ep_poll") && !described.includes("node (x)") && !described.includes("libuv-worker"), "no raw symbol or name");
+  const mismatchLine = describeDiagnostic(syntheticRun({
+    ...read,
+    childProcs: [
+      { type: "esbuild", status: "identity-mismatch", state: null, cpuMs: null, threads: null, wchan: null },
+      { type: "node", status: "exited", state: null, cpuMs: null, threads: null, wchan: null },
+    ],
+  }));
+  assert.equal(childProcField(mismatchLine), "esbuild:identity-mismatch,node:exited");
+  assertChildProcGrammar("synthetic mismatch", mismatchLine);
+  assert.ok(!mismatchLine.includes("/"));
 
   /* A child whose identity changes inside the window is a mismatch, never a description. */
   seed();
@@ -391,6 +433,8 @@ async function main(): Promise<void> {
         assert.equal(c!.status, "read", describeDiagnostic(syncwait.run));
         assert.equal(c!.state, "S", describeDiagnostic(syncwait.run));
         assert.ok((c!.cpuMs ?? 1e9) < 200, describeDiagnostic(syncwait.run));
+        assert.match(childProcField(describeDiagnostic(syncwait.run)), /^node:S:\d+ms:[a-z]+:\d+t$/, describeDiagnostic(syncwait.run));
+        assertChildProcGrammar("syncwait", describeDiagnostic(syncwait.run));
         assertClosed("syncwait", syncwait.run);
         return syncwait.run;
       } finally {
