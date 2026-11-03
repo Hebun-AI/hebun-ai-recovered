@@ -76,9 +76,23 @@ export interface DiagnosticMetadata {
  * still match when sampled, so a recycled pid is reported as `identity-mismatch`, never described.
  * A child that is gone is `exited`; anything unreadable is `unavailable`. Reading /proc sends no
  * signal and changes nothing about the child.
+ *
+ * M2-R9T: thread names as classes (Node names its main thread "MainThread" and its workers
+ * "WorkerThread" on Linux), and each verified direct child sampled across the same window — its
+ * pid from our child's children list, its parent pid our child's, its start time no earlier than our
+ * child's and unchanged between the two samples.
  */
 export type ProcStatus = "not-requested" | "read" | "unavailable" | "exited" | "identity-mismatch";
 export type WchanClass = "running" | "futex" | "pipe" | "poll" | "wait" | "sleep" | "io" | "other" | "unknown";
+
+export interface ChildProcSample {
+  readonly type: string;
+  readonly status: "read" | "exited" | "identity-mismatch" | "unavailable";
+  readonly state: NonNullable<ProcMetadata["state"]> | null;
+  readonly cpuMs: number | null;
+  readonly threads: number | null;
+  readonly wchan: WchanClass | null;
+}
 
 export interface ProcMetadata {
   readonly status: ProcStatus;
@@ -87,11 +101,15 @@ export interface ProcMetadata {
   readonly cpuMs: number | null;
   readonly threads: number | null;
   readonly threadStates: Readonly<Record<string, number>>;
+  /** Thread names as classes: MainThread, WorkerThread, other. */
+  readonly threadNames: Readonly<Record<string, number>>;
   /** What the main thread waits on, as a class. */
   readonly wchan: WchanClass | null;
   /** Direct children whose parent pid is the child's. */
   readonly children: number | null;
   readonly childTypes: Readonly<Record<string, number>>;
+  /** Each verified direct child, sampled across the same window. */
+  readonly childProcs: readonly ChildProcSample[];
 }
 
 export interface ProcIdentity {
@@ -133,7 +151,7 @@ const USER_HZ_MS = 10;
 const STATES = new Set(["R", "S", "D", "Z", "T"]);
 
 const NO_PROC: ProcMetadata = {
-  status: "not-requested", state: null, cpuMs: null, threads: null, threadStates: {}, wchan: null, children: null, childTypes: {},
+  status: "not-requested", state: null, cpuMs: null, threads: null, threadStates: {}, threadNames: {}, wchan: null, children: null, childTypes: {}, childProcs: [],
 };
 
 interface StatFields {
@@ -191,12 +209,18 @@ export function classifyWchan(symbol: string | null, state: string | null): Wcha
 
 /** A process name is reduced to a class; the name itself is never returned. */
 export function classifyChild(comm: string): string {
-  if (comm === "node") return "node";
+  /* Node 24 renames its main thread "MainThread" on Linux, and stat's comm is the main thread's name. */
+  if (comm === "node" || comm === "MainThread") return "node";
   if (comm.startsWith("esbuild")) return "esbuild";
   if (/^python/.test(comm)) return "python";
   if (/^(postgres|postmaster)/.test(comm)) return "postgres";
   if (/^(sh|bash|dash|zsh)$/.test(comm)) return "shell";
   return "other";
+}
+
+/** A thread name is reduced to a class; the name itself is never returned. */
+export function classifyThread(comm: string): "MainThread" | "WorkerThread" | "other" {
+  return comm === "MainThread" || comm === "WorkerThread" ? comm : "other";
 }
 
 /** Taken right after spawn. Null when /proc cannot vouch for this pid being our own child. */
@@ -226,16 +250,17 @@ export async function readProcDiagnostic(
   const root = options.root ?? PROC_ROOT;
   const first = checkedStat(root, identity);
   if (typeof first === "string") return { ...NO_PROC, status: first };
+  const childStart = verifiedChildren(root, identity);
   await sleep(options.windowMs ?? PROC_WINDOW_MS);
   const second = checkedStat(root, identity);
   if (typeof second === "string") return { ...NO_PROC, status: second };
+  const childProcs = (childStart ?? []).map((c) => sampleChild(root, c));
 
   const wchanRead = readProc(root, `${identity.pid}/wchan`);
   const wchan = classifyWchan("text" in wchanRead ? wchanRead.text : null, second.state);
 
   const threadStates: Record<string, number> = {};
-  const childPids = new Set<number>();
-  let childrenReadable = false;
+  const threadNames: Record<string, number> = {};
   let tids: string[] = [];
   try {
     tids = readdirSync(path.join(root, `${identity.pid}/task`)).filter((t) => /^\d+$/.test(t));
@@ -248,23 +273,13 @@ export async function readProcDiagnostic(
     if (ts) {
       const k = stateClass(ts.state);
       threadStates[k] = (threadStates[k] ?? 0) + 1;
-    }
-    const c = readProc(root, `${identity.pid}/task/${tid}/children`);
-    if ("text" in c) {
-      childrenReadable = true;
-      for (const p of c.text.trim().split(/\s+/)) if (/^\d+$/.test(p)) childPids.add(Number(p));
+      const n = classifyThread(ts.comm);
+      threadNames[n] = (threadNames[n] ?? 0) + 1;
     }
   }
+  /* Count and types come from the same verified list the samples use: one notion of "our child's child". */
   const childTypes: Record<string, number> = {};
-  let children = 0;
-  for (const cpid of childPids) {
-    const c = readProc(root, `${cpid}/stat`);
-    const cs = "text" in c ? parseStat(c.text) : null;
-    if (!cs || cs.ppid !== identity.pid) continue;
-    children += 1;
-    const k = classifyChild(cs.comm);
-    childTypes[k] = (childTypes[k] ?? 0) + 1;
-  }
+  for (const c of childStart ?? []) childTypes[c.type] = (childTypes[c.type] ?? 0) + 1;
 
   return {
     status: "read",
@@ -272,9 +287,71 @@ export async function readProcDiagnostic(
     cpuMs: Math.max(0, second.ticks - first.ticks) * USER_HZ_MS,
     threads: second.threads,
     threadStates,
+    threadNames,
     wchan,
-    children: childrenReadable ? children : null,
+    children: childStart === null ? null : childStart.length,
     childTypes,
+    childProcs,
+  };
+}
+
+interface ChildStart {
+  readonly pid: number;
+  readonly type: string;
+  readonly startTime: string;
+  readonly ticks: number;
+}
+
+/** Null when no task's children list can be read: the count is then unknown, not zero. */
+function childPidsOf(root: string, pid: number): number[] | null {
+  const out = new Set<number>();
+  let readable = false;
+  let tids: string[] = [];
+  try {
+    tids = readdirSync(path.join(root, `${pid}/task`)).filter((t) => /^\d+$/.test(t));
+  } catch {
+    return null;
+  }
+  for (const tid of tids) {
+    const c = readProc(root, `${pid}/task/${tid}/children`);
+    if (!("text" in c)) continue;
+    readable = true;
+    for (const p of c.text.trim().split(/\s+/)) if (/^\d+$/.test(p)) out.add(Number(p));
+  }
+  return readable ? [...out] : null;
+}
+
+/** Direct children of our child: listed by it, parented by it, and started no earlier than it. */
+function verifiedChildren(root: string, identity: ProcIdentity): ChildStart[] | null {
+  const pids = childPidsOf(root, identity.pid);
+  if (pids === null) return null;
+  const out: ChildStart[] = [];
+  for (const cpid of pids) {
+    const r = readProc(root, `${cpid}/stat`);
+    const cs = "text" in r ? parseStat(r.text) : null;
+    if (!cs || cs.ppid !== identity.pid || Number(cs.startTime) < Number(identity.startTime)) continue;
+    out.push({ pid: cpid, type: classifyChild(cs.comm), startTime: cs.startTime, ticks: cs.ticks });
+  }
+  return out;
+}
+
+/** The same child at the end of the window, or why it cannot be described. */
+function sampleChild(root: string, start: ChildStart): ChildProcSample {
+  const none = { state: null, cpuMs: null, threads: null, wchan: null };
+  const r = readProc(root, `${start.pid}/stat`);
+  if ("missing" in r) return { type: start.type, status: "exited", ...none };
+  const cs = "text" in r ? parseStat(r.text) : null;
+  if (!cs) return { type: start.type, status: "unavailable", ...none };
+  if (cs.startTime !== start.startTime) return { type: start.type, status: "identity-mismatch", ...none };
+  if (cs.state === "Z") return { type: start.type, status: "exited", ...none };
+  const w = readProc(root, `${start.pid}/wchan`);
+  return {
+    type: start.type,
+    status: "read",
+    state: stateClass(cs.state),
+    cpuMs: Math.max(0, cs.ticks - start.ticks) * USER_HZ_MS,
+    threads: cs.threads,
+    wchan: classifyWchan("text" in w ? w.text : null, cs.state),
   };
 }
 
@@ -459,6 +536,12 @@ const counts = (record: Readonly<Record<string, number>>): string =>
     .map(([k, n]) => `${k}:${n}`)
     .join(",") || "none";
 
+const describeChildren = (children: readonly ChildProcSample[]): string =>
+  children
+    .map((c) => (c.status === "read" ? `${c.type}:${c.state}/${c.cpuMs}ms/${c.wchan}/${c.threads}t` : `${c.type}:${c.status}`))
+    .sort()
+    .join(",") || "none";
+
 /** One line of closed values for an assertion message. */
 export function describeDiagnostic(run: DefendedSuiteRun): string {
   const handles = Object.entries(run.diagnostic.handles)
@@ -480,9 +563,11 @@ export function describeDiagnostic(run: DefendedSuiteRun): string {
           `cpuMs=${run.proc.cpuMs}`,
           `threads=${run.proc.threads}`,
           `threadStates=${counts(run.proc.threadStates)}`,
+          `threadNames=${counts(run.proc.threadNames)}`,
           `wchan=${run.proc.wchan}`,
           `children=${run.proc.children ?? "unknown"}`,
           `childTypes=${counts(run.proc.childTypes)}`,
+          `childProc=${describeChildren(run.proc.childProcs)}`,
         ]
       : []),
   ].join(" ");

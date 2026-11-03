@@ -23,6 +23,7 @@ import path from "node:path";
 import {
   DEFENDED_SUITE_TIMEOUT_MS,
   classifyChild,
+  classifyThread,
   classifyWchan,
   describeDiagnostic,
   readProcDiagnostic,
@@ -113,10 +114,16 @@ function assertClosed(name: string, result: DefendedSuiteRun): void {
   assert.ok(!result.output.includes("Node.js report"), `${name}: Node's report notice must not reach the output`);
   assert.ok(!result.output.includes(os.tmpdir()), `${name}: no temporary path in the output`);
   assert.deepEqual(Object.keys(result.diagnostic).sort(), ["handles", "jsFrames", "status", "workers"]);
-  assert.deepEqual(Object.keys(result.proc).sort(), ["childTypes", "children", "cpuMs", "state", "status", "threadStates", "threads", "wchan"]);
+  assert.deepEqual(Object.keys(result.proc).sort(), ["childProcs", "childTypes", "children", "cpuMs", "state", "status", "threadNames", "threadStates", "threads", "wchan"]);
   if (result.proc.status === "read") {
-    for (const k of Object.keys(result.proc.childTypes)) assert.ok(["node", "esbuild", "python", "postgres", "shell", "other"].includes(k), `${name}: child class ${k}`);
+    const childClasses = ["node", "esbuild", "python", "postgres", "shell", "other"];
+    for (const k of Object.keys(result.proc.childTypes)) assert.ok(childClasses.includes(k), `${name}: child class ${k}`);
     for (const k of Object.keys(result.proc.threadStates)) assert.ok(["R", "S", "D", "Z", "T", "other"].includes(k), `${name}: thread state ${k}`);
+    for (const k of Object.keys(result.proc.threadNames)) assert.ok(["MainThread", "WorkerThread", "other"].includes(k), `${name}: thread class ${k}`);
+    for (const c of result.proc.childProcs) {
+      assert.deepEqual(Object.keys(c).sort(), ["cpuMs", "state", "status", "threads", "type", "wchan"], `${name}: child sample keys`);
+      assert.ok(childClasses.includes(c.type), `${name}: child sample class ${c.type}`);
+    }
   }
 }
 
@@ -139,25 +146,46 @@ async function syntheticProc(): Promise<void> {
     /* A name with spaces and parentheses: comm ends at the LAST ")". */
     write(`${pid}/stat`, statLine(pid, "node (x) y", "S", process.pid, 100, 3, "777"));
     write(`${pid}/wchan`, "futex_wait_queue");
-    write(`${pid}/task/${pid}/stat`, statLine(pid, "node", "R", process.pid, 0, 3, "777"));
-    write(`${pid}/task/4243/stat`, statLine(4243, "V8 Worker", "S", process.pid, 0, 3, "777"));
+    write(`${pid}/task/${pid}/stat`, statLine(pid, "MainThread", "R", process.pid, 0, 3, "777"));
+    write(`${pid}/task/4243/stat`, statLine(4243, "WorkerThread", "S", process.pid, 0, 3, "777"));
     write(`${pid}/task/4244/stat`, statLine(4244, "libuv-worker", "S", process.pid, 0, 3, "777"));
-    write(`${pid}/task/${pid}/children`, "5001 5002 ");
-    write(`5001/stat`, statLine(5001, "esbuild", "S", pid, 0, 1, "800"));
+    write(`${pid}/task/${pid}/children`, "5001 5002 5003 ");
+    write(`5001/stat`, statLine(5001, "esbuild", "S", pid, 0, 6, "800"));
+    write(`5001/wchan`, "ep_poll");
     /* Listed, but its parent is not our child: never counted. */
     write(`5002/stat`, statLine(5002, "python3", "S", 1, 0, 1, "801"));
+    /* Listed and parented by our child, but started before it: a recycled pid, never described. */
+    write(`5003/stat`, statLine(5003, "node", "S", pid, 0, 1, "100"));
   };
   seed();
 
   const identity = readProcIdentity(pid, root);
   assert.deepEqual(identity, { pid, ppid: process.pid, startTime: "777" }, "identity is start time and parent");
   /* CPU used during the window: 30 ticks of USER_HZ is 300 ms. */
-  setTimeout(() => write(`${pid}/stat`, statLine(pid, "node (x) y", "S", process.pid, 130, 3, "777")), 50);
+  setTimeout(() => {
+    write(`${pid}/stat`, statLine(pid, "node (x) y", "S", process.pid, 130, 3, "777"));
+    write(`5001/stat`, statLine(5001, "esbuild", "S", pid, 5, 6, "800"));
+  }, 50);
   const read = await readProcDiagnostic(identity, { root, windowMs: 200 });
   assert.deepEqual(read, {
-    status: "read", state: "S", cpuMs: 300, threads: 3, threadStates: { R: 1, S: 2 }, wchan: "futex", children: 1, childTypes: { esbuild: 1 },
+    status: "read", state: "S", cpuMs: 300, threads: 3, threadStates: { R: 1, S: 2 },
+    threadNames: { MainThread: 1, WorkerThread: 1, other: 1 }, wchan: "futex",
+    /* 5002 has another parent and 5003 started before our child: neither is counted or sampled. */
+    children: 1, childTypes: { esbuild: 1 },
+    childProcs: [{ type: "esbuild", status: "read", state: "S", cpuMs: 50, threads: 6, wchan: "poll" }],
   });
   assert.ok(!JSON.stringify(read).includes("node (x)") && !JSON.stringify(read).includes("futex_wait"), "no raw name or symbol");
+
+  /* A child whose identity changes inside the window is a mismatch, never a description. */
+  seed();
+  setTimeout(() => write(`5001/stat`, statLine(5001, "esbuild", "S", pid, 0, 6, "999")), 50);
+  assert.deepEqual((await readProcDiagnostic(identity, { root, windowMs: 200 })).childProcs, [
+    { type: "esbuild", status: "identity-mismatch", state: null, cpuMs: null, threads: null, wchan: null },
+  ]);
+  seed();
+  setTimeout(() => rmSync(path.join(root, "5001"), { recursive: true }), 50);
+  assert.equal((await readProcDiagnostic(identity, { root, windowMs: 200 })).childProcs[0]?.status, "exited");
+  seed();
 
   /* Identity mismatch: a recycled pid with another start time, or another parent. */
   write(`${pid}/stat`, statLine(pid, "node", "S", process.pid, 130, 3, "999"));
@@ -192,8 +220,11 @@ async function syntheticProc(): Promise<void> {
     ["0", "S", "unknown"], ["", "S", "unknown"], ["something_new", "S", "other"],
   ] as const) assert.equal(classifyWchan(symbol, state), expected, `wchan ${symbol}/${state}`);
   assert.equal(classifyWchan(null, "R"), "unknown");
-  for (const [comm, expected] of [["node", "node"], ["esbuild", "esbuild"], ["python3", "python"], ["postgres", "postgres"], ["bash", "shell"], ["ffprobe", "other"]] as const) {
+  for (const [comm, expected] of [["node", "node"], ["MainThread", "node"], ["WorkerThread", "other"], ["esbuild", "esbuild"], ["python3", "python"], ["postgres", "postgres"], ["bash", "shell"], ["ffprobe", "other"]] as const) {
     assert.equal(classifyChild(comm), expected, `child ${comm}`);
+  }
+  for (const [comm, expected] of [["MainThread", "MainThread"], ["WorkerThread", "WorkerThread"], ["V8 DefaultWorke", "other"], ["node", "other"]] as const) {
+    assert.equal(classifyThread(comm), expected, `thread ${comm}`);
   }
   console.log("ok P1-P6 synthetic /proc: identity, CPU window, threads, wchan and child classes, mismatch, exited, unavailable");
 }
@@ -297,44 +328,84 @@ async function main(): Promise<void> {
     assert.equal(spin.run.proc.status, "unavailable");
     console.log(`SKIP L1-L5 real /proc scenarios need Linux (platform ${process.platform}); proved in CI`);
   } else {
-    /* L1 idle: sleeping in the event loop, nearly no CPU, and the report still answers afterwards. */
-    assert.equal(hang.run.proc.status, "read", describeDiagnostic(hang.run));
-    assert.equal(hang.run.proc.state, "S", describeDiagnostic(hang.run));
-    assert.ok((hang.run.proc.cpuMs ?? 1e9) < 200, describeDiagnostic(hang.run));
-    assert.ok(["poll", "unknown"].includes(hang.run.proc.wchan!), describeDiagnostic(hang.run));
-    assert.equal(hang.run.diagnostic.status, "written", "sampling /proc did not disturb the child");
+    /*
+     * Each scenario runs on its own and its failure is collected, so one wrong expectation cannot
+     * hide the evidence of the others; the file still fails if any did. Every scenario requires
+     * proc=read first, so a missing /proc on Linux is a failure, never a skip. A wchan of `unknown`
+     * is accepted only where the kernel may not expose the symbol, and is reported when it happens.
+     */
+    const failures: string[] = [];
+    const scenario = async (label: string, body: () => Promise<DefendedSuiteRun | null>): Promise<void> => {
+      try {
+        const r = await body();
+        if (r?.proc.wchan === "unknown") console.log(`NOTE ${label} wchan=unknown: the kernel did not expose the wait symbol`);
+        console.log(`ok ${label}${r ? `: ${describeDiagnostic(r)}` : ""}`);
+      } catch (error) {
+        failures.push(label);
+        console.log(`FAIL ${label}: ${error instanceof Error ? error.message.split("\n")[0] : "error"}`);
+      }
+    };
+    const requireRead = (r: DefendedSuiteRun): void => assert.equal(r.proc.status, "read", `proc must be read on Linux: ${describeDiagnostic(r)}`);
 
-    /* L2 spin: running, and the window is spent on CPU. */
-    assert.equal(spin.run.proc.state, "R", describeDiagnostic(spin.run));
-    assert.ok((spin.run.proc.cpuMs ?? 0) >= 300, describeDiagnostic(spin.run));
-    assert.ok(["running", "unknown"].includes(spin.run.proc.wchan!), describeDiagnostic(spin.run));
-
-    /* L3 Atomics.wait: blocked on a futex, no CPU, and no report — the H-A signature. */
-    const atomics = await run("atomics");
-    assert.equal(atomics.run.timedOut, true);
-    assert.equal(atomics.run.diagnostic.status, "absent", describeDiagnostic(atomics.run));
-    assert.equal(atomics.run.proc.state, "S", describeDiagnostic(atomics.run));
-    assert.ok((atomics.run.proc.cpuMs ?? 1e9) < 200, describeDiagnostic(atomics.run));
-    assert.ok(["futex", "unknown"].includes(atomics.run.proc.wchan!), describeDiagnostic(atomics.run));
-    assert.equal(atomics.run.ended, "sigterm");
-    assertClosed("atomics", atomics.run);
-
-    /* L4 a synchronous child wait: blocked, one node child, no report. */
-    const syncwait = await run("syncwait");
-    assert.equal(syncwait.run.timedOut, true);
-    assert.equal(syncwait.run.diagnostic.status, "absent", describeDiagnostic(syncwait.run));
-    assert.equal(syncwait.run.proc.children, 1, describeDiagnostic(syncwait.run));
-    assert.deepEqual(syncwait.run.proc.childTypes, { node: 1 }, describeDiagnostic(syncwait.run));
-    assertClosed("syncwait", syncwait.run);
-    await stopGrandchild("syncwait");
-
-    /* L5 the child is gone before the sample: exited, never a stranger's process. */
-    const short = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
-    const identity = short.pid === undefined ? null : readProcIdentity(short.pid);
-    assert.ok(identity, "a fresh child has an identity");
-    await new Promise((r) => short.once("exit", r));
-    assert.equal((await readProcDiagnostic(identity, { windowMs: 1 })).status, "exited");
-    console.log(`ok L1-L5 real /proc: idle, spin, Atomics.wait, child wait, exited — ${describeDiagnostic(atomics.run)}`);
+    await scenario("L1 idle", async () => {
+      requireRead(hang.run);
+      assert.equal(hang.run.proc.state, "S", describeDiagnostic(hang.run));
+      assert.ok((hang.run.proc.cpuMs ?? 1e9) < 200, describeDiagnostic(hang.run));
+      assert.ok(["poll", "unknown"].includes(hang.run.proc.wchan!), describeDiagnostic(hang.run));
+      assert.equal(hang.run.proc.threadNames.MainThread, 1, describeDiagnostic(hang.run));
+      assert.equal(hang.run.diagnostic.status, "written", "sampling /proc did not disturb the child");
+      return hang.run;
+    });
+    await scenario("L2 spin", async () => {
+      requireRead(spin.run);
+      assert.equal(spin.run.proc.state, "R", describeDiagnostic(spin.run));
+      assert.ok((spin.run.proc.cpuMs ?? 0) >= 300, describeDiagnostic(spin.run));
+      assert.ok(["running", "unknown"].includes(spin.run.proc.wchan!), describeDiagnostic(spin.run));
+      return spin.run;
+    });
+    await scenario("L3 Atomics.wait", async () => {
+      const atomics = await run("atomics");
+      requireRead(atomics.run);
+      assert.equal(atomics.run.timedOut, true);
+      assert.equal(atomics.run.diagnostic.status, "absent", describeDiagnostic(atomics.run));
+      assert.equal(atomics.run.proc.state, "S", describeDiagnostic(atomics.run));
+      assert.ok((atomics.run.proc.cpuMs ?? 1e9) < 200, describeDiagnostic(atomics.run));
+      assert.ok(["futex", "unknown"].includes(atomics.run.proc.wchan!), describeDiagnostic(atomics.run));
+      assert.equal(atomics.run.proc.threadNames.MainThread, 1, describeDiagnostic(atomics.run));
+      assert.equal(atomics.run.ended, "sigterm");
+      assertClosed("atomics", atomics.run);
+      return atomics.run;
+    });
+    await scenario("L4 synchronous child wait", async () => {
+      const syncwait = await run("syncwait");
+      try {
+        requireRead(syncwait.run);
+        assert.equal(syncwait.run.timedOut, true);
+        assert.equal(syncwait.run.diagnostic.status, "absent", describeDiagnostic(syncwait.run));
+        assert.equal(syncwait.run.proc.children, 1, describeDiagnostic(syncwait.run));
+        assert.deepEqual(syncwait.run.proc.childTypes, { node: 1 }, describeDiagnostic(syncwait.run));
+        /* The waited-on node child, sampled: asleep in its own event loop, spending nothing. */
+        assert.equal(syncwait.run.proc.childProcs.length, 1, describeDiagnostic(syncwait.run));
+        const [c] = syncwait.run.proc.childProcs;
+        assert.equal(c!.type, "node", describeDiagnostic(syncwait.run));
+        assert.equal(c!.status, "read", describeDiagnostic(syncwait.run));
+        assert.equal(c!.state, "S", describeDiagnostic(syncwait.run));
+        assert.ok((c!.cpuMs ?? 1e9) < 200, describeDiagnostic(syncwait.run));
+        assertClosed("syncwait", syncwait.run);
+        return syncwait.run;
+      } finally {
+        await stopGrandchild("syncwait");
+      }
+    });
+    await scenario("L5 exited before the sample", async () => {
+      const short = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+      const identity = short.pid === undefined ? null : readProcIdentity(short.pid);
+      assert.ok(identity, "a fresh child has an identity");
+      await new Promise((r) => short.once("exit", r));
+      assert.equal((await readProcDiagnostic(identity, { windowMs: 1 })).status, "exited");
+      return null;
+    });
+    assert.deepEqual(failures, [], `Linux /proc scenarios failed: ${failures.join(", ")}`);
   }
 
   console.log("ci-quality-gates-1/defended-suite-run: ok");
