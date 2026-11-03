@@ -1,0 +1,114 @@
+# CI-QUALITY-GATES-1 — the full test suite for apps/dashboard, run on request (Package 3 M2-R9H).
+#
+# Same security boundary as ci.yml, pinned by tests/ci-quality-gates-1/workflow-firewall.ts:
+# pull_request only, contents: read, no secret, no environment, pinned actions and image, loopback
+# database only.
+#
+# It does not run on every pull request update. It runs when a label is added to the pull request
+# (`types: [labeled]`), so a new commit never starts it by itself. The check it reports belongs to the
+# head commit at that moment: a later commit has no full-suite check until the label is added again.
+# There is no job-level `if` and no continue-on-error, so the check is never skipped into a pass and a
+# red suite is a red check. Files named in apps/dashboard/scripts/ci/suite-exclusions.json are not run
+# and are never counted as passes.
+#
+# Whether this check can be made REQUIRED on main by a ruleset is not yet proven: a check reported by
+# a labeled event has not been observed satisfying a required status check. Until it is, the full
+# suite is a manual acceptance step, not an enforced merge condition.
+
+name: full-suite
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+
+permissions:
+  contents: read
+
+# Its own group: a push to the pull request must not cancel a running full suite. A second label
+# while one runs waits instead of cancelling it.
+concurrency:
+  group: full-suite-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+defaults:
+  run:
+    shell: bash
+    working-directory: apps/dashboard
+
+jobs:
+  full-suite:
+    name: full-suite (disposable PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:18.6@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --locale=C --encoding=UTF8
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      HEBUN_TEST_ADMIN_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/postgres
+      # The suite starts the Python media store; bytecode caches would dirty the tree the last step checks.
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: several tests read earlier commits with git diff / git show.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Install PostgreSQL 18 client tools and ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y --no-install-recommends postgresql-client-18 ffmpeg
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          pg_dump --version
+          psql --version
+          ffmpeg -version | head -1
+          psql "$HEBUN_TEST_ADMIN_DATABASE_URL" -Atc "select version(), datcollate from pg_database where datname = 'postgres'"
+
+      - name: Commit under test
+        run: |
+          # The check is reported on the pull request's head commit; the tree tested is that head merged
+          # into main. Both are recorded. Read from the event file, never through an expression.
+          head="$(jq -r .pull_request.head.sha "$GITHUB_EVENT_PATH")"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "head commit: $head"
+          echo "tested merge commit: $GITHUB_SHA"
+          printf 'head commit: `%s`  \ntested merge commit: `%s`\n' "$head" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install dependencies (no install scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Full suite with exclusion manifest
+        run: node scripts/run-tests.mjs --exclude-manifest scripts/ci/suite-exclusions.json
+
+      - name: Tree unchanged after the suite
+        if: always()
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"

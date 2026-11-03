@@ -1,12 +1,16 @@
 /*
  * CI-QUALITY-GATES-1 — the security boundary of every GitHub Actions workflow in this repository,
- * the exclusion manifest of the informational suite, and the runner's --exclude-manifest behavior.
+ * the exclusion manifest of the full suite, and the runner's --exclude-manifest behavior.
  *
  * Every file in .github/workflows is checked, so a workflow added later meets the same rules:
  *   pull_request is the only trigger (never pull_request_target); the token reads contents and
  *   nothing else; no secret, no environment, no expression a pull request can steer; every action
  *   pinned to a full commit SHA and every image to a digest; checkout keeps no credential; install
  *   scripts never run; the only database URL is the loopback service container.
+ *
+ * No check may be skipped or masked into a pass (Package 3 M2-R9H): continue-on-error is refused, a
+ * job may not carry `if` (a skipped job reports success to a required check), a step's `if` may only
+ * be always(), and an event filter may only be `types: [labeled]` — the full suite's request trigger.
  *
  * The checks are text rules, not a YAML parser: the repository has no YAML dependency and this test
  * adds none. Each rule is proven by a negative control below — a mutated copy of the real workflow
@@ -56,6 +60,15 @@ export function workflowViolations(text: string): string[] {
   if (lines.filter((l) => /^\s+permissions:/.test(l)).length > 0) v.push("job-level permissions are not allowed");
   if (/\bwrite\b|write-all|read-all/.test((permissions ?? []).join("\n"))) v.push("write permission");
 
+  if (/continue-on-error/.test(body)) v.push("continue-on-error masks a failing job");
+  for (const l of lines.filter((x) => /^\s+if:/.test(x))) {
+    if (/^ {4}if:/.test(l)) v.push("job-level if: a skipped job reports success");
+    else if (l.trim() !== "if: always()") v.push(`step if may only be always(), found ${l.trim()}`);
+  }
+  for (const l of lines.filter((x) => /^\s+types:/.test(x))) {
+    if (l.trim() !== "types: [labeled]") v.push(`event types may only be [labeled], found ${l.trim()}`);
+  }
+
   if (/\bsecrets\b/.test(body)) v.push("secrets are not allowed");
   if (/^\s+environment:/m.test(body)) v.push("environments are not allowed");
   for (const m of body.matchAll(/\$\{\{\s*([^}]*?)\s*\}\}/g)) {
@@ -90,27 +103,54 @@ function workflowChecks(): void {
     assert.deepEqual(violations, [], `${f} breaks the CI security boundary`);
   }
 
-  const ci = readFileSync(path.join(WORKFLOWS, "ci.yml"), "utf8");
-  const job = (name: string) => {
-    const m = new RegExp(`^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}\\S|(?![\\s\\S]))`, "m").exec(ci);
-    assert.ok(m, `ci.yml has a ${name} job`);
+  assert.deepEqual(files.sort(), ["ci.yml", "full-suite.yml"], "the two workflows this test knows");
+  const read = (f: string) => readFileSync(path.join(WORKFLOWS, f), "utf8");
+  const jobsOf = (text: string) => [...text.matchAll(/^ {2}([a-z][a-z0-9-]*):\n {4}name: /gm)].map((m) => m[1]!);
+  const job = (text: string, file: string, name: string) => {
+    const m = new RegExp(`^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}\\S|^\\S|(?![\\s\\S]))`, "m").exec(text);
+    assert.ok(m, `${file} has a ${name} job`);
     return m[1]!;
   };
-  const quick = job("quick");
-  for (const step of ["npx tsc --noEmit", "npx eslint .", "npx next build", "tests/development-continuity/closure-contract.ts", "tests/ci-quality-gates-1/workflow-firewall.ts"]) {
-    assert.ok(quick.includes(`run: ${step}`) || quick.includes(step), `quick runs ${step}`);
+  const treeCheck = /if: always\(\)\n\s+run: \|\n\s+git status --porcelain\n\s+test -z "\$\(git status --porcelain\)"/;
+
+  /* ci.yml: every pull request update. No event filter, so it runs on each push to the pull request. */
+  const ci = read("ci.yml");
+  assert.ok(!/^\s+types:/m.test(ci), "ci.yml runs on every pull request update");
+  assert.deepEqual(jobsOf(ci), ["quick", "targeted"], "ci.yml has exactly quick and targeted; the full suite is not here");
+  assert.ok(!ci.includes("run-tests.mjs"), "ci.yml never starts the full suite");
+  const quick = job(ci, "ci.yml", "quick");
+  assert.match(quick, /^ {4}name: quick \(typecheck, lint, build, continuity\)$/m, "quick keeps its check name");
+  for (const step of ["npx tsc --noEmit", "npx eslint .", "npx next build", "tests/development-continuity/closure-contract.ts", "tests/ci-quality-gates-1/workflow-firewall.ts", "tests/ci-quality-gates-1/defended-suite-run.ts"]) {
+    assert.ok(quick.includes(`run: ${step}`) || quick.includes(`run: node --import tsx ${step}`), `quick runs ${step}`);
   }
-  assert.ok(!/continue-on-error/.test(quick), "quick is the gate: a failure fails the run");
-  const suite = job("suite");
-  assert.match(suite, /^ {4}continue-on-error: true$/m, "the suite is informational");
-  assert.ok(suite.includes("--exclude-manifest scripts/ci/suite-exclusions.json"), "the suite names the exclusions it skips");
+  const targeted = job(ci, "ci.yml", "targeted");
+  assert.match(targeted, /^ {4}name: targeted \(scope-composition, live-map, TB1\)$/m, "targeted keeps its check name");
+  for (const test of ["tests/google-capability-scope-repair-1/scope-composition.ts", "tests/live-map-experience/bite-proofs.ts", "tests/tb1-trust-boundary/bite-proofs.ts"]) {
+    assert.ok(targeted.includes(`run: node --import tsx ${test}`), `targeted runs ${test}`);
+  }
+  assert.match(targeted, /fetch-depth: 0/, "scope-composition needs the commit range it measures");
+  assert.match(targeted, /--locale=C/, "C collation, the measured locale of the baseline runs");
+  assert.match(targeted, treeCheck, "a bite-proof that leaves mutated source behind fails the job");
+
+  /* full-suite.yml: only when a label is added, on that head commit, never masked. */
+  const full = read("full-suite.yml");
+  assert.match(full, /^on:\n {2}pull_request:\n {4}branches: \[main\]\n {4}types: \[labeled\]\n/m, "the full suite starts only on a label");
+  assert.deepEqual(jobsOf(full), ["full-suite"], "full-suite.yml has one job");
+  assert.match(full, /^ {2}group: full-suite-\$\{\{ github\.ref \}\}\n {2}cancel-in-progress: false$/m, "its own concurrency group; a push never cancels it");
+  const suite = job(full, "full-suite.yml", "full-suite");
+  assert.match(suite, /^ {4}name: full-suite \(disposable PostgreSQL\)$/m, "full-suite keeps its check name");
+  assert.ok(suite.includes("run: node scripts/run-tests.mjs --exclude-manifest scripts/ci/suite-exclusions.json"), "the suite names the exclusions it skips");
   assert.match(suite, /--locale=C/, "C collation, the measured locale of the baseline runs");
-  assert.match(suite, /test -z "\$\(git status --porcelain\)"/, "a result from a changed tree is refused");
+  assert.match(suite, /fetch-depth: 0/, "several tests read earlier commits");
+  assert.match(suite, /test "\$\(git rev-parse HEAD\)" = "\$GITHUB_SHA"/, "the tested tree is the commit the event names");
+  assert.match(suite, /jq -r \.pull_request\.head\.sha "\$GITHUB_EVENT_PATH"/, "the head commit is recorded from the event file, not an expression");
+  assert.match(suite, treeCheck, "a result from a changed tree is refused");
   console.log(`PASS workflows: ${files.length} file(s) meet the boundary`);
 }
 
 function negativeControls(): void {
   const real = readFileSync(path.join(WORKFLOWS, "ci.yml"), "utf8");
+  const full = readFileSync(path.join(WORKFLOWS, "full-suite.yml"), "utf8");
   /* Each mutant must be rejected by the rule it targets, not by some other rule it happens to trip. */
   const mutants: Record<string, readonly [string, RegExp]> = {
     "pull_request_target": [real.replace("  pull_request:\n", "  pull_request_target:\n"), /trigger/],
@@ -127,9 +167,14 @@ function negativeControls(): void {
     "install scripts": [real.replace("npm ci --ignore-scripts", "npm ci"), /--ignore-scripts/],
     "remote database": [real.replace("postgresql://postgres@127.0.0.1:55432/postgres", "postgresql://user@db.example.com:5432/hebun"), /not the loopback service/],
     "open port": [real.replace("- 127.0.0.1:55432:5432", "- 55432:5432"), /port not bound to loopback/],
+    "masked job": [real.replace("    timeout-minutes: 20\n", "    timeout-minutes: 20\n    continue-on-error: true\n"), /continue-on-error/],
+    "skippable job": [real.replace("    timeout-minutes: 20\n", "    timeout-minutes: 20\n    if: github.ref == 'refs/heads/main'\n"), /job-level if/],
+    "skipped step": [real.replace("      - name: TB1 bite-proofs\n        if: always()", "      - name: TB1 bite-proofs\n        if: false"), /step if may only be always\(\)/],
+    "full suite on every update": [full.replace("    types: [labeled]\n", "    types: [labeled, synchronize]\n"), /event types may only be \[labeled\]/],
+    "full suite masked": [full.replace("    timeout-minutes: 120\n", "    timeout-minutes: 120\n    continue-on-error: true\n"), /continue-on-error/],
   };
   for (const [label, [text, expected]] of Object.entries(mutants)) {
-    assert.notEqual(text, real, `${label}: the mutation applies`);
+    assert.ok(text !== real && text !== full, `${label}: the mutation applies`);
     const violations = workflowViolations(text);
     assert.ok(violations.some((x) => expected.test(x)), `${label}: rejected by its own rule, got ${JSON.stringify(violations)}`);
   }
