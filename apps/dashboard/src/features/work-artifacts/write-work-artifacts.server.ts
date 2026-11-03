@@ -534,11 +534,13 @@ export async function retireWorkArtifact(
   }
 }
 
-/** PostgreSQL `unique_violation`. Read from the driver's code, never from the message text. */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "23505"
-  );
+/**
+ * PostgreSQL `unique_violation`. Read from the driver's code, never from the message text — on the
+ * error itself or one `cause` level, where drizzle's DrizzleQueryError carries it. Never a chain.
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  const codeOf = (value: unknown): unknown =>
+    typeof value === "object" && value !== null ? (value as { code?: unknown }).code : undefined;
+  if (typeof error !== "object" || error === null) return false;
+  return codeOf(error) === "23505" || codeOf((error as { cause?: unknown }).cause) === "23505";
 }
