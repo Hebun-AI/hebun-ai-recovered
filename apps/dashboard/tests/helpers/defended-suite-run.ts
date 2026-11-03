@@ -30,7 +30,7 @@
  *     handler) is reported as `absent`, and termination proceeds exactly the same way.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -64,6 +64,45 @@ export interface DiagnosticMetadata {
   readonly workers: number | null;
 }
 
+/*
+ * LINUX /proc (M2-R9P). A child whose main thread is blocked never answers SIGUSR2, so the report is
+ * `absent` and says nothing. Before that signal, on Linux, the kernel's view of the child is sampled
+ * twice, PROC_WINDOW_MS apart, and reduced to closed values: run state, CPU used in the window,
+ * thread count and states, what the main thread waits on (wchan, as a class), and its direct
+ * children (by name, as a class). Read: stat, wchan, task/<tid>/stat, task/<tid>/children. Never
+ * cmdline, environ, fd or maps; never a raw line, path or name.
+ *
+ * Identity: the child's start time and parent pid are read from stat right after spawn and must
+ * still match when sampled, so a recycled pid is reported as `identity-mismatch`, never described.
+ * A child that is gone is `exited`; anything unreadable is `unavailable`. Reading /proc sends no
+ * signal and changes nothing about the child.
+ */
+export type ProcStatus = "not-requested" | "read" | "unavailable" | "exited" | "identity-mismatch";
+export type WchanClass = "running" | "futex" | "pipe" | "poll" | "wait" | "sleep" | "io" | "other" | "unknown";
+
+export interface ProcMetadata {
+  readonly status: ProcStatus;
+  readonly state: "R" | "S" | "D" | "Z" | "T" | "other" | null;
+  /** CPU time the child used during the sampling window. */
+  readonly cpuMs: number | null;
+  readonly threads: number | null;
+  readonly threadStates: Readonly<Record<string, number>>;
+  /** What the main thread waits on, as a class. */
+  readonly wchan: WchanClass | null;
+  /** Direct children whose parent pid is the child's. */
+  readonly children: number | null;
+  readonly childTypes: Readonly<Record<string, number>>;
+}
+
+export interface ProcIdentity {
+  readonly pid: number;
+  readonly ppid: number;
+  readonly startTime: string;
+}
+
+/** After exit: did stdio close, or did a surviving descendant keep it open past the drain bound? */
+export type StdioState = "closed" | "abandoned";
+
 export interface DefendedSuiteRun {
   /** Exit 0, no timeout, output within the limit, cleanup complete. Nothing else is a pass. */
   readonly ok: boolean;
@@ -72,6 +111,8 @@ export interface DefendedSuiteRun {
   readonly ended: Ended;
   readonly cleanupComplete: boolean;
   readonly diagnostic: DiagnosticMetadata;
+  readonly proc: ProcMetadata;
+  readonly stdio: StdioState;
 }
 
 export interface DefendedSuiteOptions {
@@ -84,6 +125,158 @@ export interface DefendedSuiteOptions {
 }
 
 const NO_DIAGNOSTIC: DiagnosticMetadata = { status: "not-requested", handles: {}, jsFrames: null, workers: null };
+
+const PROC_ROOT = "/proc";
+const PROC_WINDOW_MS = 1_000;
+/* /proc reports CPU time in USER_HZ, which is 100 on every Linux ABI Node supports. */
+const USER_HZ_MS = 10;
+const STATES = new Set(["R", "S", "D", "Z", "T"]);
+
+const NO_PROC: ProcMetadata = {
+  status: "not-requested", state: null, cpuMs: null, threads: null, threadStates: {}, wchan: null, children: null, childTypes: {},
+};
+
+interface StatFields {
+  readonly state: string;
+  readonly ppid: number;
+  readonly ticks: number;
+  readonly threads: number;
+  readonly startTime: string;
+  readonly comm: string;
+}
+
+type ProcRead = { readonly text: string } | { readonly missing: true } | { readonly failed: true };
+
+function readProc(root: string, relative: string): ProcRead {
+  try {
+    return { text: readFileSync(path.join(root, relative), "utf8") };
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code === "ENOENT" || code === "ESRCH" ? { missing: true } : { failed: true };
+  }
+}
+
+/** `pid (comm) state ppid ...`; comm may hold spaces and parentheses, so it ends at the last ")". */
+function parseStat(raw: string): StatFields | null {
+  const open = raw.indexOf("(");
+  const close = raw.lastIndexOf(")");
+  if (open < 0 || close < open) return null;
+  const f = raw.slice(close + 1).trim().split(/\s+/);
+  /* f[0] is field 3 (state): field n of proc(5) is f[n - 3]. */
+  if (f.length < 20 || !/^\d+$/.test(f[19]!)) return null;
+  const ppid = Number(f[1]);
+  const ticks = Number(f[11]) + Number(f[12]);
+  const threads = Number(f[17]);
+  if (![ppid, ticks, threads].every(Number.isSafeInteger)) return null;
+  return { state: f[0]!, ppid, ticks, threads, startTime: f[19]!, comm: raw.slice(open + 1, close) };
+}
+
+function stateClass(state: string): NonNullable<ProcMetadata["state"]> {
+  return (STATES.has(state) ? state : "other") as NonNullable<ProcMetadata["state"]>;
+}
+
+/** A kernel symbol is reduced to a class; the symbol itself is never returned. */
+export function classifyWchan(symbol: string | null, state: string | null): WchanClass {
+  if (symbol === null) return "unknown";
+  const s = symbol.trim();
+  if (s === "" || s === "0") return state === "R" ? "running" : "unknown";
+  if (/futex/.test(s)) return "futex";
+  if (/pipe/.test(s)) return "pipe";
+  if (/poll|select|epoll|ep_/.test(s)) return "poll";
+  if (/do_wait|kernel_wait|wait4|waitid/.test(s)) return "wait";
+  if (/nanosleep|hrtimer|schedule_timeout|msleep/.test(s)) return "sleep";
+  if (/io_schedule|blk|ext4|xfs|jbd2|folio|bit_wait|nfs|fuse/.test(s)) return "io";
+  return "other";
+}
+
+/** A process name is reduced to a class; the name itself is never returned. */
+export function classifyChild(comm: string): string {
+  if (comm === "node") return "node";
+  if (comm.startsWith("esbuild")) return "esbuild";
+  if (/^python/.test(comm)) return "python";
+  if (/^(postgres|postmaster)/.test(comm)) return "postgres";
+  if (/^(sh|bash|dash|zsh)$/.test(comm)) return "shell";
+  return "other";
+}
+
+/** Taken right after spawn. Null when /proc cannot vouch for this pid being our own child. */
+export function readProcIdentity(pid: number, root = PROC_ROOT, parentPid = process.pid): ProcIdentity | null {
+  const read = readProc(root, `${pid}/stat`);
+  const stat = "text" in read ? parseStat(read.text) : null;
+  if (!stat || stat.ppid !== parentPid) return null;
+  return { pid, ppid: parentPid, startTime: stat.startTime };
+}
+
+function checkedStat(root: string, identity: ProcIdentity): StatFields | ProcStatus {
+  const read = readProc(root, `${identity.pid}/stat`);
+  if ("missing" in read) return "exited";
+  if (!("text" in read)) return "unavailable";
+  const stat = parseStat(read.text);
+  if (!stat) return "unavailable";
+  if (stat.startTime !== identity.startTime || stat.ppid !== identity.ppid) return "identity-mismatch";
+  if (stat.state === "Z") return "exited";
+  return stat;
+}
+
+export async function readProcDiagnostic(
+  identity: ProcIdentity | null,
+  options: { readonly root?: string; readonly windowMs?: number } = {},
+): Promise<ProcMetadata> {
+  if (!identity) return { ...NO_PROC, status: "unavailable" };
+  const root = options.root ?? PROC_ROOT;
+  const first = checkedStat(root, identity);
+  if (typeof first === "string") return { ...NO_PROC, status: first };
+  await sleep(options.windowMs ?? PROC_WINDOW_MS);
+  const second = checkedStat(root, identity);
+  if (typeof second === "string") return { ...NO_PROC, status: second };
+
+  const wchanRead = readProc(root, `${identity.pid}/wchan`);
+  const wchan = classifyWchan("text" in wchanRead ? wchanRead.text : null, second.state);
+
+  const threadStates: Record<string, number> = {};
+  const childPids = new Set<number>();
+  let childrenReadable = false;
+  let tids: string[] = [];
+  try {
+    tids = readdirSync(path.join(root, `${identity.pid}/task`)).filter((t) => /^\d+$/.test(t));
+  } catch {
+    tids = [];
+  }
+  for (const tid of tids) {
+    const t = readProc(root, `${identity.pid}/task/${tid}/stat`);
+    const ts = "text" in t ? parseStat(t.text) : null;
+    if (ts) {
+      const k = stateClass(ts.state);
+      threadStates[k] = (threadStates[k] ?? 0) + 1;
+    }
+    const c = readProc(root, `${identity.pid}/task/${tid}/children`);
+    if ("text" in c) {
+      childrenReadable = true;
+      for (const p of c.text.trim().split(/\s+/)) if (/^\d+$/.test(p)) childPids.add(Number(p));
+    }
+  }
+  const childTypes: Record<string, number> = {};
+  let children = 0;
+  for (const cpid of childPids) {
+    const c = readProc(root, `${cpid}/stat`);
+    const cs = "text" in c ? parseStat(c.text) : null;
+    if (!cs || cs.ppid !== identity.pid) continue;
+    children += 1;
+    const k = classifyChild(cs.comm);
+    childTypes[k] = (childTypes[k] ?? 0) + 1;
+  }
+
+  return {
+    status: "read",
+    state: stateClass(second.state),
+    cpuMs: Math.max(0, second.ticks - first.ticks) * USER_HZ_MS,
+    threads: second.threads,
+    threadStates,
+    wchan,
+    children: childrenReadable ? children : null,
+    childTypes,
+  };
+}
 
 const sleep = (ms: number): Promise<"elapsed"> =>
   new Promise((resolve) => {
@@ -176,6 +369,8 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
   let ended: Ended = "exit";
   let exitCode: number | null = null;
   let diagnostic = NO_DIAGNOSTIC;
+  let proc = NO_PROC;
+  let stdio: StdioState = "closed";
   const chunks: Buffer[] = [];
   let bytes = 0;
 
@@ -198,6 +393,8 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
       ],
       { cwd: options.cwd, env: options.env ?? process.env, stdio: ["ignore", "pipe", "pipe"] },
     );
+    /* Pinned now, while the pid is certainly ours; checked again before any sample is described. */
+    const identity = process.platform === "linux" && child.pid !== undefined ? readProcIdentity(child.pid) : null;
 
     const collect = (chunk: Buffer): void => {
       bytes += chunk.length;
@@ -226,6 +423,8 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
 
     if (!(await waitForExit(exited, timeoutMs))) {
       timedOut = true;
+      /* Before SIGUSR2: the kernel's view of a child that may never answer it. Bounded by PROC_WINDOW_MS. */
+      proc = hasExited(child) ? { ...NO_PROC, status: "exited" } : await readProcDiagnostic(identity);
       diagnostic = await requestDiagnostic(child, reportPath, exited, options.reportWaitMs ?? REPORT_WAIT_MS);
       ended = await terminate(child, exited, options.graceMs ?? GRACE_MS);
     } else if (spawnFailed) {
@@ -233,7 +432,7 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
     }
 
     /* `close` waits for stdio, which a surviving grandchild can hold open; bound it, then let go. */
-    await waitForExit(stdioClosed, STDIO_DRAIN_MS);
+    if (!(await waitForExit(stdioClosed, STDIO_DRAIN_MS))) stdio = "abandoned";
     child.stdout?.destroy();
     child.stderr?.destroy();
   } finally {
@@ -249,8 +448,16 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
     ended,
     cleanupComplete,
     diagnostic,
+    proc,
+    stdio,
   };
 }
+
+const counts = (record: Readonly<Record<string, number>>): string =>
+  Object.entries(record)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, n]) => `${k}:${n}`)
+    .join(",") || "none";
 
 /** One line of closed values for an assertion message. */
 export function describeDiagnostic(run: DefendedSuiteRun): string {
@@ -265,5 +472,18 @@ export function describeDiagnostic(run: DefendedSuiteRun): string {
     `workers=${run.diagnostic.workers ?? "none"}`,
     `ended=${run.ended}`,
     `cleanup=${run.cleanupComplete ? "complete" : "incomplete"}`,
+    `stdio=${run.stdio}`,
+    `proc=${run.proc.status}`,
+    ...(run.proc.status === "read"
+      ? [
+          `state=${run.proc.state}`,
+          `cpuMs=${run.proc.cpuMs}`,
+          `threads=${run.proc.threads}`,
+          `threadStates=${counts(run.proc.threadStates)}`,
+          `wchan=${run.proc.wchan}`,
+          `children=${run.proc.children ?? "unknown"}`,
+          `childTypes=${counts(run.proc.childTypes)}`,
+        ]
+      : []),
   ].join(" ");
 }
