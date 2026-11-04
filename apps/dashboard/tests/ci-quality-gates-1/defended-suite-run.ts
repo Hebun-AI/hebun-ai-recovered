@@ -58,6 +58,7 @@ const CHILDREN: Record<string, string> = {
   spin: `${PRELUDE}\nconsole.log("child spinning");\nfor (;;) {}\n`,
   graceful: `${PRELUDE}\nprocess.on("SIGTERM", () => process.exit(0));\nconsole.log("child exits 0 when asked");\nsetInterval(() => {}, 1000);\n`,
   stubborn: `${PRELUDE}\nprocess.on("SIGTERM", () => {});\nconsole.log("child ignores SIGTERM");\nsetInterval(() => {}, 1000);\n`,
+  assertfail: `${PRELUDE}\nimport assert from "node:assert/strict";\ntry { assert.equal(1, 2, "intended assertion"); } catch (e) { console.error(\`\${e.code}: \${e.message}\`); }\nsetInterval(() => {}, 1000);\n`,
   atomics: `${PRELUDE}\nconsole.log("child blocks in Atomics.wait");\nAtomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);\n`,
   syncwait: `${PRELUDE}\nimport { execFileSync } from "node:child_process";\nconsole.log("child waits on a child");\nexecFileSync(process.execPath, ["-e", ${JSON.stringify(GRANDCHILD)}]);\n`,
   abandon: `${PRELUDE}\nimport { spawn } from "node:child_process";\nspawn(process.execPath, ["-e", ${JSON.stringify(GRANDCHILD)}], { stdio: ["ignore", "inherit", "inherit"] }).unref();\nconsole.log("child leaves a descendant on its stdio");\n`,
@@ -128,7 +129,7 @@ function assertChildProcGrammar(label: string, line: string): void {
 
 /* Nothing in the returned values may carry a path, the sentinel, or Node's report notice. */
 function assertClosed(name: string, result: DefendedSuiteRun): void {
-  const metadata = JSON.stringify(result.diagnostic) + JSON.stringify(result.proc) + describeDiagnostic(result);
+  const metadata = JSON.stringify(result.diagnostic) + JSON.stringify(result.proc) + JSON.stringify(result.hang) + describeDiagnostic(result);
   assert.ok(!metadata.includes("/"), `${name}: diagnostic metadata must not contain a path`);
   assert.ok(!metadata.includes(SENTINEL), `${name}: diagnostic metadata must not contain environment values`);
   assert.ok(!metadata.includes(fixtures), `${name}: diagnostic metadata must not name the fixture`);
@@ -136,6 +137,12 @@ function assertClosed(name: string, result: DefendedSuiteRun): void {
   assert.ok(!result.output.includes(os.tmpdir()), `${name}: no temporary path in the output`);
   assert.deepEqual(Object.keys(result.diagnostic).sort(), ["handles", "jsFrames", "status", "workers"]);
   assert.deepEqual(Object.keys(result.proc).sort(), ["childProcs", "childTypes", "children", "cpuMs", "state", "status", "threadNames", "threadStates", "threads", "wchan"]);
+  assert.deepEqual(Object.keys(result.hang).sort(), ["assertionFailurePrinted", "childExited", "childZombie", "outputBytes", "status"]);
+  for (const k of ["assertionFailurePrinted", "childExited", "childZombie"] as const) {
+    assert.ok(result.hang[k] === null || typeof result.hang[k] === "boolean", `${name}: hang.${k} is a closed value`);
+  }
+  assert.ok(result.hang.outputBytes === null || Number.isInteger(result.hang.outputBytes), `${name}: hang.outputBytes is a count`);
+  if (!result.timedOut) assert.equal(result.hang.status, "not-requested", `${name}: no timeout, no hang evidence`);
   if (result.proc.status === "read") {
     const childClasses = ["node", "esbuild", "python", "postgres", "shell", "other"];
     for (const k of Object.keys(result.proc.childTypes)) assert.ok(childClasses.includes(k), `${name}: child class ${k}`);
@@ -153,6 +160,7 @@ function syntheticRun(proc: ProcMetadata): DefendedSuiteRun {
   return {
     ok: false, output: "", timedOut: true, ended: "sigterm", cleanupComplete: true, stdio: "closed", proc,
     diagnostic: { status: "absent", handles: {}, jsFrames: null, workers: null },
+    hang: { status: "not-requested", outputBytes: null, assertionFailurePrinted: null, childExited: null, childZombie: null },
   };
 }
 
@@ -316,8 +324,29 @@ async function main(): Promise<void> {
   assert.equal(hang.run.ended, "sigterm");
   assert.equal(hang.run.cleanupComplete, true);
   assert.ok(hang.run.output.includes("child hanging"), "the child's own output is kept");
+  /* H1. Hang evidence matches what the child really did: wrote one line, printed no assertion failure, still alive. */
+  assert.equal(hang.run.hang.status, "read", describeDiagnostic(hang.run));
+  assert.equal(hang.run.hang.outputBytes, Buffer.byteLength("child hanging\n"), describeDiagnostic(hang.run));
+  assert.equal(hang.run.hang.assertionFailurePrinted, false, describeDiagnostic(hang.run));
+  assert.equal(hang.run.hang.childExited, false, describeDiagnostic(hang.run));
+  assert.equal(hang.run.hang.childZombie, LINUX ? false : null, describeDiagnostic(hang.run));
   assertClosed("hang", hang.run);
   console.log(`ok 3-8 a hanging child times out as a failure: ${describeDiagnostic(hang.run)}`);
+
+  /* H2. A child that prints an assertion failure and then hangs: assertionFailurePrinted, and still never a pass. */
+  const assertFail = await run("assertfail");
+  assert.equal(assertFail.run.timedOut, true);
+  assert.equal(assertFail.run.ok, false, "a printed assertion failure does not turn a timeout into a pass");
+  assert.equal(assertFail.run.hang.assertionFailurePrinted, true, describeDiagnostic(assertFail.run));
+  /* Counted before any signal, so it is a prefix of the final output (the report notice comes after). */
+  const written = assertFail.run.hang.outputBytes ?? 0;
+  assert.ok(written > 0 && written <= Buffer.byteLength(assertFail.run.output), describeDiagnostic(assertFail.run));
+  assert.ok(Buffer.from(assertFail.run.output).subarray(0, written).includes("ERR_ASSERTION"), "the assertion failure was in what the child had written by the timeout");
+  assert.equal(assertFail.run.hang.childExited, false);
+  assert.equal(assertFail.run.ended, "sigterm");
+  assert.equal(assertFail.run.cleanupComplete, true);
+  assertClosed("assertfail", assertFail.run);
+  console.log(`ok H1-H2 hang evidence is real and a printed assertion failure is never a pass: ${describeDiagnostic(assertFail.run)}`);
 
   /* 9. No report can be produced: a child spinning in synchronous code never runs the handler. */
   const spin = await run("spin");

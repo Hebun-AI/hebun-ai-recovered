@@ -121,6 +121,27 @@ export interface ProcIdentity {
 /** After exit: did stdio close, or did a surviving descendant keep it open past the drain bound? */
 export type StdioState = "closed" | "abandoned";
 
+/**
+ * Where a timed-out child was, in closed values, taken at the timeout before any signal is sent.
+ *   - outputBytes: stdout+stderr bytes the child had written.
+ *   - assertionFailurePrinted: the output holds Node's `ERR_ASSERTION` code, i.e. an assertion FAILURE was
+ *     printed. Only that. It is not a completion signal: the defending suites share no completion
+ *     marker, so a suite that passed, failed another way, or was still running all read false. It
+ *     never says the suite passed and changes neither `ok` nor `timedOut`. No root cause follows from it.
+ *   - childExited: this process had seen the child's exit event.
+ *   - childZombie: the kernel showed the child as Z (exited, not yet reaped). Null without /proc.
+ */
+export interface HangEvidence {
+  readonly status: "not-requested" | "read";
+  readonly outputBytes: number | null;
+  readonly assertionFailurePrinted: boolean | null;
+  readonly childExited: boolean | null;
+  readonly childZombie: boolean | null;
+}
+
+const NO_HANG: HangEvidence = { status: "not-requested", outputBytes: null, assertionFailurePrinted: null, childExited: null, childZombie: null };
+const ASSERTION_FAILURE_CODE = Buffer.from("ERR_ASSERTION");
+
 export interface DefendedSuiteRun {
   /** Exit 0, no timeout, output within the limit, cleanup complete. Nothing else is a pass. */
   readonly ok: boolean;
@@ -131,6 +152,7 @@ export interface DefendedSuiteRun {
   readonly diagnostic: DiagnosticMetadata;
   readonly proc: ProcMetadata;
   readonly stdio: StdioState;
+  readonly hang: HangEvidence;
 }
 
 export interface DefendedSuiteOptions {
@@ -448,6 +470,7 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
   let diagnostic = NO_DIAGNOSTIC;
   let proc = NO_PROC;
   let stdio: StdioState = "closed";
+  let hang = NO_HANG;
   const chunks: Buffer[] = [];
   let bytes = 0;
 
@@ -507,8 +530,19 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
 
     if (!(await waitForExit(exited, timeoutMs))) {
       timedOut = true;
+      /* Before any signal: what the child had written and whether this process had seen it exit. */
+      const childExited = hasExited(child);
+      /* Joined, so a code split across two chunks still counts. */
+      const assertionFailurePrinted = Buffer.concat(chunks).includes(ASSERTION_FAILURE_CODE);
       /* Before SIGUSR2: the kernel's view of a child that may never answer it. Bounded by PROC_WINDOW_MS. */
-      proc = hasExited(child) ? { ...NO_PROC, status: "exited" } : await readProcDiagnostic(identity);
+      proc = childExited ? { ...NO_PROC, status: "exited" } : await readProcDiagnostic(identity);
+      hang = {
+        status: "read",
+        outputBytes: bytes,
+        assertionFailurePrinted,
+        childExited,
+        childZombie: proc.status === "read" ? proc.state === "Z" : null,
+      };
       diagnostic = await requestDiagnostic(child, reportPath, exited, options.reportWaitMs ?? REPORT_WAIT_MS);
       ended = await terminate(child, exited, options.graceMs ?? GRACE_MS);
     } else if (spawnFailed) {
@@ -534,8 +568,11 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
     diagnostic,
     proc,
     stdio,
+    hang,
   };
 }
+
+const yesNo = (v: boolean | null): string => (v === null ? "unknown" : v ? "yes" : "no");
 
 const counts = (record: Readonly<Record<string, number>>): string =>
   Object.entries(record)
@@ -576,6 +613,14 @@ export function describeDiagnostic(run: DefendedSuiteRun): string {
           `children=${run.proc.children ?? "unknown"}`,
           `childTypes=${counts(run.proc.childTypes)}`,
           `childProc=${describeChildren(run.proc.childProcs)}`,
+        ]
+      : []),
+    ...(run.hang.status === "read"
+      ? [
+          `outputBytes=${run.hang.outputBytes}`,
+          `assertionFailurePrinted=${yesNo(run.hang.assertionFailurePrinted)}`,
+          `childExited=${yesNo(run.hang.childExited)}`,
+          `childZombie=${yesNo(run.hang.childZombie)}`,
         ]
       : []),
   ].join(" ");
