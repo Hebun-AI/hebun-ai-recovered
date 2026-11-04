@@ -468,7 +468,14 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
         "tsx",
         suite,
       ],
-      { cwd: options.cwd, env: options.env ?? process.env, stdio: ["ignore", "pipe", "pipe"] },
+      /*
+       * tsx compiles every .ts import through esbuild's transformSync. By default that posts to a worker
+       * thread and blocks this child's main thread in an untimed Atomics.wait; if the worker dies first,
+       * the child sleeps in futex until the timeout (CI: cpuMs=0, wchan=futex, esbuild:exited, no
+       * WorkerThread). "0" makes each call a self-terminating execFileSync instead. Child-only: the
+       * caller's env object and this process's env are not touched.
+       */
+      { cwd: options.cwd, env: { ...(options.env ?? process.env), ESBUILD_WORKER_THREADS: "0" }, stdio: ["ignore", "pipe", "pipe"] },
     );
     /* Pinned now, while the pid is certainly ours; checked again before any sample is described. */
     const identity = process.platform === "linux" && child.pid !== undefined ? readProcIdentity(child.pid) : null;

@@ -39,6 +39,7 @@ const SHORT = { timeoutMs: 1_500, reportWaitMs: 3_000, graceMs: 1_000 } as const
 
 const fixtures = mkdtempSync(path.join(os.tmpdir(), "defended-suite-selftest-"));
 const LINUX = process.platform === "linux";
+const PARENT_ESBUILD_WORKERS = process.env.ESBUILD_WORKER_THREADS;
 /* Grandchildren the fixtures start record their pid here, so the test can stop what it started. */
 const GRANDCHILD = `require("node:fs").writeFileSync(process.env.GRANDCHILD_RECORD, String(process.pid)); setTimeout(() => {}, 60000);`;
 
@@ -47,7 +48,7 @@ const PRELUDE = `
 import { statSync, writeFileSync } from "node:fs";
 const dirArg = process.execArgv.find((a) => a.startsWith("--report-directory="));
 const mode = dirArg ? (statSync(dirArg.slice("--report-directory=".length)).mode & 0o777).toString(8) : "none";
-writeFileSync(process.env.FIXTURE_RECORD, JSON.stringify({ pid: process.pid, mode }));
+writeFileSync(process.env.FIXTURE_RECORD, JSON.stringify({ pid: process.pid, mode, esbuildWorkers: process.env.ESBUILD_WORKER_THREADS ?? null }));
 `;
 
 const CHILDREN: Record<string, string> = {
@@ -100,9 +101,12 @@ async function run(name: string, short = true): Promise<{ run: DefendedSuiteRun;
   });
   const leftover = tempDirsNow().filter((d) => !before.includes(d));
   assert.deepEqual(leftover, [], `${name}: the temporary report directory must be removed`);
-  const { pid, mode } = JSON.parse(readFileSync(record, "utf8")) as { pid: number; mode: string };
+  const { pid, mode, esbuildWorkers } = JSON.parse(readFileSync(record, "utf8")) as { pid: number; mode: string; esbuildWorkers: string | null };
   assert.equal(alive(pid), false, `${name}: the child must not outlive the run`);
   assert.equal(mode, "700", `${name}: the report directory must be 0700`);
+  /* The child runs esbuild without its worker thread; the caller's own env is left as it was. */
+  assert.equal(esbuildWorkers, "0", `${name}: the child must run esbuild with ESBUILD_WORKER_THREADS=0`);
+  assert.equal(process.env.ESBUILD_WORKER_THREADS, PARENT_ESBUILD_WORKERS, `${name}: the parent's env must not change`);
   return { run: result, pid, mode };
 }
 
