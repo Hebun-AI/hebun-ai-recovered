@@ -58,9 +58,11 @@ from __future__ import annotations
 import errno
 import hashlib
 import hmac
+import inspect
 import json
 import os
 import re
+import socket
 import stat
 import subprocess
 import sys
@@ -789,6 +791,53 @@ class _CountingReader:
 
 # ── HTTP ─────────────────────────────────────────────────────────────────────────────────────────
 
+# M2-R10C. A refusal sent while the client is still sending a body (chunked, or longer than MAX_DRAIN)
+# used to be followed by a close with unread data, which resets the connection: a client still writing
+# then fails with EPIPE/ECONNRESET and may never read the status. After such a refusal the store now
+# half-closes (the client gets the answer and a FIN), reads and discards at most
+# min(v2_max_bytes, MAX_LINGER_BYTES) for at most LINGER_SECONDS in all, then closes. Nothing is
+# buffered or written; the bounds are fixed. M2-R10E: the byte bound covers the largest body a v2 grant
+# can carry, so a refused full-size upload still reads its answer.
+MAX_LINGER_BYTES = 20 * 1024 * 1024
+LINGER_SECONDS = 2.0
+LINGER_CHUNK = 64 * 1024
+# M2-R10O (B1). A chunked body refused before any of it was read is DECODED and discarded with the same
+# decoder the write path uses, so the store stops exactly at its terminator and the close carries no
+# unread data (no reset). Bounds: the PAYLOAD may not pass v2_max_bytes, the WIRE (framing included) may
+# not pass DRAIN_WIRE_FACTOR x v2_max_bytes (chunks of 8 bytes or more fit; smaller ones near the
+# ceiling are cut), and all of it within LINGER_SECONDS. Malformed framing, a short body or a client
+# that goes away ends the drain and closes. Memory is one decoder read (CHUNK) plus the reader's buffer.
+DRAIN_WIRE_FACTOR = 2
+
+
+class _DrainStop(Exception):
+    """The drain reached a bound: the deadline or the wire budget."""
+
+
+class _BoundedReader:
+    """The request's rfile, for discarding a refused body: every read bounded by a deadline and a budget."""
+
+    def __init__(self, rfile, sock, deadline: float, wire_budget: int):
+        self._rfile, self._sock, self._deadline, self._left = rfile, sock, deadline, wire_budget
+
+    def _arm(self, n: int) -> int:
+        left = self._deadline - time.monotonic()
+        if left <= 0 or self._left <= 0:
+            raise _DrainStop()
+        self._sock.settimeout(left)
+        return min(n, self._left)
+
+    def _count(self, data: bytes) -> bytes:
+        self._left -= len(data)
+        return data
+
+    def readline(self, n: int) -> bytes:
+        return self._count(self._rfile.readline(self._arm(n)))
+
+    def read(self, n: int) -> bytes:
+        return self._count(self._rfile.read(self._arm(n)))
+
+
 def make_handler(config: Config, started_at: float, nonces: NonceCache):
     class Handler(BaseHTTPRequestHandler):
         server_version = "hebun-media-store"
@@ -804,9 +853,62 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             sys.stderr.write(f"{self.command} {route} {code}\n")
 
         _unread_body = 0
+        _chunked_body = False
+        _chunks = None  # the chunked decoder of this request, once created
         MAX_DRAIN = 1024 * 1024
 
+        def _drain_decoded(self) -> bool:
+            """B1: decode and discard a chunked body nothing has read yet. True when its terminator was reached."""
+            reader = _BoundedReader(self.rfile, self.connection, time.monotonic() + LINGER_SECONDS,
+                                    DRAIN_WIRE_FACTOR * config.v2_max_bytes)
+            payload = 0
+            try:
+                for chunk in _chunked_chunks(reader):
+                    payload += len(chunk)
+                    if payload > config.v2_max_bytes:
+                        return False
+                return True
+            except (StoreError, _DrainStop, OSError, ValueError):  # malformed, short, gone, timed out
+                return False
+
+        def _linger(self, decode: bool):
+            """Answer already written: half-close, discard what the client still sends, bounded."""
+            sock = self.connection
+            try:
+                self.wfile.flush()
+                sock.shutdown(socket.SHUT_WR)
+            except OSError:
+                return
+            if decode:
+                self._drain_decoded()
+                return
+            deadline = time.monotonic() + LINGER_SECONDS
+            remaining = min(config.v2_max_bytes, MAX_LINGER_BYTES)
+            buf = bytearray(LINGER_CHUNK)
+            try:
+                while remaining > 0:
+                    left = deadline - time.monotonic()
+                    if left <= 0:
+                        break
+                    sock.settimeout(left)
+                    n = sock.recv_into(buf, min(LINGER_CHUNK, remaining))
+                    if n == 0:
+                        break
+                    remaining -= n
+            except OSError:  # includes the timeout: either way the bound is reached
+                pass
+
         def _send(self, status: int, payload: dict | None = None):
+            # A body the client may still be sending (chunked, or too long to drain) needs a lingering
+            # close, or the close resets the answer away. A chunked body nothing has read is decoded to
+            # its end (B1); one refused mid-stream gets the raw bounded linger; one read to its end or
+            # failed inside the decoder (malformed, short) needs none.
+            linger, decode = self._unread_body > self.MAX_DRAIN, False
+            if self._chunked_body:
+                state = inspect.getgeneratorstate(self._chunks) if self._chunks is not None else inspect.GEN_CREATED
+                decode = state == inspect.GEN_CREATED
+                linger = decode or state == inspect.GEN_SUSPENDED
+            self._chunked_body = False
             # A refused small body is drained so closing the socket does not reset the response away.
             if 0 < self._unread_body <= self.MAX_DRAIN:
                 try:
@@ -825,6 +927,8 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             if self.command != "HEAD":
                 self.wfile.write(body)
             self.close_connection = True
+            if linger:
+                self._linger(decode)
 
         def _authorize_write(self, method: str, key: str, sha: str, ctype: str, length: int) -> bool:
             ts = self.headers.get("X-Hebun-Timestamp", "")
@@ -859,6 +963,7 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             te = h.get("Transfer-Encoding")
             length_header = h.get("Content-Length")
             chunked = te is not None
+            self._chunked_body = chunked
             if chunked and (te.strip().lower() != "chunked" or length_header is not None):
                 return self._send(400, {"error": "invalid-framing"})
             if not chunked:
@@ -889,6 +994,8 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             counter = [0]
             chunks = _chunked_chunks(self.rfile) if chunked else _content_length_chunks(
                 self.rfile, int(length_header), counter)
+            if chunked:
+                self._chunks = chunks
             try:
                 result = put_object_stream(config, key, ctype, expected, int(max_text), probe == "required", chunks)
             except StoreError as err:
@@ -900,6 +1007,7 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
                 code = "symlink-refused" if err.errno in (errno.ELOOP, errno.ENOTDIR) else "storage-error"
                 return self._send(500, {"error": code})
             self._unread_body = 0
+            self._chunked_body = False  # the stream was read to its end
             return self._send(201, result)
 
         def do_PUT(self):
