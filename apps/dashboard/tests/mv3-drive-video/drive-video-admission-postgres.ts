@@ -208,6 +208,41 @@ async function main(): Promise<void> {
       status: "available" as const,
       client: createVpsMediaStorageV2({ origin: store.origin, writeSecret: store.writeSecret, readSecret: store.readSecret, fetchImpl: recordingFetch }),
     });
+    /*
+     * M2-R9P. "video storage disabled" read `store-unreachable` instead of `store-415` in 2 of 5 CI runs.
+     * The store refuses the type before reading a chunked body and closes the connection; the client
+     * may lose that answer to a reset. The admission keeps only its closed detail, so the transport
+     * error is classified HERE, on the test's own fetch, into closed values — never its message.
+     */
+    const TRANSPORT_CODES = new Set(["ECONNRESET", "EPIPE", "UND_ERR_SOCKET", "ECONNREFUSED"]);
+    const transportClass = (error: unknown): string => {
+      const classes: string[] = [];
+      let link: unknown = error;
+      for (let depth = 0; link && typeof link === "object" && depth < 6; depth++) {
+        const { code, name, cause } = link as { code?: unknown; name?: unknown; cause?: unknown };
+        if (typeof code === "string" && TRANSPORT_CODES.has(code)) classes.push(code);
+        else if (name === "TimeoutError" || name === "AbortError" || (typeof code === "string" && /TIMEOUT/.test(code))) classes.push("TIMEOUT");
+        link = cause;
+      }
+      return classes.length ? [...new Set(classes)].join(">") : "OTHER";
+    };
+    assert.equal(transportClass(new TypeError("fetch failed", { cause: Object.assign(new Error("x"), { code: "UND_ERR_SOCKET", cause: Object.assign(new Error("y"), { code: "ECONNRESET" }) }) })), "UND_ERR_SOCKET>ECONNRESET");
+    assert.equal(transportClass(Object.assign(new Error("x"), { code: "EPIPE" })), "EPIPE");
+    assert.equal(transportClass(new DOMException("t", "TimeoutError")), "TIMEOUT");
+    assert.equal(transportClass(new Error("no code")), "OTHER");
+    let noVideoTransport = "UNKNOWN";
+    const classifyingFetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      try {
+        return await recordingFetch(url, init);
+      } catch (error) {
+        noVideoTransport = transportClass(error);
+        throw error;
+      }
+    }) as typeof fetch;
+    const v2NoVideo = (store: LocalVpsStore) => ({
+      status: "available" as const,
+      client: createVpsMediaStorageV2({ origin: store.origin, writeSecret: store.writeSecret, readSecret: store.readSecret, fetchImpl: classifyingFetch }),
+    });
     const portFor = (store: LocalVpsStore) => ({
       status: "available" as const,
       store: createVpsMediaObjectStore({ origin: store.origin, writeSecret: store.writeSecret, readSecret: store.readSecret }),
@@ -249,7 +284,7 @@ async function main(): Promise<void> {
       ["unsupported Drive MIME", mp4("x"), {}, { mimeType: "video/quicktime" }, "drive-read-failed", "google-file-type-unsupported"],
       ["declared oversize", mp4("x"), {}, { size: String(21 * MiB) }, "byte-size-exceeded"],
       ["streamed oversize", mp4("x", 20 * MiB + 1), {}, { size: "1" }, "byte-size-exceeded"],
-      ["video storage disabled", mp4("x"), { resolveStorageV2: () => v2For(vpsNoVideo!) }, {}, "storage-write-failed", "store-415"],
+      ["video storage disabled", mp4("x"), { resolveStorageV2: () => v2NoVideo(vpsNoVideo!) }, {}, "storage-write-failed", "store-415"],
       ["storage not connected", mp4("x"), { resolveStorageV2: () => ({ status: "unavailable", reason: "storage-not-connected" }) }, {}, "storage-unavailable"],
     ];
     for (const [label, bytes, over, meta, reason, detail] of refusals) {
@@ -258,7 +293,7 @@ async function main(): Promise<void> {
       assert.equal(r.status, "refused", label);
       if (r.status === "refused") {
         assert.equal(r.reason, reason, label);
-        if (detail) assert.equal(r.detail, detail, label);
+        if (detail) assert.equal(r.detail, detail, label === "video storage disabled" ? `${label} (transport: ${noVideoTransport})` : label);
       }
       assert.equal(await rows(), before, `${label}: no Media row`);
     }

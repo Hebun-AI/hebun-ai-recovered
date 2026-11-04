@@ -18,6 +18,8 @@ import assert from "node:assert/strict";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
+import { standingObservationAuthorizations } from "../../src/db/schema/standing-observation-authorization";
+import { createInsertBarrier } from "../helpers/insert-barrier";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import {
@@ -903,9 +905,64 @@ async function main(): Promise<void> {
      */
     assert.equal(after.observations, 0, "AUTHORIZED != OBSERVED, measured rather than asserted");
 
+    /* ═══════════════════════════════════════════════════════════════════════
+     * 10. A LOST RACE IS REPORTED AS ONE — ON WITHDRAW AND ON AUTHORIZE.
+     *
+     * Four writers on one observed revision. Every racer reads it before any of them writes, so the
+     * losers reach the unique index every run; each must be told it lost the race, not that the
+     * database is unreachable. Only the winner leaves a revision, a decision and audit rows.
+     * ═════════════════════════════════════════════════════════════════════ */
+    const scopeInput = {
+      providerKey: SCOPE.providerKey,
+      capabilityKey: SCOPE.capabilityKey,
+      subjectKind: SCOPE.subjectKind,
+      subjectRef: SCOPE.subjectRef,
+    };
+    const lostRace = async (
+      label: string,
+      write: (deps: typeof baseDeps) => ReturnType<typeof authorizeStandingObservation>,
+    ): Promise<void> => {
+      const barrier = createInsertBarrier(standingObservationAuthorizations, 4);
+      const before = {
+        revisions: await count(setup, "standing_observation_authorizations"),
+        decisions: await count(setup, "decision_records"),
+        audit: await count(setup, "audit_log"),
+      };
+      const raced = await Promise.all([0, 1, 2, 3].map(() => write({ getDb: () => barrier.wrap(handle.db) })));
+      assert.equal(raced.filter((r) => r.status === "authorized").length, 1, `${label}: one concurrent write wins`);
+      assert.deepEqual(
+        raced.filter((r) => r.status !== "authorized"),
+        [0, 1, 2].map(() => ({ status: "refused", reason: "concurrent-authorization-change" })),
+        `${label}: every loser is told it lost the race, never that persistence is unavailable`,
+      );
+      assert.equal(await count(setup, "standing_observation_authorizations"), before.revisions + 1, `${label}: one revision`);
+      assert.equal(await count(setup, "decision_records"), before.decisions + 1, `${label}: one Governance decision`);
+      assert.equal(await count(setup, "audit_log"), before.audit + 2, `${label}: the winner's two events, nothing for a loser`);
+    };
+    await lostRace("withdraw race", (deps) =>
+      withdrawStandingObservation(
+        trhTenant,
+        { ...scopeInput, justification: WITHDRAWAL_JUSTIFICATION, observedAuthorizationRevision: 4 },
+        deps,
+      ),
+    );
+    await lostRace("authorize race", (deps) =>
+      authorizeStandingObservation(
+        trhTenant,
+        {
+          ...scopeInput,
+          integrationId: trhConnection,
+          intervalMinutes: MIN_OBSERVATION_INTERVAL_MINUTES,
+          justification: JUSTIFICATION,
+          observedAuthorizationRevision: 5,
+        },
+        deps,
+      ),
+    );
+
     console.log(
       `trh23-standing-observation/authorization-postgres: 4 revisions, 4 decisions, 0 observations, ` +
-        `1 principal minted and refused at the authoritative check`,
+        `1 principal minted and refused at the authoritative check; 2 lost races reported as concurrent`,
     );
   } finally {
     await setup.end().catch(() => undefined);

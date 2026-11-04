@@ -650,5 +650,300 @@ class Vectors(unittest.TestCase):
             self.assertEqual(store.sign(vectors["writeSecret"].encode(), c), v["signature"])
 
 
+MIB = 1024 * 1024
+# B1: a refused chunked body is decoded to its terminator and its PAYLOAD counted, so a body exactly at
+# the 20 MiB ceiling is drained whole whatever its framing. (The raw linger this replaces counted wire
+# bytes, and a 20 MiB payload overran it by its 10245 bytes of framing.)
+
+
+class EarlyRefusalLinger(V2TestCase):
+    """
+    M2-R10C/R10E. A refusal sent before the body is read (a type the store does not admit, a bad grant,
+    a ceiling above its own, no space) while the client is still streaming a chunked body. The answer
+    must reach that client, and the store must stop listening within its bounds:
+    min(v2_max_bytes, MAX_LINGER_BYTES) read and discarded, LINGER_SECONDS in all. The store here runs
+    with the production ceiling (20 MiB), so a refused full-size upload is exercised.
+    """
+    enable_video = False
+    v2_max = store.MAX_BYTE_SIZE
+    min_free = 0
+
+    def start_server(self):
+        self.config = store.Config(self.root, self.write_secret.encode(), self.read_secret.encode(),
+                                   self.min_free, clock=lambda: self.now, v2_max_bytes=self.v2_max,
+                                   enable_video=self.enable_video, ffprobe=self.ffprobe)
+        self.server = store.build_server(self.config, "127.0.0.1", 0)
+        self.port = self.server.server_address[1]
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def open_chunked(self, k, headers):
+        s = socket.create_connection(("127.0.0.1", self.port), timeout=10)
+        lines = [f"PUT /v2/objects/{k} HTTP/1.1", "Host: x", "Transfer-Encoding: chunked"]
+        lines += [f"{n}: {v}" for n, v in headers.items()]
+        s.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
+        return s
+
+    @staticmethod
+    def chunk(data):
+        return f"{len(data):x}\r\n".encode() + data + b"\r\n"
+
+    @staticmethod
+    def read_status(s, timeout=5):
+        s.settimeout(timeout)
+        data = b""
+        while b"\r\n" not in data:
+            part = s.recv(4096)
+            if not part:
+                break
+            data += part
+        return int(data.split(b" ", 2)[1]) if data.startswith(b"HTTP/1.1 ") else None
+
+    def wait_for_handler_threads(self, baseline):
+        deadline = time.monotonic() + store.LINGER_SECONDS + 3
+        while threading.active_count() > baseline and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertLessEqual(threading.active_count(), baseline, "every handler thread finished")
+
+    def assert_nothing_written(self):
+        files = [os.path.join(d, f) for d, _, fs in os.walk(self.root) for f in fs]
+        self.assertEqual(files, [], "a refused write leaves nothing in the store")
+
+    def stream_whole_body(self, headers, size=256 * 1024, piece=16 * 1024, k=None):
+        """Send headers, the whole chunked body and its terminator; then read the answer."""
+        k = k or key(T1, A1)
+        s = self.open_chunked(k, headers)
+        try:
+            for _ in range(0, size, piece):
+                s.sendall(self.chunk(bytes(piece)))  # raises if the store reset the connection
+            s.sendall(b"0\r\n\r\n")
+            return self.read_status(s)
+        except OSError as err:
+            return f"transport-{type(err).__name__}"
+        finally:
+            s.close()
+
+    def tally(self, headers_for, size, attempts):
+        out = {}
+        for _ in range(attempts):
+            r = self.stream_whole_body(headers_for(), size=size)
+            out[r] = out.get(r, 0) + 1
+        return out
+
+    def video_grant(self):
+        return self.grant(key(T1, A1), ctype="video/mp4", max_bytes=4096)
+
+    def test_a_disabled_type_is_refused_to_a_client_still_streaming_at_every_size(self):
+        baseline = threading.active_count()
+        for size, attempts in ((256 * 1024, 20), (MIB, 20), (2 * MIB, 20), (20 * MIB, 10)):
+            with self.subTest(size=size):
+                self.assertEqual(self.tally(self.video_grant, size, attempts), {415: attempts})
+        self.assert_absent(T1, A1)
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_a_bad_grant_is_refused_to_a_client_still_streaming(self):
+        baseline = threading.active_count()
+        bad = lambda: self.grant(key(T1, A1), secret="0" * 64)  # noqa: E731
+        self.assertEqual(self.tally(bad, 256 * 1024, 20), {401: 20})
+        self.assertEqual(self.tally(bad, 20 * MIB, 3), {401: 3})
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_an_unauthenticated_malformed_request_is_refused_while_streaming(self):
+        baseline = threading.active_count()
+        s = self.open_chunked("tenants/not-a-key", {})
+        try:
+            for _ in range(0, 2 * MIB, 16 * 1024):
+                s.sendall(self.chunk(bytes(16 * 1024)))
+            s.sendall(b"0\r\n\r\n")
+            self.assertEqual(self.read_status(s), 400)
+        finally:
+            s.close()
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_a_ceiling_above_the_store_is_refused_while_streaming(self):
+        baseline = threading.active_count()
+        over = lambda: self.grant(key(T1, A1), max_bytes=self.v2_max + 1)  # noqa: E731
+        self.assertEqual(self.tally(over, 2 * MIB, 10), {413: 10})
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_a_body_past_the_byte_bound_is_not_read(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        self.assertEqual(self.read_status(s), 415)
+        sent, started = 0, time.monotonic()
+        piece = self.chunk(bytes(64 * 1024))
+        with self.assertRaises(OSError, msg="the store stops reading at its bound and closes"):
+            while sent < 64 * MIB:
+                s.sendall(piece)
+                sent += len(piece)
+        s.close()
+        self.assertLess(sent, 64 * MIB)
+        self.assertLess(time.monotonic() - started, store.LINGER_SECONDS + 3)
+        self.assert_absent(T1, A1)
+        self.wait_for_handler_threads(baseline)
+
+    def test_a_slow_client_is_closed_at_the_time_bound(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        self.assertEqual(self.read_status(s), 415)
+        started = time.monotonic()
+        with self.assertRaises(OSError, msg="a trickling client is cut off"):
+            while time.monotonic() - started < store.LINGER_SECONDS + 5:
+                s.sendall(self.chunk(b"x"))
+                time.sleep(0.1)
+        elapsed = time.monotonic() - started
+        s.close()
+        self.assertGreaterEqual(elapsed, store.LINGER_SECONDS - 0.5, "not cut before the bound")
+        self.assertLess(elapsed, store.LINGER_SECONDS + 2.5, "cut soon after the bound")
+        self.assert_absent(T1, A1)
+        self.wait_for_handler_threads(baseline)
+
+    def test_very_small_chunks_are_drained(self):
+        baseline = threading.active_count()
+        for piece in (1, 7, 100):
+            with self.subTest(piece=piece):
+                status = self.stream_whole_body(self.video_grant(), size=64 * 1024, piece=piece)
+                self.assertEqual(status, 415)
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_a_payload_past_the_ceiling_is_not_drained(self):
+        """Over the ceiling the store stops reading and closes. The answer may or may not arrive: not promised."""
+        baseline = threading.active_count()
+        r = self.stream_whole_body(self.video_grant(), size=20 * MIB + 16 * 1024)
+        self.assertIn(r, (415, "transport-BrokenPipeError", "transport-ConnectionResetError",
+                          "transport-ConnectionAbortedError"))
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def handler_lifetime(self, baseline):
+        """Seconds until every handler thread has ended. (The answer is half-closed before the drain, so
+        the client sees end-of-stream at once; the drain's length shows only in the handler thread.)"""
+        started = time.monotonic()
+        self.wait_for_handler_threads(baseline)
+        return time.monotonic() - started
+
+    def test_malformed_framing_ends_the_drain(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        try:
+            s.sendall(b"zz-not-a-size\r\n")  # the client stays connected: only the framing ends the drain
+            self.assertEqual(self.read_status(s), 415)
+            self.assertLess(self.handler_lifetime(baseline), 1.0, "ended at the bad line, not at the time bound")
+        finally:
+            s.close()
+        self.assert_nothing_written()
+
+    def test_a_missing_terminator_ends_at_the_time_bound(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        try:
+            s.sendall(self.chunk(bytes(16 * 1024)))  # no "0\r\n\r\n", and the client stays connected
+            self.assertEqual(self.read_status(s), 415)
+            lifetime = self.handler_lifetime(baseline)
+        finally:
+            s.close()
+        self.assertGreaterEqual(lifetime, store.LINGER_SECONDS - 0.5, "not cut before the bound")
+        self.assertLess(lifetime, store.LINGER_SECONDS + 1.5, "cut at the bound")
+        self.assert_nothing_written()
+
+    def test_a_client_that_goes_away_ends_the_drain(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        s.sendall(self.chunk(bytes(16 * 1024)))
+        self.assertEqual(self.read_status(s), 415)
+        started = time.monotonic()
+        s.close()
+        self.wait_for_handler_threads(baseline)
+        self.assertLess(time.monotonic() - started, 1.0, "the handler ends when its client is gone")
+        self.assert_nothing_written()
+
+    def test_concurrent_refusals_all_read_their_answer(self):
+        baseline = threading.active_count()
+        results = []
+        lock = threading.Lock()
+
+        def one():
+            r = self.stream_whole_body(self.video_grant(), size=256 * 1024)
+            with lock:
+                results.append(r)
+
+        workers = [threading.Thread(target=one) for _ in range(16)]
+        for w in workers:
+            w.start()
+        for w in workers:
+            w.join(timeout=30)
+        self.assertEqual(results, [415] * 16)
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    def test_bounds_are_fixed(self):
+        self.assertEqual(store.MAX_LINGER_BYTES, 20 * MIB)
+        self.assertEqual(store.LINGER_SECONDS, 2.0)
+        self.assertEqual(store.LINGER_CHUNK, 64 * 1024)
+        self.assertEqual(store.DRAIN_WIRE_FACTOR, 2)
+
+
+class EarlyRefusalNoSpace(EarlyRefusalLinger):
+    """507 is decided before the body is read, like 415; the streaming client still reads it."""
+    enable_video = True
+    min_free = 1 << 62
+
+    def test_no_space_is_refused_to_a_client_still_streaming(self):
+        baseline = threading.active_count()
+        png = lambda: self.grant(key(T1, A1), max_bytes=4096)  # noqa: E731
+        self.assertEqual(self.tally(png, 2 * MIB, 10), {507: 10})
+        self.assert_nothing_written()
+        self.wait_for_handler_threads(baseline)
+
+    # The inherited cases assume a refused video type; here video is admitted.
+    test_a_disabled_type_is_refused_to_a_client_still_streaming_at_every_size = None
+    test_a_body_past_the_byte_bound_is_not_read = None
+    test_a_slow_client_is_closed_at_the_time_bound = None
+    test_very_small_chunks_are_drained = None
+    test_a_payload_past_the_ceiling_is_not_drained = None
+    test_malformed_framing_ends_the_drain = None
+    test_a_missing_terminator_ends_at_the_time_bound = None
+    test_a_client_that_goes_away_ends_the_drain = None
+    test_concurrent_refusals_all_read_their_answer = None
+
+
+class EarlyRefusalSmallCeiling(EarlyRefusalLinger):
+    """The byte bound is min(v2_max_bytes, MAX_LINGER_BYTES): a smaller store ceiling lingers less."""
+    v2_max = 64 * 1024
+
+    def test_the_bound_follows_a_smaller_ceiling(self):
+        baseline = threading.active_count()
+        s = self.open_chunked(key(T1, A1), self.video_grant())
+        self.assertEqual(self.read_status(s), 415)
+        sent = 0
+        piece = self.chunk(bytes(64 * 1024))
+        with self.assertRaises(OSError):
+            while sent < 64 * MIB:
+                s.sendall(piece)
+                sent += len(piece)
+        s.close()
+        self.assertLess(sent, 20 * MIB, "stopped long before the 20 MiB bound")
+        self.wait_for_handler_threads(baseline)
+
+    test_a_disabled_type_is_refused_to_a_client_still_streaming_at_every_size = None
+    test_a_bad_grant_is_refused_to_a_client_still_streaming = None
+    test_an_unauthenticated_malformed_request_is_refused_while_streaming = None
+    test_a_ceiling_above_the_store_is_refused_while_streaming = None
+    test_a_body_past_the_byte_bound_is_not_read = None
+    test_a_slow_client_is_closed_at_the_time_bound = None
+    test_bounds_are_fixed = None
+    test_very_small_chunks_are_drained = None
+    test_a_payload_past_the_ceiling_is_not_drained = None
+    test_malformed_framing_ends_the_drain = None
+    test_a_missing_terminator_ends_at_the_time_bound = None
+    test_a_client_that_goes_away_ends_the_drain = None
+    test_concurrent_refusals_all_read_their_answer = None
+
+
 if __name__ == "__main__":
     unittest.main()

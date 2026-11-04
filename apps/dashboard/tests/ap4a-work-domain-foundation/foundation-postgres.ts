@@ -31,6 +31,8 @@ import assert from "node:assert/strict";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
+import { agentMandates } from "../../src/db/schema/agent-mandate";
+import { createInsertBarrier } from "../helpers/insert-barrier";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
@@ -270,20 +272,31 @@ async function main(): Promise<void> {
     /* ═══ M6 · concurrent responsibility-aware writes ══════════════════════ */
     {
       const hs = Array.from({ length: 4 }, () => createControlPlaneDb(harness.dbUrl));
+      /* Every racer reads revision 3 before any of them writes — the loss is at the unique index, every run. */
+      const barrier = createInsertBarrier(agentMandates, hs.length);
+      const decisionsBefore = await n(`select count(*) from decision_records`);
+      const auditBefore = await n(`select count(*) from audit_log`);
       try {
         const raced = await Promise.all(
           hs.map((h) =>
             establishAgentMandateWithResponsibility(
               aCtx,
               { agentId, purpose: PURPOSE, proposalScope: ["record-work"], justification: MANDATE_JUSTIFICATION, observedMandateRevision: 3, responsibility: [{ kind: "domain", workDomainId: legalId }] },
-              { getDb: () => h.db },
+              { getDb: () => barrier.wrap(h.db) },
             ),
           ),
         );
         assert.equal(raced.filter((r) => r.status === "established").length, 1, "M6: one concurrent write wins");
+        assert.deepEqual(
+          raced.filter((r) => r.status !== "established"),
+          [0, 1, 2].map(() => ({ status: "refused", reason: "concurrent-mandate-change" })),
+          "M6: every loser is told it lost the race, never that persistence is unavailable",
+        );
       } finally {
         await Promise.all(hs.map((h) => h.dispose()));
       }
+      assert.equal(await n(`select count(*) from decision_records`), decisionsBefore + 1, "M6: one Governance decision, the winner's");
+      assert.equal(await n(`select count(*) from audit_log`), auditBefore + 2, "M6: the winner's governance and mandate events, nothing for a loser");
       assert.equal(await rows(), 3, "M6: rows only for the winner");
       assert.equal(await revisions(), 4);
     }

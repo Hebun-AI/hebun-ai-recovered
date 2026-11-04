@@ -212,16 +212,41 @@ export function createVpsMediaStorageV2(options: VpsStorageV2Options) {
         "x-hebun-probe": probe,
       };
       if (expected !== undefined) headers["content-length"] = String(expected);
-      const response = await doFetch(`${origin}/v2/objects/${input.key}`, {
-        method: "PUT",
-        headers,
-        body: input.body,
-        redirect: "error",
-        cache: "no-store",
-        signal: AbortSignal.timeout(input.timeoutMs ?? ttl * 1000),
-        duplex: "half",
-      } as RequestInit & { duplex: "half" });
+      /* M2-R10E. After a refusal, a transport failure or a timeout, fetch keeps pulling the body or
+       * abandons it locked, so the caller's source (a Drive or provider download) stays open. Holding
+       * the source's reader lets a failure cancel it directly. (Not a pipe abort: that first waits for
+       * a chunk already read to be written, and fetch no longer reads, so it never settles.) A 201 means
+       * the body was read to its end: nothing is cancelled. The error thrown is the original one, so
+       * callers classify exactly as before. */
+      const source = input.body.getReader();
+      const release = () => void source.cancel().catch(() => undefined);
+      let response: Response;
+      try {
+        response = await doFetch(`${origin}/v2/objects/${input.key}`, {
+          method: "PUT",
+          headers,
+          body: new ReadableStream<Uint8Array>(
+            {
+              async pull(controller) {
+                const { done, value } = await source.read();
+                if (done) controller.close();
+                else controller.enqueue(value);
+              },
+              cancel: (reason) => source.cancel(reason),
+            },
+            { highWaterMark: 0 },
+          ),
+          redirect: "error",
+          cache: "no-store",
+          signal: AbortSignal.timeout(input.timeoutMs ?? ttl * 1000),
+          duplex: "half",
+        } as RequestInit & { duplex: "half" });
+      } catch (error) {
+        release();
+        throw error;
+      }
       if (response.status !== 201) {
+        release();
         await response.body?.cancel().catch(() => undefined);
         throw new Error(`media store: v2 write refused (${response.status})`);
       }
