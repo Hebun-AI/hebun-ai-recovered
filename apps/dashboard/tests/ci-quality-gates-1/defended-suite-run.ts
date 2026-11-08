@@ -39,16 +39,22 @@ const SHORT = { timeoutMs: 1_500, reportWaitMs: 3_000, graceMs: 1_000 } as const
 
 const fixtures = mkdtempSync(path.join(os.tmpdir(), "defended-suite-selftest-"));
 const LINUX = process.platform === "linux";
-const PARENT_ESBUILD_WORKERS = process.env.ESBUILD_WORKER_THREADS;
 /* Grandchildren the fixtures start record their pid here, so the test can stop what it started. */
 const GRANDCHILD = `require("node:fs").writeFileSync(process.env.GRANDCHILD_RECORD, String(process.pid)); setTimeout(() => {}, 60000);`;
 
-/* Each child records its own pid and the mode of the report directory it was handed. */
+/*
+ * Each child records its own pid, the mode of the report directory it was handed, whether it was started
+ * with any loader flag, and what it is running: the bundle file and the mode of the directory holding it.
+ */
 const PRELUDE = `
 import { statSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 const dirArg = process.execArgv.find((a) => a.startsWith("--report-directory="));
 const mode = dirArg ? (statSync(dirArg.slice("--report-directory=".length)).mode & 0o777).toString(8) : "none";
-writeFileSync(process.env.FIXTURE_RECORD, JSON.stringify({ pid: process.pid, mode, esbuildWorkers: process.env.ESBUILD_WORKER_THREADS ?? null }));
+const loader = process.execArgv.some((a) => /^(--import|--loader|--experimental-loader|--require|-r)(=|$)/.test(a));
+const entry = process.argv[1] ?? "";
+const bundleMode = (statSync(dirname(entry)).mode & 0o777).toString(8);
+writeFileSync(process.env.FIXTURE_RECORD, JSON.stringify({ pid: process.pid, mode, loader, cjs: entry.endsWith(".cjs"), bundleMode }));
 `;
 
 const CHILDREN: Record<string, string> = {
@@ -66,6 +72,12 @@ const CHILDREN: Record<string, string> = {
 
 function tempDirsNow(): string[] {
   return readdirSync(os.tmpdir()).filter((name) => name.startsWith("defended-suite-") && !name.startsWith("defended-suite-selftest-"));
+}
+
+/* Where the helper bundles each suite. Every bundle directory must be gone when the run returns. */
+const BUNDLE_ROOT = path.join(ROOT, "node_modules", ".cache");
+function bundleDirsNow(): string[] {
+  return existsSync(BUNDLE_ROOT) ? readdirSync(BUNDLE_ROOT).filter((name) => name.startsWith("defended-suite-")) : [];
 }
 
 function alive(pid: number): boolean {
@@ -95,6 +107,7 @@ async function run(name: string, short = true): Promise<{ run: DefendedSuiteRun;
   const record = path.join(fixtures, `${name}.record.json`);
   writeFileSync(file, CHILDREN[name], "utf8");
   const before = tempDirsNow();
+  const bundlesBefore = bundleDirsNow();
   const result = await runDefendedSuite(file, {
     cwd: ROOT,
     env: { ...process.env, FIXTURE_RECORD: record, SECRET_FOR_TEST: SENTINEL, GRANDCHILD_RECORD: path.join(fixtures, `${name}.grandchild`) },
@@ -102,12 +115,16 @@ async function run(name: string, short = true): Promise<{ run: DefendedSuiteRun;
   });
   const leftover = tempDirsNow().filter((d) => !before.includes(d));
   assert.deepEqual(leftover, [], `${name}: the temporary report directory must be removed`);
-  const { pid, mode, esbuildWorkers } = JSON.parse(readFileSync(record, "utf8")) as { pid: number; mode: string; esbuildWorkers: string | null };
+  assert.deepEqual(bundleDirsNow().filter((d) => !bundlesBefore.includes(d)), [], `${name}: the bundle directory must be removed`);
+  const { pid, mode, loader, cjs, bundleMode } = JSON.parse(readFileSync(record, "utf8")) as {
+    pid: number; mode: string; loader: boolean; cjs: boolean; bundleMode: string;
+  };
   assert.equal(alive(pid), false, `${name}: the child must not outlive the run`);
   assert.equal(mode, "700", `${name}: the report directory must be 0700`);
-  /* The child runs esbuild without its worker thread; the caller's own env is left as it was. */
-  assert.equal(esbuildWorkers, "0", `${name}: the child must run esbuild with ESBUILD_WORKER_THREADS=0`);
-  assert.equal(process.env.ESBUILD_WORKER_THREADS, PARENT_ESBUILD_WORKERS, `${name}: the parent's env must not change`);
+  /* Plain node on a fresh bundle: no tsx, no loader of any kind, in a private directory. */
+  assert.equal(loader, false, `${name}: the child must start without a loader`);
+  assert.equal(cjs, true, `${name}: the child must run the bundled suite`);
+  assert.equal(bundleMode, "700", `${name}: the bundle directory must be 0700`);
   return { run: result, pid, mode };
 }
 
@@ -313,6 +330,22 @@ async function main(): Promise<void> {
   assert.ok(fail.run.output.includes("child failed for the intended reason"));
   assertClosed("fail", fail.run);
   console.log("ok 2 a failing child is a failure with its output");
+
+  /* B1. A suite that does not compile is a failure, never a pass, and its bundle directory is still removed. */
+  {
+    const file = path.join(fixtures, "broken.ts");
+    writeFileSync(file, "const = ;\n", "utf8");
+    const bundlesBefore = bundleDirsNow();
+    const broken = await runDefendedSuite(file, { cwd: ROOT, env: { ...process.env, SECRET_FOR_TEST: SENTINEL }, ...SHORT });
+    assert.equal(broken.ok, false, "a suite that does not compile is never a pass");
+    assert.equal(broken.timedOut, false);
+    assert.equal(broken.ended, "exit");
+    assert.equal(broken.cleanupComplete, true);
+    assert.ok(broken.output.includes("the suite did not compile"), "the build failure is named");
+    assert.deepEqual(bundleDirsNow().filter((d) => !bundlesBefore.includes(d)), [], "broken: the bundle directory must be removed");
+    assertClosed("broken", broken);
+  }
+  console.log("ok B1 a suite that does not compile is a failure and leaves no bundle");
 
   /* 3, 4, 5, 6, 7, 8. A hanging child: timed out, never a pass, report reduced to metadata, child gone. */
   const hang = await run("hang");

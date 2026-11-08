@@ -5,8 +5,8 @@
  * `spawnSync` with a 300-second timeout, and a hang told us only "TIMED OUT": the parent is blocked
  * for the whole run, so nothing could ask the child what was keeping it alive before it was killed.
  *
- * This runs the same child (`node --import tsx <suite>`, same cwd, env and output limit) under an
- * async `spawn`, so at the timeout it can:
+ * This runs the suite (same cwd, env and output limit) under an async `spawn`, bundled to plain
+ * JavaScript first (see `runDefendedSuite`), so at the timeout it can:
  *
  *   1. send SIGUSR2 to the child it started — and only that child — which Node answers with a
  *      diagnostic report (`--report-on-signal`), written to a private 0700 temporary directory;
@@ -30,9 +30,10 @@
  *     handler) is reported as `absent`, and termination proceeds exactly the same way.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { build } from "esbuild";
 
 /** The bite-proof contract: a defending suite gets five minutes. Not raised to make room for diagnostics. */
 export const DEFENDED_SUITE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -462,6 +463,18 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
   const dir = mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX));
   chmodSync(dir, 0o700);
   const reportPath = path.join(dir, REPORT_FILE);
+  /*
+   * The suite is bundled to one CommonJS file NOW, after any mutation reached disk, and the child runs
+   * it on plain node: no tsx loader, no in-thread compile hooks (CI hangs: a loaded child asleep in
+   * futex, cpuMs=0). Bundled once per call, never cached: a bundle from before the mutation would let
+   * it survive unseen. Under node_modules so bare imports resolve as they do from the suite. A build
+   * error fails the run; it cannot pass, and its text names no expected assertion.
+   */
+  const cacheRoot = path.join(options.cwd, "node_modules", ".cache");
+  mkdirSync(cacheRoot, { recursive: true });
+  const bundleDir = mkdtempSync(path.join(cacheRoot, TEMP_PREFIX));
+  chmodSync(bundleDir, 0o700);
+  const bundlePath = path.join(bundleDir, "suite.cjs");
 
   let timedOut = false;
   let overflow = false;
@@ -476,6 +489,21 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
 
   try {
     if ((statSync(dir).mode & 0o777) !== 0o700) throw new Error("defended-suite-run: temporary directory is not 0700");
+    if ((statSync(bundleDir).mode & 0o777) !== 0o700) throw new Error("defended-suite-run: bundle directory is not 0700");
+    const built = await build({
+      entryPoints: [path.resolve(options.cwd, suite)],
+      outfile: bundlePath,
+      absWorkingDir: options.cwd,
+      bundle: true,
+      platform: "node",
+      format: "cjs",
+      target: `node${process.versions.node.split(".")[0]}`,
+      packages: "external",
+      jsx: "automatic",
+      logLevel: "silent",
+    }).then(() => null, (e: { errors?: { text: string }[] }) => (e.errors ?? []).map((x) => x.text).join("\n") || "build failed");
+    /* A child that prints the build error and exits 1: the timeout, output and verdict paths stay one path. */
+    if (built !== null) writeFileSync(bundlePath, `process.stderr.write(${JSON.stringify(`defended-suite-run: the suite did not compile\n${built}\n`)});process.exit(1);\n`);
 
     const child = spawn(
       process.execPath,
@@ -487,18 +515,9 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
         "--report-compact",
         "--report-exclude-env",
         "--report-exclude-network",
-        "--import",
-        "tsx",
-        suite,
+        bundlePath,
       ],
-      /*
-       * tsx compiles every .ts import through esbuild's transformSync. By default that posts to a worker
-       * thread and blocks this child's main thread in an untimed Atomics.wait; if the worker dies first,
-       * the child sleeps in futex until the timeout (CI: cpuMs=0, wchan=futex, esbuild:exited, no
-       * WorkerThread). "0" makes each call a self-terminating execFileSync instead. Child-only: the
-       * caller's env object and this process's env are not touched.
-       */
-      { cwd: options.cwd, env: { ...(options.env ?? process.env), ESBUILD_WORKER_THREADS: "0" }, stdio: ["ignore", "pipe", "pipe"] },
+      { cwd: options.cwd, env: options.env ?? process.env, stdio: ["ignore", "pipe", "pipe"] },
     );
     /* Pinned now, while the pid is certainly ours; checked again before any sample is described. */
     const identity = process.platform === "linux" && child.pid !== undefined ? readProcIdentity(child.pid) : null;
@@ -555,9 +574,10 @@ export async function runDefendedSuite(suite: string, options: DefendedSuiteOpti
     child.stderr?.destroy();
   } finally {
     rmSync(dir, { recursive: true, force: true });
+    rmSync(bundleDir, { recursive: true, force: true });
   }
 
-  const cleanupComplete = ended !== "unconfirmed" && ended !== "spawn-error" && !existsSync(dir);
+  const cleanupComplete = ended !== "unconfirmed" && ended !== "spawn-error" && !existsSync(dir) && !existsSync(bundleDir);
   const output = Buffer.concat(chunks).toString("utf8").replace(REPORT_NOTICE, "");
   return {
     ok: !timedOut && !overflow && exitCode === 0 && ended === "exit" && cleanupComplete,
