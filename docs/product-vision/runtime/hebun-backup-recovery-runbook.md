@@ -31,7 +31,29 @@ Tools:
 
 ```bash
 cd apps/dashboard
-npx tsx scripts/backup-vault.ts init-key --key ~/Developer/hebun-backups/keys/vault.key
+npx tsx scripts/backup-vault.ts init-key --key ~/.hebun-keys/vault.key
+```
+
+The key must live **apart from what it protects**. Every command that takes `--key` refuses
+(`key-location-unsafe`) a key inside the repository, the backup root (`~/Developer/hebun-backups`),
+the `--vault`, `--remote-dir` or `--out` directory, or any synchronized location (`Documents`,
+`Desktop`, iCloud Drive, `Library/CloudStorage`, Dropbox, Google Drive, OneDrive). Create the
+directory first: `mkdir -m 700 ~/.hebun-keys`.
+
+**Escrow (a second copy off this Mac) before any production use.** The key file is 32 raw bytes:
+
+```bash
+base64 < ~/.hebun-keys/vault.key | pbcopy   # paste into the password manager item "Hebun backup vault key <key id>"
+pbcopy < /dev/null                          # clear the clipboard
+```
+
+Never print it to the terminal and never store it next to the backups. To prove the escrowed copy,
+rebuild it in a temporary directory outside every protected root and open a real vault with it:
+
+```bash
+mkdir -m 700 ~/.hebun-escrow-check && pbpaste | base64 -d > ~/.hebun-escrow-check/vault.key && chmod 600 ~/.hebun-escrow-check/vault.key
+npx tsx scripts/backup-vault.ts verify --file <newest>.hbk --key ~/.hebun-escrow-check/vault.key   # keyId must match
+rm -rf ~/.hebun-escrow-check && pbcopy < /dev/null
 ```
 
 The output is the key id. **Losing the key loses every backup sealed with it.** Keep a second copy
@@ -42,13 +64,18 @@ decision. The key id appears in every vault header, so a vault file says which k
 
 ```bash
 # DATABASE_URL must already be set in this shell; it is read by name, not passed as a value.
+# The expected target is required: the same values as the production ceremony pins.
+export HEBUN_BACKUP_TARGET_SYSTEM_IDENTIFIER=<system identifier> HEBUN_BACKUP_TARGET_DATABASE=<database>
 npx tsx scripts/backup-vault.ts backup-db --url-env DATABASE_URL \
-  --vault ~/Developer/hebun-backups/vault --key ~/Developer/hebun-backups/keys/vault.key --prune
+  --vault ~/Developer/hebun-backups/vault --key ~/.hebun-keys/vault.key --prune
 ```
 
 What this does, in order:
 
-1. Checks the free-space floor.
+1. Checks the free-space floor, then proves the target's identity (`pg_control_system()` system
+   identifier and `current_database()`) against the two pins. A wrong or unprovable target is
+   refused before `pg_dump` runs. The probe works for a read-only role: `pg_read_all_data` is enough
+   for the whole backup (checked on PostgreSQL 18; confirm on Neon at activation).
 2. Takes a `pg_dump` through `createValidatedBackup`: TLS `verify-full` for a remote host, a version
    check, and a `pg_restore -l` validation. The dump goes into a private scratch directory.
 3. Seals it as `postgres-custom-<UTC>.hbk`.
@@ -78,13 +105,15 @@ available to launchd. Template `~/Library/LaunchAgents/com.hebun.backup-db.plist
   <key>Label</key><string>com.hebun.backup-db</string>
   <key>ProgramArguments</key><array>
     <string>/bin/zsh</string><string>-c</string>
-    <string>cd "$HOME/Developer/Hebun AI/apps/dashboard" &amp;&amp; node --env-file=.env.backup node_modules/.bin/tsx scripts/backup-vault.ts backup-db --url-env DATABASE_URL --vault "$HOME/Developer/hebun-backups/vault" --key "$HOME/Developer/hebun-backups/keys/vault.key" --prune</string>
+    <string>cd "$HOME/Developer/Hebun AI/apps/dashboard" &amp;&amp; node --env-file=.env.backup node_modules/.bin/tsx scripts/backup-vault.ts backup-db --url-env DATABASE_URL --vault "$HOME/Developer/hebun-backups/vault" --key "$HOME/.hebun-keys/vault.key" --prune</string>
   </array>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>15</integer></dict>
   <key>StandardOutPath</key><string>/Users/USER/Developer/hebun-backups/backup-db.log</string>
   <key>StandardErrorPath</key><string>/Users/USER/Developer/hebun-backups/backup-db.log</string>
 </dict></plist>
 ```
+
+`.env.backup` (gitignored, mode 0600) holds `DATABASE_URL` — preferably a read-only backup role — and the two `HEBUN_BACKUP_TARGET_*` pins; without the pins `backup-db` exits 2 and dumps nothing.
 
 The log receives one JSON line per run: file name, sizes, digests and key id. It never receives the
 URL or any content. A run that prints `"status":"refused"` exits 1.
@@ -109,6 +138,13 @@ In a real incident, the order is:
    `pg_restore` into a new Neon branch as a Director-gated ceremony.
 
 ## Off-site copy
+
+**A local-directory push is not an off-site backup until the cloud copy is checked independently.**
+`offsite-push` verifies the copy in `--remote-dir` only and prints `cloudConfirmed: false`. When that
+directory is a synchronized folder (for example Google Drive for desktop in mirror mode), confirm
+each pushed object from outside this Mac: the provider's checksum must equal the `md5` in the push
+result (Google Drive shows it as the file's `md5Checksum`). Until that check has passed for a real
+backup, BR2-OFFSITE-1 stays open.
 
 `scripts/lib/offsite-backup.ts` defines a provider-independent `OffsiteTransport` (`head`, `put`,
 `get`, `list`, `delete` on whole objects). Its only adapter today is `LocalDirectoryTransport`, a

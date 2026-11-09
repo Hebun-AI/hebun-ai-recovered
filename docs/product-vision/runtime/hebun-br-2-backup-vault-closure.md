@@ -112,6 +112,28 @@ tenants):
   - Mutations N1–N12: 12 of 12 bit, run in an isolated worktree.
   - `tsc` 0, `eslint` 0.
 
+## Activation hardening (third change, after merging main e6a7aa02)
+
+- **Identity before any dump.** `backupDatabase` requires `expectedTarget` (system identifier and
+  database) and proves it with the released read-only `verifyProductionIdentity` before `pg_dump`.
+  A wrong or unprovable target is refused (`identity-system-identifier-mismatch`,
+  `identity-database-mismatch`, `identity-ledger-unreadable`) and the vault is untouched. The CLI
+  reads the pins from `HEBUN_BACKUP_TARGET_SYSTEM_IDENTIFIER` and `HEBUN_BACKUP_TARGET_DATABASE`;
+  without them `backup-db` exits 2. The probe and the dump work for a `pg_read_all_data` role.
+- **No connection detail in a refusal.** Every `backupDatabase` refusal detail is passed through
+  `redactConnection` (URL, user, password, host).
+- **Key apart from what it protects.** `assertKeyLocationSafe` refuses a key inside the repository,
+  the backup root, the vault, `--remote-dir` or `--out`, or a synchronized location (symlinks
+  resolved). Every `--key` in the CLI goes through it. The runbook key path is now
+  `~/.hebun-keys/vault.key`, with an escrow and escrow-check procedure.
+- **No false off-site claim.** `offsite-push` prints `cloudConfirmed: false` and an `md5` per object,
+  so a synchronized-folder copy can be checked in the provider (Google Drive `md5Checksum`) from
+  outside this Mac. BR2-OFFSITE-1 stays open until that check passes for a real backup.
+- **Evidence:** `database-backup-postgres.ts` adds I1–I4 (wrong system identifier, wrong database,
+  read-only role seals, redaction); new `key-location-and-cli.ts` K1–K4, B1, O1. Mutations M1–M7
+  (identity check, redaction, protected roots, synchronized check, `--remote-dir` avoidance,
+  `cloudConfirmed`, symlink resolution) each fail a test.
+
 ## What is not proven
 
 - The post-seal read-back in `backupDatabase` is not pinned by a test (mutation M8 survived). A bad
@@ -126,7 +148,7 @@ tenants):
 - Phase: BR-2
 - Owner: apps/dashboard/scripts/lib/backup-vault.ts (vault format, key, retention), apps/dashboard/scripts/lib/database-backup.ts (scheduled database backup and verified restore), apps/dashboard/scripts/backup-vault.ts (operator CLI), infra/media-store-vps/hebun_media_backup.py (media snapshot and restore), docs/product-vision/runtime/hebun-backup-recovery-runbook.md
 - Reached state: VERIFIED
-- Implementation commit: bff5df01609ad956a7ecae47efd215cdc05cd509 (vault, database backup, media snapshot) and THIS COMMIT (off-site transport, media sealing, seal-failure deletion fix)
+- Implementation commit: bff5df01609ad956a7ecae47efd215cdc05cd509 (vault, database backup, media snapshot), 665c4d1acb7dfb9d8dfb2df5715e8f5393c4ae85 (off-site transport, media sealing, seal-failure deletion fix) and THIS COMMIT (identity pins, refusal redaction, key location, cloudConfirmed)
 - Verification level: V3 — the change builds a path that will read the production database and hold tenant data at rest, and adds a named importer to the migration-module firewall; full suite justified on the pull request for that reason
 - Verification evidence: locally, tests/br2-backup-vault/vault.ts PASS, database-backup-postgres.ts PASS, media-backup-chain.ts PASS (python unittest 16 OK); infra test_hebun_media_backup.py 16 OK on Python 3.9.6 and 3.13.9; mutations 13/14 bit (M8 post-seal read-back survived, recorded); firewall negative checks 2/2; 37 affected suites PASS; prodmig-flow bite-proofs 24/24 and media-vps-storage bite-proofs 16 bites in an isolated worktree; CLI smoke on disposable databases; tsc --noEmit 0, eslint 0, git diff --check clean
 - Test environment: isolated worktree in the session scratchpad from 8b0b5373 plus an isolated detached mutation worktree, macOS Darwin 25.2.0, Node 24.16.0, Python 3.9.6 and 3.13.9, disposable PostgreSQL 18.6 cluster at 127.0.0.1:55432 (initdb -E UTF8 --locale=C, system_identifier proven) stopped and deleted after use; 21 GiB free; no production access, no real dump, no tenant data, no credential, no network beyond loopback

@@ -12,13 +12,26 @@
  *
  * It imports from the migration module only the named backup helpers the firewall allows. It prints
  * nothing; the connection string never reaches argv or a log.
+ *
+ * IDENTITY BEFORE ANY DUMP. `backupDatabase` takes the expected target identity (system identifier
+ * and database name, the same pins the production ceremonies use) and proves it with the released
+ * read-only probe `verifyProductionIdentity` before pg_dump runs. A wrong or unprovable target is a
+ * refusal and the vault is untouched. The probe needs no privilege beyond `pg_control_system()` and a
+ * read of the migration ledger, so it works for a read-only backup role.
+ *
+ * Every refusal detail is passed through `redactConnection`: pg and pg_dump messages can name the
+ * host or user, and a result is printed by the CLI and kept in a log.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client } from "pg";
-import { createValidatedBackup, readServerVersion } from "./production-migration";
+import { BACKUP_ROOT, createValidatedBackup, readServerVersion } from "./production-migration";
+
+/** Where production backups live; a vault key is never kept under it. */
+export { BACKUP_ROOT };
 import { restoreArchive, type RestoreResult } from "./restore-drill";
+import { verifyProductionIdentity } from "./production-possession";
 import {
   BACKUP_FREE_SPACE_FLOOR,
   assertFreeSpace,
@@ -36,8 +49,31 @@ export type DatabaseBackupResult =
   | { readonly status: "sealed"; readonly file: string; readonly header: VaultHeader; readonly pruned: readonly string[] }
   | { readonly status: "refused"; readonly reason: string; readonly detail: string };
 
+/** Remove the URL and each of its parts (user, password, host) from a message before it is reported. */
+export function redactConnection(detail: string, connectionString: string): string {
+  let out = detail;
+  const parts: string[] = [connectionString];
+  try {
+    const url = new URL(connectionString);
+    for (const p of [url.password, url.username, url.hostname, url.host]) if (p) parts.push(decodeURIComponent(p), p);
+  } catch {
+    /* not a URL: only the whole string is removed */
+  }
+  for (const p of parts.filter((x) => x.length >= 3).sort((a, b) => b.length - a.length)) out = out.split(p).join("<redacted>");
+  return out;
+}
+
+export interface ExpectedBackupTarget {
+  /** `pg_control_system().system_identifier` of the database that must be backed up. */
+  readonly systemIdentifier: string;
+  /** `current_database()` of that database. */
+  readonly database: string;
+}
+
 export async function backupDatabase(options: {
   readonly connectionString: string;
+  /** Required: no backup runs against a target whose identity is not proven first. */
+  readonly expectedTarget: ExpectedBackupTarget;
   readonly vaultDirectory: string;
   readonly key: VaultKey;
   readonly repositoryRoot: string;
@@ -47,6 +83,11 @@ export async function backupDatabase(options: {
   readonly prune?: boolean;
   readonly now?: Date;
 }): Promise<DatabaseBackupResult> {
+  const result = await backupDatabaseUnredacted(options);
+  return result.status === "refused" ? { ...result, detail: redactConnection(result.detail, options.connectionString) } : result;
+}
+
+async function backupDatabaseUnredacted(options: Parameters<typeof backupDatabase>[0]): Promise<DatabaseBackupResult> {
   const floor = options.floorBytes ?? BACKUP_FREE_SPACE_FLOOR;
   const workRoot = options.workRoot ?? tmpdir();
   try {
@@ -61,6 +102,8 @@ export async function backupDatabase(options: {
   let version;
   try {
     await client.connect();
+    const identity = await verifyProductionIdentity(client, options.expectedTarget);
+    if (identity.status !== "bound") return { status: "refused", reason: `identity-${identity.reason}`, detail: identity.detail };
     version = await readServerVersion(client);
   } catch (error) {
     return { status: "refused", reason: "connect-failed", detail: (error as Error).message };

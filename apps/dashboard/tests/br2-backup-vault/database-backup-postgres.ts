@@ -51,6 +51,11 @@ async function main(): Promise<void> {
     });
     const before = await snapshotDatabase(source.dbUrl);
     assert.equal(before.tenants, 3);
+    /* The identity every backup must prove before pg_dump runs. */
+    const expected = await withClient(source.dbUrl, async (c) => {
+      const row = (await c.query("select system_identifier::text as sid, current_database() as db from pg_control_system()")).rows[0];
+      return { systemIdentifier: row.sid as string, database: row.db as string };
+    });
 
     const keyFile = path.join(scratch, "keys", "vault.key");
     generateKeyFile(keyFile);
@@ -59,7 +64,7 @@ async function main(): Promise<void> {
     /* B1 — backup: sealed, 0600, authenticated, and no plaintext dump left anywhere. */
     const t0 = new Date(Date.UTC(2026, 10, 9, 3, 0, 0));
     const started = process.hrtime.bigint();
-    const b1 = await backupDatabase({ connectionString: source.dbUrl, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
+    const b1 = await backupDatabase({ connectionString: source.dbUrl, expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
     const backupMs = Number(process.hrtime.bigint() - started) / 1e6;
     assert.equal(b1.status, "sealed", JSON.stringify(b1));
     if (b1.status !== "sealed") return;
@@ -117,23 +122,62 @@ async function main(): Promise<void> {
 
     /* F1 — below the floor nothing is written; F2 — an unreachable server refuses cleanly. */
     const vaultBefore = readdirSync(vault).sort();
-    const f1 = await backupDatabase({ connectionString: source.dbUrl, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, floorBytes: Number.MAX_SAFE_INTEGER });
+    const f1 = await backupDatabase({ connectionString: source.dbUrl, expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, floorBytes: Number.MAX_SAFE_INTEGER });
     assert.equal(f1.status === "refused" && f1.reason, "disk-below-floor");
-    const f2 = await backupDatabase({ connectionString: "postgresql://postgres@127.0.0.1:1/none", vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch });
+    const f2 = await backupDatabase({ connectionString: "postgresql://postgres@127.0.0.1:1/none", expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch });
     assert.equal(f2.status === "refused" && f2.reason, "connect-failed");
     const r5 = restoreFromVault({ vault: b1.file, key, targetUrl: "postgresql://postgres@127.0.0.1:55432/x", workRoot: scratch, floorBytes: Number.MAX_SAFE_INTEGER });
     assert.equal(r5.status === "refused" && r5.reason, "disk-below-floor");
     const sealedBytes = readFileSync(b1.file);
-    const f3 = await backupDatabase({ connectionString: source.dbUrl, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
+    const f3 = await backupDatabase({ connectionString: source.dbUrl, expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
     assert.equal(f3.status === "refused" && f3.reason, "seal-failed", "a second backup at the same instant is refused");
     assert.ok(readFileSync(b1.file).equals(sealedBytes), "the existing sealed backup is never deleted or changed by a failed seal");
     assert.deepEqual(readdirSync(vault).sort(), vaultBefore, "refusals add nothing to the vault");
     assert.deepEqual(leftovers(), []);
     console.log("ok F1-F2 disk floor and unreachable server refuse; vault and scratch unchanged");
 
+    /* I1-I2 — identity is proven before any dump: a wrong system identifier or database refuses, the vault is untouched. */
+    const wrongSid = expected.systemIdentifier.endsWith("0") ? `${expected.systemIdentifier.slice(0, -1)}1` : `${expected.systemIdentifier.slice(0, -1)}0`;
+    for (const [label, target, reason] of [
+      ["system identifier", { ...expected, systemIdentifier: wrongSid }, "identity-system-identifier-mismatch"],
+      ["database", { ...expected, database: `${expected.database}_other` }, "identity-database-mismatch"],
+    ] as const) {
+      const r = await backupDatabase({ connectionString: source.dbUrl, expectedTarget: target, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: new Date(Date.UTC(2026, 10, 9, 5, 0, 0)) });
+      assert.equal(r.status === "refused" && r.reason, reason, `${label}: ${JSON.stringify(r)}`);
+      assert.deepEqual(readdirSync(vault).sort(), vaultBefore, `${label}: nothing reached the vault`);
+      assert.deepEqual(leftovers(), [], `${label}: no dump was started`);
+    }
+    console.log("ok I1-I2 wrong system identifier and wrong database refuse before pg_dump; vault unchanged");
+
+    /* I3 — a read-only role (pg_read_all_data) proves identity and backs up. */
+    const roRole = `br2_ro_${Date.now().toString(36)}`;
+    await withClient(source.adminUrl, (c) => c.query(`create role ${roRole} login; grant pg_read_all_data to ${roRole}`));
+    try {
+      const roUrl = new URL(source.dbUrl);
+      roUrl.username = roRole;
+      roUrl.password = "";
+      const roVault = path.join(scratch, "vault-ro");
+      const ro = await backupDatabase({ connectionString: roUrl.toString(), expectedTarget: expected, vaultDirectory: roVault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
+      assert.equal(ro.status, "sealed", JSON.stringify(ro));
+      if (ro.status === "sealed") assert.equal(ro.header.kind, "postgres-custom");
+      assert.deepEqual(leftovers(), []);
+    } finally {
+      await withClient(source.adminUrl, (c) => c.query(`drop role if exists ${roRole}`));
+    }
+    console.log("ok I3 a pg_read_all_data role proves identity and seals a backup");
+
+    /* I4 — refusal details never carry the URL or its user, password or host. */
+    const secretUrl = "postgresql://br2secretuser:br2s3cretpw@127.0.0.1:1/none";
+    const leak = await backupDatabase({ connectionString: secretUrl, expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch });
+    assert.equal(leak.status, "refused");
+    for (const needle of ["br2secretuser", "br2s3cretpw", "127.0.0.1", secretUrl]) {
+      assert.ok(!JSON.stringify(leak).includes(needle), `I4: the refusal does not carry ${needle}`);
+    }
+    console.log("ok I4 refusal detail redacted (no user, password, host or URL)");
+
     /* P1 — a second backup with retention prunes the first. */
     const b2 = await backupDatabase({
-      connectionString: source.dbUrl, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch,
+      connectionString: source.dbUrl, expectedTarget: expected, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch,
       now: new Date(Date.UTC(2026, 10, 10, 3, 0, 0)), prune: true,
       retention: { keepLast: 1, keepDaily: 0, keepWeekly: 0, keepMonthly: 0 },
     });

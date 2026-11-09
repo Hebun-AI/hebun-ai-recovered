@@ -33,6 +33,7 @@ import {
   openSync,
   readSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statfsSync,
@@ -73,6 +74,7 @@ export class VaultError extends Error {
   constructor(
     readonly code:
       | "key-unsafe"
+      | "key-location-unsafe"
       | "key-invalid"
       | "not-a-vault"
       | "header-invalid"
@@ -147,6 +149,50 @@ export function generateKeyFile(file: string): { readonly id: string } {
     closeSync(fd);
   }
   return { id: keyId(bytes) };
+}
+
+/**
+ * Synchronized or cloud-provider locations. A key there would travel next to (or with) the sealed files
+ * it opens, and a sync client may copy, version or evict it outside this tool's control.
+ */
+const SYNCED_LOCATION_RE = /\/(Documents|Desktop|Library\/Mobile Documents|Library\/CloudStorage|Dropbox|Google Drive|My Drive|OneDrive|iCloud Drive)(\/|$)/;
+
+function realOrResolved(p: string): string {
+  /* Resolve symlinks on the longest existing prefix, so a not-yet-created key path is judged where it will land. */
+  let head = path.resolve(p);
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      return path.join(realpathSync(head), ...tail.reverse());
+    } catch {
+      const parent = path.dirname(head);
+      if (parent === head) return path.resolve(p);
+      tail.push(path.basename(head));
+      head = parent;
+    }
+  }
+}
+
+function isInside(child: string, parent: string): boolean {
+  const rel = path.relative(parent, child);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * The key must live APART from what it protects: never inside a vault, an off-site directory, the
+ * backup root, the repository, or any synchronized location. A key that travels with the ciphertext
+ * turns an off-site copy into a readable one. Throws `key-location-unsafe`; checks the location only.
+ */
+export function assertKeyLocationSafe(keyFile: string, avoid: readonly string[]): void {
+  const key = realOrResolved(keyFile);
+  if (SYNCED_LOCATION_RE.test(key)) {
+    throw new VaultError("key-location-unsafe", "the key may not live in a synchronized or cloud-provider location");
+  }
+  for (const root of avoid) {
+    if (root && isInside(key, realOrResolved(root))) {
+      throw new VaultError("key-location-unsafe", `the key may not live inside ${root}`);
+    }
+  }
 }
 
 /** Read the key, refusing anything but a regular, owner-only, 32-byte file. */
