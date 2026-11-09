@@ -351,10 +351,11 @@ function main(): void {
       Object.keys(pkg.devDependencies).sort(),
       [
         "@tailwindcss/postcss", "@types/node", "@types/react", "@types/react-dom",
-        "drizzle-kit", "eslint", "eslint-config-next", "tailwindcss", "tsx", "typescript",
+        "drizzle-kit", "esbuild", "eslint", "eslint-config-next", "tailwindcss", "tsx", "typescript",
       ],
-      "no dev dependency was added",
+      "the only dev dependency added since this phase is the Director-approved suite bundler (CI-QUALITY-GATES-1, esbuild)",
     );
+    assert.equal(pkg.devDependencies.esbuild, "0.25.12", "esbuild is pinned exactly");
   }
 
   console.log("PASS membership-role tenant integrity boundaries and firewall");
