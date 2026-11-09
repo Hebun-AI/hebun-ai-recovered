@@ -84,13 +84,15 @@ export type DurableKnowledgeWriteResult =
   | { readonly status: "duplicate"; readonly identity: CreatedKnowledgeIdentity }
   | { readonly status: "failed"; readonly identity: CreatedKnowledgeIdentity; readonly detail: string };
 
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === UNIQUE_VIOLATION
-  );
+/**
+ * drizzle-orm wraps driver errors in DrizzleQueryError, which carries the Postgres code on `cause`.
+ * One wrapping level is read, never a chain: anything deeper is not a shape this writer produces.
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  const codeOf = (value: unknown): unknown =>
+    typeof value === "object" && value !== null ? (value as { code?: unknown }).code : undefined;
+  if (typeof error !== "object" || error === null) return false;
+  return codeOf(error) === UNIQUE_VIOLATION || codeOf((error as { cause?: unknown }).cause) === UNIQUE_VIOLATION;
 }
 
 /** The identity a committed supersession established, with both sides of the version move. */

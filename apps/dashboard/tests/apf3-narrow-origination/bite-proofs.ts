@@ -71,6 +71,29 @@ const MUTATIONS: readonly Mutation[] = [
   },
 ];
 
+interface DefenderEnd {
+  readonly status: number | null;
+  readonly signal: NodeJS.Signals | null;
+  readonly timedOut: boolean;
+}
+
+/**
+ * On a MISS, how the defending suite ended — closed values only. Its output is never printed: the CI
+ * logs of this repository are public, and a defender's text, stack or paths are not ours to publish.
+ * Diagnostic only — it never turns a MISS into a bite.
+ */
+function missEvidence(m: Mutation, end: DefenderEnd, output: string): string {
+  return JSON.stringify({
+    mutation: m.label.split(" ")[0],
+    protectedTest: path.basename(m.suite, ".ts"),
+    exitCode: end.status,
+    signal: end.signal,
+    timedOut: end.timedOut,
+    expectedReasonMatched: output.includes(m.because),
+    outputPresent: output.trim() !== "",
+  });
+}
+
 function proveOne(m: Mutation): { label: string; bit: boolean; detail: string } {
   const before = read(ORIGINATION);
   const digest = sha(before);
@@ -78,17 +101,19 @@ function proveOne(m: Mutation): { label: string; bit: boolean; detail: string } 
   if (occurrences !== 1) return { label: m.label, bit: false, detail: `anchor found ${occurrences} times` };
   let output = "";
   let ok = false;
+  let end: DefenderEnd = { status: null, signal: null, timedOut: false };
   try {
     writeFileSync(abs(ORIGINATION), before.replace(m.find, m.replace), "utf8");
     const r = spawnSync(process.execPath, ["--import", "tsx", m.suite], { cwd: ROOT, encoding: "utf8", env: process.env, maxBuffer: 64 * 1024 * 1024, timeout: 600_000 });
     output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
     ok = r.status === 0;
+    end = { status: r.status, signal: r.signal, timedOut: (r.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT" };
   } finally {
     writeFileSync(abs(ORIGINATION), before, "utf8");
   }
   assert.equal(sha(read(ORIGINATION)), digest, `${m.label}: source restored byte-identically`);
   if (ok) return { label: m.label, bit: false, detail: "the suite PASSED against mutated source" };
-  if (!output.includes(m.because)) return { label: m.label, bit: false, detail: `failed, but not for: ${m.because}` };
+  if (!output.includes(m.because)) return { label: m.label, bit: false, detail: `failed, but not for: ${m.because} ${missEvidence(m, end, output)}` };
   return { label: m.label, bit: true, detail: `bit on: ${m.because}` };
 }
 

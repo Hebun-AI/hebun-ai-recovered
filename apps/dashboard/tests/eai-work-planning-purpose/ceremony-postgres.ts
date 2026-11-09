@@ -41,7 +41,19 @@ const MODEL = "claude-haiku-4-5-20251001";
 function ceremony(dbUrl: string, args: readonly string[], phrase?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     /* Node's stdio is a socket on macOS and script(1) needs a pipe it can read: `cat |` provides one. */
-    const child = spawn("/bin/sh", ["-c", 'cat | script -q /dev/null "$@"', "sh", process.execPath, "--import", "tsx", CEREMONY, ...args], {
+    const argv = [process.execPath, "--import", "tsx", CEREMONY, ...args];
+    /*
+     * script(1) is not one program. BSD/macOS takes `script -q file command args…`; util-linux
+     * (Linux, CI) refuses that with "unexpected number of arguments" and takes the command as one
+     * `-c` string instead. That string is built from single-quoted argv and handed over as `$1`, so
+     * no element is ever interpreted by a shell.
+     */
+    const quoted = argv.map((a) => `'${a.replace(/'/g, `'\\''`)}'`).join(" ");
+    const shArgs =
+      process.platform === "linux"
+        ? ["-c", 'cat | script -qec "$1" /dev/null', "sh", quoted]
+        : ["-c", 'cat | script -q /dev/null "$@"', "sh", ...argv];
+    const child = spawn("/bin/sh", shArgs, {
       cwd: ROOT,
       env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", NODE_ENV: "test", DATABASE_URL: dbUrl },
     });

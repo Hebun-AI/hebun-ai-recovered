@@ -263,6 +263,40 @@ export function isControlPlaneConfigured(
 }
 
 /**
+ * Codes a pool client can report when its connection is lost, by what they mean. The server ended the
+ * backend (57P01 admin shutdown — also what dropping a database does — 57P02 crash, 57P03 not
+ * accepting), or the socket under it was lost.
+ */
+const POOL_CLIENT_ERROR_CLASSES: Readonly<Record<string, string>> = Object.freeze({
+  "57P01": "server-terminated",
+  "57P02": "server-terminated",
+  "57P03": "server-terminated",
+  ECONNRESET: "connection-lost",
+  EPIPE: "connection-lost",
+  ETIMEDOUT: "connection-lost",
+});
+
+/** pg's own message for a socket that closed under a client; it carries no code. */
+const PG_CONNECTION_TERMINATED = "Connection terminated unexpectedly";
+
+/**
+ * One runtime-log line for a pool client's error: closed values only. The code is echoed only when
+ * it is shaped like a SQLSTATE or a Node errno; never the message, the SQL, the target or any row.
+ * An unknown code is logged as "unrecognized", not dropped.
+ */
+export function controlPlanePoolErrorLogLine(error: unknown): string {
+  const shaped = typeof error === "object" && error !== null ? (error as { code?: unknown; message?: unknown }) : {};
+  const code = typeof shaped.code === "string" && /^([0-9A-Z]{5}|E[A-Z]{2,20})$/.test(shaped.code) ? shaped.code : null;
+  const errorClass =
+    code !== null && Object.hasOwn(POOL_CLIENT_ERROR_CLASSES, code)
+      ? POOL_CLIENT_ERROR_CLASSES[code]
+      : code === null && shaped.message === PG_CONNECTION_TERMINATED
+        ? "connection-lost"
+        : "unrecognized";
+  return JSON.stringify({ event: "control-plane-pool-client-error", code, class: errorClass });
+}
+
+/**
  * Build an isolated control-plane handle for an explicit connection string.
  * Used by tests (disposable database) and by the process singleton below.
  */
@@ -295,6 +329,19 @@ export function createControlPlaneDb(
     application_name: "hebun-control-plane",
   };
   const pool = deps.createPool ? deps.createPool(config) : new Pool(config);
+  /*
+   * An "error" event with no listener throws, and a lost connection emits one on its client: idle or
+   * checked out (a drizzle transaction holds its client outside pg-pool's own listeners). Either
+   * would take the whole process down. Nobody is waiting on the event — an active query's or
+   * transaction's error still rejects that call — and pg-pool discards the broken client, so the
+   * handling is to record it once, per client, and carry on. The pool re-emits an idle client's error;
+   * that copy is the same event, already recorded.
+   */
+  /* `src/types/pg.d.ts` declares only what the app calls; these are pg-pool's EventEmitter events. */
+  type ErrorEmitter = { on(event: "error", listener: (error: unknown) => void): void };
+  const events = pool as unknown as ErrorEmitter & { on(event: "connect", listener: (client: ErrorEmitter) => void): void };
+  events.on("connect", (client) => client.on("error", (error) => console.error(controlPlanePoolErrorLogLine(error))));
+  events.on("error", () => undefined);
   const db = drizzle(pool, { schema });
   return {
     db,

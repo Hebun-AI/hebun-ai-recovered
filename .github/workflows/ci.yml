@@ -1,0 +1,133 @@
+# CI-QUALITY-GATES-1 — pull request checks for apps/dashboard.
+#
+# Security boundary (pinned by tests/ci-quality-gates-1/workflow-firewall.ts):
+#   - pull_request only; pull_request_target is never used, so a fork's code never runs with write
+#     access or secrets.
+#   - The token can read contents and nothing else. No secret, no environment, no deployment.
+#   - The only database is the disposable service container below, reachable on the runner's
+#     loopback. No production or staging connection exists to reach.
+#   - Third-party actions are pinned to full commit SHAs; the service image is pinned by digest.
+#
+# Runs on every pull request update. Neither job may be skipped or masked: no job-level `if`, no
+# continue-on-error (both refused by the firewall), so a red step is a red check.
+#
+# quick    — typecheck, lint, production build, continuity, workflow checks, bite-proof watchdog self-test.
+# targeted — the regressions Package 3 repaired, on a disposable PostgreSQL: scope-composition and the
+#            live-map and TB1 bite-proofs. Fails the run.
+#
+# The full suite is not here. It runs only when a label is added to the pull request
+# (.github/workflows/full-suite.yml), on that pull request's head commit.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+defaults:
+  run:
+    shell: bash
+    working-directory: apps/dashboard
+
+jobs:
+  quick:
+    name: quick (typecheck, lint, build, continuity)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Install dependencies (no install scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Production build
+        run: npx next build
+
+      - name: Development continuity
+        run: node --import tsx tests/development-continuity/closure-contract.ts
+
+      - name: CI workflow and exclusion manifest
+        run: node --import tsx tests/ci-quality-gates-1/workflow-firewall.ts
+
+      - name: Bite-proof watchdog self-test
+        run: node --import tsx tests/ci-quality-gates-1/defended-suite-run.ts
+
+  targeted:
+    name: targeted (scope-composition, live-map, TB1)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6@sha256:3a4264520e121176619f54ff867d12774bc81e95e7b84db58d63bccdb6144b81
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --locale=C --encoding=UTF8
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      HEBUN_TEST_ADMIN_DATABASE_URL: postgresql://postgres@127.0.0.1:55432/postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: scope-composition reads a closed commit range with git diff.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Install dependencies (no install scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Scope composition
+        run: node --import tsx tests/google-capability-scope-repair-1/scope-composition.ts
+
+      - name: Live-map bite-proofs
+        if: always()
+        run: node --import tsx tests/live-map-experience/bite-proofs.ts
+
+      - name: TB1 bite-proofs
+        if: always()
+        run: node --import tsx tests/tb1-trust-boundary/bite-proofs.ts
+
+      - name: Tree unchanged after the bite-proofs
+        if: always()
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"

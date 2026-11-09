@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "about": "Files the informational CI suite does not run (CI-QUALITY-GATES-1). Read by scripts/run-tests.mjs --exclude-manifest. An excluded file is never counted as a pass; each one is printed as EXCLUDED next to the summary.",
+  "exclusions": [
+    {
+      "file": "tests/r3w-flow/ambient-database-safety.ts",
+      "class": "BLOCKED",
+      "risk": "OR2-R3W-AMBIENT-DB-BLOCKED-1",
+      "reason": "Points a hostile ambient DATABASE_URL at the canonical hebun_r1 on 127.0.0.1:55432 and exits BLOCKED when it is unreachable. The CI service container holds no hebun_r1, so the run is BLOCKED by construction, not by the code under test. Creating a stand-in in CI would change what the test proves and needs a Director decision.",
+      "reassess": "A Director decision on this test's CI environment (for example the migrated empty synthetic hebun_r1 that AI-FAILURE-TRUTH-1 used on a disposable cluster), or a change to the test that gives it a CI mode. Remove this entry in the same change."
+    },
+    {
+      "file": "tests/plan-step-idempotency-1/bite-proofs.ts",
+      "class": "PRE-EXISTING",
+      "risk": "HW1-PSI-BITE-FLAKE-1",
+      "reason": "Intermittent on unchanged source with root cause UNVERIFIED: red 1 of 6 on 59c00b99, F P P at 03817c82, the one FAIL of the 1130-file run at e7b0c0d3, PASS in the 1133-file run. An unexplained intermittent red would make the first CI signal noise.",
+      "reassess": "A captured failing run with its cause classified, or a fix to the test; then remove this entry and let the suite run it. Revisit no later than the decision to make the CI suite a required check."
+    }
+  ]
+}

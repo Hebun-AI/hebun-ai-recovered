@@ -13,8 +13,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import path from "node:path";
+
+import {
+  DEFENDED_SUITE_TIMEOUT_MS,
+  describeDiagnostic,
+  runDefendedSuite,
+  type DefendedSuiteRun,
+} from "../helpers/defended-suite-run";
 
 const ROOT = process.cwd();
 
@@ -45,32 +51,14 @@ const OFFICE_THEME = "src/features/live-map/office-theme.ts";
 const PROJECTION = "src/features/live-map/read-live-map.server.ts";
 const IDENTITY_READER = "src/features/agent-identity/read-durable-agent-identity.server.ts";
 
-const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
+const CHILD_TIMEOUT_MS = DEFENDED_SUITE_TIMEOUT_MS;
 
 const abs = (f: string): string => path.join(ROOT, f);
 const readFile = (f: string): string => readFileSync(abs(f), "utf8");
 const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
 
-interface SuiteRun {
-  readonly ok: boolean;
-  readonly output: string;
-  readonly timedOut: boolean;
-}
-
-function runSuite(suite: string): SuiteRun {
-  const result = spawnSync(process.execPath, ["--import", "tsx", suite], {
-    cwd: ROOT,
-    encoding: "utf8",
-    env: process.env,
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: CHILD_TIMEOUT_MS,
-  });
-  return {
-    ok: result.status === 0,
-    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
-    timedOut: result.signal === "SIGTERM" && result.status === null,
-  };
-}
+/* A hang is stopped and described in closed values only; see tests/helpers/defended-suite-run.ts. */
+const runSuite = (suite: string): Promise<DefendedSuiteRun> => runDefendedSuite(suite, { cwd: ROOT, env: process.env });
 
 interface Mutation {
   readonly label: string;
@@ -562,7 +550,7 @@ const MUTATIONS: readonly Mutation[] = [
   },
 ];
 
-function withMutation(mutation: Mutation, body: () => void): void {
+async function withMutation(mutation: Mutation, body: () => Promise<void>): Promise<void> {
   const original = readFile(mutation.file);
   const before = sha(original);
   assert.ok(
@@ -574,23 +562,29 @@ function withMutation(mutation: Mutation, body: () => void): void {
   try {
     writeFileSync(abs(mutation.file), mutated, "utf8");
     assert.equal(sha(readFile(mutation.file)), sha(mutated), `${mutation.label}: the mutation did not reach disk`);
-    body();
+    await body();
   } finally {
     writeFileSync(abs(mutation.file), original, "utf8");
   }
   assert.equal(sha(readFile(mutation.file)), before, `${mutation.file} was not restored byte-identically`);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   let bitten = 0;
   for (const mutation of MUTATIONS) {
-    withMutation(mutation, () => {
-      const run = runSuite(mutation.suite);
+    await withMutation(mutation, async () => {
+      const run = await runSuite(mutation.suite);
       assert.equal(
         run.timedOut,
         false,
         `${mutation.label}: the defending suite TIMED OUT after ${CHILD_TIMEOUT_MS}ms. That is a ` +
-          "VOID result, not a bite.",
+          "VOID result, not a bite. " + describeDiagnostic(run),
+      );
+      assert.equal(
+        run.cleanupComplete,
+        true,
+        `${mutation.label}: the defending suite's cleanup did not complete. That is a VOID result, not a bite. ` +
+          describeDiagnostic(run),
       );
       assert.equal(
         run.ok,
@@ -611,4 +605,7 @@ function main(): void {
   console.log(`live-map-experience/bite-proofs: ${bitten} mutations bit`);
 }
 
-main();
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});
