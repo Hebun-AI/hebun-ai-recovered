@@ -165,7 +165,8 @@ kararlılık kurallarını daraltmaz; bir çelişkide daha sıkı olan geçerlid
 raporlanmaz. Reached state kanıtın desteklediği en yüksek durumdur. Eksik kanıt `N/A` /
 `UNAVAILABLE` / `PENDING` yazılır ve asla PASS sayılmaz. Closure, §21 satırı, varsa §22 satırları
 ve ders aynı branch'te yazılır. Sözleşme `apps/dashboard/tests/development-continuity/` ile
-kontrol edilir; CI yoktur, test koşulmadan kontrol de yoktur.
+kontrol edilir; `main`'e giden her PR'da required `quick` check'i (CI) bunu koşar, yerelde
+test koşulmadan kontrol yoktur.
 
 **Memory otorite değildir.** Makineye özel Claude memory'si yalnızca hızlandırıcıdır. Repo
 ile çelişirse repo kazanır ve çelişki raporlanır. Bu sözleşmenin hiçbir parçası memory'ye
