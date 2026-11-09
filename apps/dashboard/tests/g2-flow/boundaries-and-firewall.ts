@@ -305,6 +305,12 @@ function main(): void {
        * The census GREW; nothing in it was widened.
        */
       "src/features/governance-audit/ai-dispatch-cap-audit.server.ts",
+      /*
+       * V1-STAGE-2 — the content publication intent ("schedule") audit sibling. It appends
+       * created/rescheduled/cancelled/requested to the SHARED sink and creates no second audit table.
+       * The census GREW; nothing in it was widened.
+       */
+      "src/features/governance-audit/content-schedule-audit.server.ts",
       "src/features/governance-audit/departmental-placement-audit.server.ts",
       /* APF-5 — evidence of an External AI disclosure decision, recorded as the authority made it. */
       "src/features/governance-audit/external-ai-disclosure-audit.server.ts",

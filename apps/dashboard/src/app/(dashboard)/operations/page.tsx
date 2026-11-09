@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ActBoundarySurface } from "@/components/operations-act-boundary/act-boundary-surface";
 import { OperationsOverview } from "@/components/operations-overview/operations-overview";
 import { OperationsPreparation } from "@/components/operations-preparation/operations-preparation";
+import { ContentCalendar } from "@/components/operations-preparation/content-calendar";
 
 /*
  * MEDIA-2B. The generation action defined in this route's `actions.ts` awaits a real OpenAI image
@@ -85,6 +86,8 @@ export default function OperationsPage() {
       />
       {/* BAND 1 — the human operational workspace. It dominates the page by leading it. */}
       <OperationsPreparation />
+      {/* V1-STAGE-2 — when approved drafts are meant to go out. Publishes nothing by itself. */}
+      <ContentCalendar />
       {/* BAND 2 — derived entirely from released arming and execution readers. */}
       <ActBoundarySurface />
       {/* BAND 3 — capability/reality diagnostic, last and deliberately quieter. */}

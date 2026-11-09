@@ -5822,6 +5822,7 @@ re-graded here.
 | AI-FAILURE-TRUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
 | SCAN-FAILURE-LEGIBILITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` |
 | CI-QUALITY-GATES-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` |
+| V1-STAGE-2 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` |
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
 
 ---
@@ -6049,5 +6050,7 @@ before §16.1 are not yet indexed (Phase B).
 | CIQG1-VPS-MEDIA-DRIFT-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Release drift | DEFERRED | A Director-approved VPS deployment of e8d63a4a with its own verification |
 | CIQG1-HANG-ROOT-CAUSE-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification reliability | DEFERRED | Further full runs without a timeout; a timeout reopens it with the watchdog hang report |
 | CIQG1-FULL-SUITE-PER-SHA-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification cost | DEFERRED | Director decision on the full-suite trigger or rule for documentation-only commits |
+| V1S2-AUTO-PUBLISH-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Governance boundary | DEFERRED | Director decision on a governed machine path for scheduled external publication |
+| V1S2-BROWSER-UNVERIFIED-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /operations after release |
 | BR1-PROD-DUMP-DRILL-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification gap | DEFERRED | A Director decision naming the production dump the drill may read locally; first real RTO |
 | BR1-COMPARE-DEPTH-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification depth | DEFERRED | A Director decision on a row-content digest and a normalized CHECK comparison |

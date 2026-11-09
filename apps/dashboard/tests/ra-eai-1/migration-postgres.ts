@@ -64,7 +64,8 @@ async function main(): Promise<void> {
   /* The migration file is exactly the reviewed one: one DROP, one ADD, the six purposes. */
   const migration = readFileSync(path.join(MIGRATIONS_DIR, `${TAG}.sql`), "utf8");
   assert.equal(journal.entries[82]!.tag, TAG, "RA-EAI-1 is ledger entry 83 (idx 82)");
-  assert.equal(journal.entries.length, 83, "and the tail");
+  assert.equal(journal.entries.length, 84, "and the tail"); /* V1-STAGE-2: ledger 83 -> 84 (content_publication_intents; additive) follows it. */
+  assert.equal(journal.entries[83]!.tag, "20261109131304_v1_content_publication_intent", "only the declared later phase follows RA-EAI-1");
   assert.equal(migration.split("--> statement-breakpoint").length, 2, "two statements");
   assert.match(migration, /^ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk";/);
   assert.ok(migration.includes(`in (${PURPOSES.map((p) => `'${p}'`).join(", ")})`), "the CHECK lists exactly the vocabulary");
