@@ -213,3 +213,50 @@ export const admitAiDispatch: AdmitAiDispatch = async <T>(
   });
   return { status: "refused", reason: "dispatch-safety-cap-reached" };
 };
+
+export interface AiDispatchClassUsage {
+  readonly dispatchClass: AiDispatchClass;
+  /** The resolved ceiling for this UTC day; 0 means every dispatch of the class is refused. */
+  readonly capPerTenantUtcDay: number;
+  /** Admissions counted exactly as the cap counts them, from durable rows. */
+  readonly admittedInWindow: number;
+}
+
+export type AiDispatchUsageRead =
+  | {
+      readonly status: "read";
+      readonly windowStart: Date;
+      readonly windowEnd: Date;
+      readonly readAt: Date;
+      readonly classes: readonly AiDispatchClassUsage[];
+    }
+  | { readonly status: "unavailable" };
+
+/**
+ * V1-STAGE-6 — what the cap has admitted for this tenant in the current UTC day, READ ONLY. The same
+ * count the admission takes, without its lock: a snapshot that may be one admission behind a
+ * concurrent dispatch, never a charge. Writes nothing; `tenantId` is server-derived and in every WHERE.
+ */
+export async function readAiDispatchUsageToday(
+  tenantId: string,
+  deps: AiDispatchAdmissionDeps = {},
+): Promise<AiDispatchUsageRead> {
+  if (typeof window !== "undefined") throw new Error("The AI dispatch safety cap is server-only.");
+  const db = (deps.getDb ?? resolveDbOrNull)();
+  if (!db || !tenantId) return { status: "unavailable" };
+  const readAt = (deps.now ?? (() => new Date()))();
+  const day = utcDayWindow(readAt);
+  const env = deps.env ?? process.env;
+  try {
+    const classes = await Promise.all(
+      (["model", "media"] as const).map(async (dispatchClass) => ({
+        dispatchClass,
+        capPerTenantUtcDay: resolveAiDispatchCap(dispatchClass, env),
+        admittedInWindow: await admittedInWindow(db, tenantId, dispatchClass, day),
+      })),
+    );
+    return { status: "read", windowStart: day.start, windowEnd: day.end, readAt, classes };
+  } catch {
+    return { status: "unavailable" };
+  }
+}

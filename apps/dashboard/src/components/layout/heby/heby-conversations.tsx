@@ -14,6 +14,7 @@
 import { useRef, useState, useTransition, type CSSProperties } from "react";
 import { MessagesSquare } from "lucide-react";
 import { listHebyConversationsAction, type ListConversationsResult } from "@/app/(dashboard)/heby/actions";
+import { utcInstant } from "@/lib/format";
 
 type Listed = Extract<ListConversationsResult, { status: "listed" }>;
 type Item = Listed["items"][number];
@@ -36,7 +37,7 @@ export interface HebyConversationsProps {
 
 function when(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return Number.isNaN(date.getTime()) ? "" : utcInstant(iso);
 }
 
 export function HebyConversations(props: HebyConversationsProps) {

@@ -5822,6 +5822,11 @@ re-graded here.
 | AI-FAILURE-TRUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
 | SCAN-FAILURE-LEGIBILITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` |
 | CI-QUALITY-GATES-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` |
+| V1-STAGE-2 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` |
+| V1-STAGE-4 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-4-profile-team-closure.md` |
+| V1-STAGE-6 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-6-plan-usage-closure.md` |
+| V1-STAGE-5 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-5-support-tickets-closure.md` |
+| V1-STAGE-3 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-3-notifications-closure.md` |
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
 
 ---
@@ -5978,7 +5983,7 @@ before §16.1 are not yet indexed (Phase B).
 | AE2-DOMAIN-SPECIALTY-1 | AGENT-EXECUTION-2 | `docs/product-vision/runtime/hebun-agent-execution-2-closure.md` | Product reach | DEFERRED | A Director data-use decision (`assistance` × `organization`) before any agent or domain identity reaches the model |
 | WOC1-BROWSER-UNVERIFIED-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Verification gap | DEFERRED | Waiting-for-review path verified read only in production on all three surfaces; the positive path (a suggestion after an organic acceptance of every linked current revision) is open |
 | WOC1-EVIDENCE-BOUND-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | Read completeness | DEFERRED | A Director decision on a work-item-scoped evidence read when a tenant approaches 200 current evidence declarations (every completion suggestion is withheld at the bound) |
-| MEDIA3-ADMITTED-AT-HYDRATION-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | UX failure legibility | DEFERRED | /operations React #418 from revision-media-assets.tsx:292 (a time formatted in the viewer's zone during render, from MEDIA-3); a Director-selected deterministic-time fix with a render-determinism test |
+| MEDIA3-ADMITTED-AT-HYDRATION-1 | WORK-OUTCOME-CLOSURE-1 | `docs/product-vision/runtime/hebun-work-outcome-closure-1-closure.md` | UX failure legibility | DEFERRED | /operations React #418 from revision-media-assets.tsx:292 (a time formatted in the viewer's zone during render, from MEDIA-3); fix and render-determinism test implemented on `fix/client-render-determinism`, not deployed; closes on deployment and a signed-in `/operations` load without #418 |
 | AOR1A-PROD-UNVERIFIED-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Verification gap | DEFERRED | Deployed (dpl_6KnPWAyi2RsnNvWWqdh2xNxuYRBN); an organic production preparation read back: the withheld wording on Heby and one diagnosis line whose messageId resolves to that tenant's message row; nothing provoked |
 | AOR1A-LOG-NOT-AUDIT-1 | AOR-1a | `docs/product-vision/runtime/hebun-aor-1a-output-diagnosis-closure.md` | Evidence durability | DEFERRED | A Director decision whether preparation diagnosis needs a durable home (a schema decision); until then it lives in the host runtime log with its retention |
 | HW1-PROD-UNVERIFIED-1 | HEBY-WORKFLOW-1 | `docs/product-vision/runtime/hebun-heby-workflow-1-closure.md` | Verification gap | CLOSED | — |
@@ -6049,5 +6054,12 @@ before §16.1 are not yet indexed (Phase B).
 | CIQG1-VPS-MEDIA-DRIFT-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Release drift | DEFERRED | A Director-approved VPS deployment of e8d63a4a with its own verification |
 | CIQG1-HANG-ROOT-CAUSE-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification reliability | DEFERRED | Further full runs without a timeout; a timeout reopens it with the watchdog hang report |
 | CIQG1-FULL-SUITE-PER-SHA-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification cost | DEFERRED | Director decision on the full-suite trigger or rule for documentation-only commits |
+| V1S2-AUTO-PUBLISH-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Governance boundary | DEFERRED | Director decision on a governed machine path for scheduled external publication |
+| V1S2-BROWSER-UNVERIFIED-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /operations after release |
+| V1S4-BROWSER-UNVERIFIED-1 | V1-STAGE-4 | `docs/product-vision/runtime/hebun-v1-stage-4-profile-team-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /account by a Governance authority and by a plain member |
+| V1S6-BROWSER-UNVERIFIED-1 | V1-STAGE-6 | `docs/product-vision/runtime/hebun-v1-stage-6-plan-usage-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /account/plan |
+| V1S5-BROWSER-UNVERIFIED-1 | V1-STAGE-5 | `docs/product-vision/runtime/hebun-v1-stage-5-support-tickets-closure.md` | Verification gap | DEFERRED | After release, a member files a ticket and the Governance authority changes its status, both signed in |
+| V1S5-PROD-MIGRATION-85-1 | V1-STAGE-5 | `docs/product-vision/runtime/hebun-v1-stage-5-support-tickets-closure.md` | Release dependency | DEFERRED | Director-gated production migration of 20261109142723_v1_support_tickets, ledger 85 verified |
+| V1S3-BROWSER-UNVERIFIED-1 | V1-STAGE-3 | `docs/product-vision/runtime/hebun-v1-stage-3-notifications-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /notifications by the Governance authority and by a plain member |
 | BR1-PROD-DUMP-DRILL-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification gap | DEFERRED | A Director decision naming the production dump the drill may read locally; first real RTO |
 | BR1-COMPARE-DEPTH-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification depth | DEFERRED | A Director decision on a row-content digest and a normalized CHECK comparison |

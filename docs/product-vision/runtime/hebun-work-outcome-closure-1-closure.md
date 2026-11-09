@@ -163,6 +163,11 @@ page. The fresh-tab measurement above supersedes it.
 - **MEDIA3-ADMITTED-AT-HYDRATION-1 (DEFERRED).** `/operations` React #418 from
   `revision-media-assets.tsx:292` (section 5). Dependency: a Director-selected fix rendering the time
   deterministically (the released `utcInstant`, as APPROVALS-EXPIRY-HYDRATION-1 did) with a render-determinism test.
+  **Fix implemented, not deployed (2026-11-09, branch `fix/client-render-determinism`):** `utcInstant` at
+  this site and at the five other client components with the same defect class;
+  `tests/operational-reliability-1/client-render-determinism.ts` renders the card under four zones and
+  censuses every `"use client"` file (7/7 mutations bit). Stays DEFERRED until deployed and a signed-in
+  `/operations` load shows no #418.
 - **AE1-ASSIGN-UI-WORDING-1 (CLOSED).** Fixed in `14159026`; observed in production: the button reads "Choose an
   agent to assign" before a choice (section 5). The withheld-result wording is deployed and test-verified; no
   withheld result was provoked.

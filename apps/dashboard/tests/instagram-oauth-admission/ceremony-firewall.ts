@@ -483,6 +483,8 @@ function main(): void {
       "20260903093716_cgo1_content_draft_destination.sql",
       "20260924133417_publish0_recipientless_attempts.sql",
       "20260928084834_youtube_write2_recipientless_kind.sql",
+      /* V1-STAGE-2: 'instagram' as a scheduled destination in content_publication_intents' CHECK — an intent, not a provider table. */
+      "20261109131304_v1_content_publication_intent.sql",
     ],
     "only CGO-1's content-destination enum names Instagram — this provider owns no table",
   );

@@ -390,3 +390,37 @@ async function resolveByExpression(
     return empty;
   }
 }
+
+/**
+ * V1-STAGE-4 — THE VIEWER'S OWN NAME COLUMNS, AND NOBODY ELSE'S.
+ *
+ * Profile & Team shows a person their own `name` and lets them edit their own `display_name`. The
+ * gated reads above answer for OTHER humans and require Governance authority; a person reading their
+ * own name discloses nobody, so it needs no authority — but it is still read HERE, in Identity, so
+ * name columns keep exactly one projecting module.
+ *
+ * The row is the session's own user, never an input, and only while they hold an eligible
+ * membership in the session's tenant (the same eligibility predicate as every read above). Returns
+ * null when there is no such row or the database is unreachable. Never used to build a label for a
+ * model provider; it is a profile read.
+ */
+export async function readOwnNameFields(
+  tenant: TenantContext | null,
+  deps: HumanLabelReadDeps = {},
+): Promise<{ readonly name: string | null; readonly displayName: string | null } | null> {
+  assertServerOnly();
+  if (!tenant?.tenantId || !tenant.userId) return null;
+  const db = resolveDbOrNull(deps);
+  if (!db) return null;
+  try {
+    const rows = await db
+      .select({ name: users.name, displayName: users.displayName })
+      .from(users)
+      .innerJoin(memberships, joinUsersToMemberships())
+      .where(and(eq(users.id, tenant.userId), ...eligibleTenantMemberConditions(tenant.tenantId)))
+      .limit(1);
+    return rows[0] ? { name: rows[0].name, displayName: rows[0].displayName } : null;
+  } catch {
+    return null;
+  }
+}

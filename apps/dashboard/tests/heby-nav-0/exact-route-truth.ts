@@ -71,6 +71,8 @@ const LEGACY_LABELS = ["inbox", "briefings", "strategic goals", "organization he
  * Heby navigation module is itself a server action.
  */
 const USE_SERVER_MODULES = [
+  /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
+  "src/app/(dashboard)/account/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
@@ -103,6 +105,10 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/actions.ts",
   /* CONTENT-PUBLISH-FROM-PACKAGE-1: the READY-package publish proposal boundary. It files through the released propose dispatcher; operations/actions.ts is the Media door and may not reach an act authority. */
   "src/app/(dashboard)/operations/publication-actions.ts",
+  /* V1-STAGE-2: the content calendar boundary — schedule, move, cancel, and propose a due schedule through the released governed path (never approves or executes). */
+  "src/app/(dashboard)/operations/schedule-actions.ts",
+  /* V1-STAGE-5: the support ticket boundary — file a ticket (any member), change its status (Governance authority). */
+  "src/app/(dashboard)/tickets/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
   /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the

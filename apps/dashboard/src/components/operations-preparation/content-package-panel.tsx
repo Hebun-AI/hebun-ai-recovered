@@ -22,6 +22,7 @@
 import { useTransition } from "react";
 import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";
 import { ProposePublication } from "./propose-publication";
+import { ScheduleContentPublication } from "./content-schedule-controls";
 import type { ContentPackageResult } from "@/features/content-composition/read-content-package.server";
 import {
   CONTENT_PACKAGE_NON_CLAIMS,
@@ -176,6 +177,10 @@ export function ContentPackagePanel({
 
       {pkg.ready && (pkg.destination === "instagram" || pkg.destination === "youtube") ? (
         <ProposePublication artifactId={pkg.artifactId} revisionNo={pkg.revisionNo} destination={pkg.destination} />
+      ) : null}
+      {/* V1-STAGE-2 — or choose WHEN to propose it; the schedule itself publishes nothing. */}
+      {pkg.ready && (pkg.destination === "instagram" || pkg.destination === "youtube") ? (
+        <ScheduleContentPublication artifactId={pkg.artifactId} revisionNo={pkg.revisionNo} destination={pkg.destination} />
       ) : null}
 
       <PublicationRecord publication={publication} />

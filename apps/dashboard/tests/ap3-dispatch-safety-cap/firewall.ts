@@ -22,6 +22,7 @@ const GENERATOR = "src/features/heby-model/heby-model-generation.server.ts";
 const IMAGE = "src/features/media-assets/request-media-generation.server.ts";
 const AUDIT = "src/features/governance-audit/ai-dispatch-cap-audit.server.ts";
 const VIDEO = "src/features/media-assets/async-generation-lifecycle.server.ts";
+const PLAN_USAGE = "src/features/plan-usage/plan-usage.server.ts";
 
 const read = (f: string): string => readFileSync(path.join(ROOT, f), "utf8");
 const code = (f: string): string => read(f).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
@@ -56,8 +57,15 @@ const SOURCE = walk("src").filter((f) => !f.startsWith("src/db/migrations/"));
 {
   assert.deepEqual(
     SOURCE.filter((f) => /ai-dispatch-cap\/ai-dispatch-safety-cap\.server/.test(code(f))).sort(),
+    [VIDEO, GENERATOR, IMAGE, PLAN_USAGE].sort(),
+    "the cap module is reached by the generator, the two media invocation writers, and the V1-STAGE-6 read",
+  );
+  /* V1-STAGE-6: Plan & Usage READS today's count through the cap's own counter; it never admits. */
+  assert.ok(!/admitAiDispatch/.test(code(PLAN_USAGE)), "the plan-usage read never admits a dispatch");
+  assert.deepEqual(
+    SOURCE.filter((f) => /\badmitAiDispatch\b/.test(code(f)) && f !== CAP).sort(),
     [VIDEO, GENERATOR, IMAGE].sort(),
-    "the admission is reached by the generator and the two media invocation writers only",
+    "only the generator and the two media invocation writers name the admission",
   );
   for (const f of [IMAGE, VIDEO]) {
     assert.match(

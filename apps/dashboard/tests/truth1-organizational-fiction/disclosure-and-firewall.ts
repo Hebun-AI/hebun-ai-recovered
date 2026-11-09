@@ -215,7 +215,11 @@ function main(): void {
       if (grid >= 0) assert.ok(notice < grid, `/${route} renders the notice above its content`);
     }
     /* The parents that established the treatment still carry it. */
-    for (const parent of ["hr", "finance", "legal", "tickets"]) {
+    /* V1-STAGE-5: /tickets is no longer fiction — it reads real, tenant-scoped support tickets, so it
+     * carries no legacy notice; it must read the real seam and never the mock. */
+    const tickets = codeOf(read(pageOf("tickets")));
+    assert.ok(tickets.includes("readSupportTickets") && !tickets.includes("features/tickets/mock"), "/tickets reads real support tickets, not the mock");
+    for (const parent of ["hr", "finance", "legal"]) {
       assert.ok(
         codeOf(read(pageOf(parent))).includes("<LegacyDomainNotice"),
         `/${parent} must keep the released Phase 25C notice`,
