@@ -123,6 +123,10 @@ async function main(): Promise<void> {
     assert.equal(f2.status === "refused" && f2.reason, "connect-failed");
     const r5 = restoreFromVault({ vault: b1.file, key, targetUrl: "postgresql://postgres@127.0.0.1:55432/x", workRoot: scratch, floorBytes: Number.MAX_SAFE_INTEGER });
     assert.equal(r5.status === "refused" && r5.reason, "disk-below-floor");
+    const sealedBytes = readFileSync(b1.file);
+    const f3 = await backupDatabase({ connectionString: source.dbUrl, vaultDirectory: vault, key, repositoryRoot: REPO_ROOT, workRoot: scratch, now: t0 });
+    assert.equal(f3.status === "refused" && f3.reason, "seal-failed", "a second backup at the same instant is refused");
+    assert.ok(readFileSync(b1.file).equals(sealedBytes), "the existing sealed backup is never deleted or changed by a failed seal");
     assert.deepEqual(readdirSync(vault).sort(), vaultBefore, "refusals add nothing to the vault");
     assert.deepEqual(leftovers(), []);
     console.log("ok F1-F2 disk floor and unreachable server refuse; vault and scratch unchanged");

@@ -108,6 +108,37 @@ In a real incident, the order is:
 2. Otherwise, `open` the newest verified `.hbk`, prove it locally with `restore-db`, then run
    `pg_restore` into a new Neon branch as a Director-gated ceremony.
 
+## Off-site copy
+
+`scripts/lib/offsite-backup.ts` defines a provider-independent `OffsiteTransport` (`head`, `put`,
+`get`, `list`, `delete` on whole objects). Its only adapter today is `LocalDirectoryTransport`, a
+directory that stands in for the remote. A real provider is a new adapter and a Director gate (cost,
+location, credential).
+
+```bash
+npx tsx scripts/backup-vault.ts offsite-push  --vault <dir> --kind postgres-custom --key <key> --remote-dir <dir>
+npx tsx scripts/backup-vault.ts offsite-pull  --object <name>.hbk --key <key> --remote-dir <dir> --out <dir>
+npx tsx scripts/backup-vault.ts offsite-prune --kind postgres-custom --key <key> --remote-dir <dir> [--apply]
+```
+
+Rules, enforced by the module, not by the adapter:
+
+- **Only sealed files leave.** The file must have a vault name and authenticate with the key.
+  Plaintext, the key file, or a file the key cannot open is refused before the transport is called.
+- **Verified after transfer.** The remote size and SHA-256 must equal the local file. A mismatched
+  object is deleted and the push is retried.
+- **Idempotent.** The same name with the same digest is `already-present`. The same name with a
+  different digest is `remote-conflict` and is never overwritten.
+- **Bounded retries.** Transient errors are retried up to 4 attempts with exponential backoff.
+  Conflicts and refusals are not retried.
+- **Checked pull.** A pulled object is checked against the remote digest and authenticated in a
+  private staging directory. Only then is it kept, so restore from off-site always goes through
+  `offsite-pull` and then `restore-db` or `open`.
+- **Safe retention.** Off-site retention pulls and authenticates every object it keeps before it
+  deletes anything. If one fails, nothing is deleted, and the newest object is always kept.
+- **No key material.** The key never reaches a transport, a result or a log. Results name it by key
+  id only.
+
 ## Media backup
 
 On the VPS, as the store's user (deploying the tool to the VPS is a Director gate):
@@ -124,10 +155,11 @@ file or a foreign name refuses the whole snapshot.
 On the backup host:
 
 1. Copy the snapshot over the existing SSH access.
-2. Seal it, then delete the plaintext copy on both sides:
+2. Seal it with `seal-media`. It requires the snapshot to be owner-only, refuses the key file, and
+   removes the plaintext on success and on failure alike. Then delete the VPS copy:
 
 ```bash
-npx tsx scripts/backup-vault.ts seal --kind media-tar --in media-snapshot.tar --vault <dir> --key <key>
+npx tsx scripts/backup-vault.ts seal-media --in media-snapshot.tar --vault <dir> --key <key>
 ```
 
 Python has no authenticated cipher in its standard library, so sealing happens here and not on the

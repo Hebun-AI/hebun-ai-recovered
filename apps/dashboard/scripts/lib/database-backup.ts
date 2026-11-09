@@ -85,6 +85,11 @@ export async function backupDatabase(options: {
     let header: VaultHeader;
     try {
       header = encryptFile({ plaintext: dump.file, target: file, key: options.key, kind: "postgres-custom", name: "database.dump", now });
+    } catch (error) {
+      /* encryptFile removes its own part file; an existing vault file is never ours to delete. */
+      return { status: "refused", reason: "seal-failed", detail: (error as Error).message };
+    }
+    try {
       /* The sealed file is read back in full and must authenticate before the backup counts. */
       decryptFile({ vault: file, key: options.key });
     } catch (error) {

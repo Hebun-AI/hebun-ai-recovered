@@ -87,6 +87,31 @@ tenants):
   `media-vps-storage/bite-proofs` reported 16 bites.
 - `tsc --noEmit` 0, `eslint` 0 on the changed files, `git diff --check` clean.
 
+## Off-site transport (second change on the branch, after bff5df01)
+
+- `apps/dashboard/scripts/lib/offsite-backup.ts` (new):
+  - `OffsiteTransport` interface, with `LocalDirectoryTransport` as the simulated remote;
+  - `pushSealed` / `pushVault`: authenticated before transfer, size and SHA-256 verified after,
+    idempotent, never overwrites a different object, retries bounded transient failures with backoff;
+  - `pullSealed`: checks the remote digest, then authenticates in private staging;
+  - `pruneOffsite`: authenticates every kept object before deleting anything; the newest is always
+    kept;
+  - `sealMediaSnapshot`: the snapshot must be owner-only, the key file is refused and never deleted,
+    and the plaintext is removed on success and on failure.
+- CLI: `seal-media`, `offsite-push`, `offsite-pull`, `offsite-prune`.
+- **Defect found and fixed:** `backupDatabase` (released in bff5df01 on this branch, not merged)
+  deleted the EXISTING vault file when sealing failed because the target already existed. The cleanup
+  now removes only a file this run wrote. This is pinned by the database test and by mutations N11
+  and N12.
+- Evidence:
+  - `tests/br2-backup-vault/offsite.ts` PASS, covering O1–O7, M1 and K1. Key material was absent from
+    16 archive and remote files, all results and the CLI output.
+  - `database-backup-postgres.ts` PASS, including the new same-instant refusal that leaves the existing
+    backup byte-identical.
+  - The firewall test passes, and 33 suites that scan `scripts/` pass.
+  - Mutations N1–N12: 12 of 12 bit, run in an isolated worktree.
+  - `tsc` 0, `eslint` 0.
+
 ## What is not proven
 
 - The post-seal read-back in `backupDatabase` is not pinned by a test (mutation M8 survived). A bad
@@ -101,14 +126,14 @@ tenants):
 - Phase: BR-2
 - Owner: apps/dashboard/scripts/lib/backup-vault.ts (vault format, key, retention), apps/dashboard/scripts/lib/database-backup.ts (scheduled database backup and verified restore), apps/dashboard/scripts/backup-vault.ts (operator CLI), infra/media-store-vps/hebun_media_backup.py (media snapshot and restore), docs/product-vision/runtime/hebun-backup-recovery-runbook.md
 - Reached state: VERIFIED
-- Implementation commit: THIS COMMIT
+- Implementation commit: bff5df01609ad956a7ecae47efd215cdc05cd509 (vault, database backup, media snapshot) and THIS COMMIT (off-site transport, media sealing, seal-failure deletion fix)
 - Verification level: V3 — the change builds a path that will read the production database and hold tenant data at rest, and adds a named importer to the migration-module firewall; full suite justified on the pull request for that reason
 - Verification evidence: locally, tests/br2-backup-vault/vault.ts PASS, database-backup-postgres.ts PASS, media-backup-chain.ts PASS (python unittest 16 OK); infra test_hebun_media_backup.py 16 OK on Python 3.9.6 and 3.13.9; mutations 13/14 bit (M8 post-seal read-back survived, recorded); firewall negative checks 2/2; 37 affected suites PASS; prodmig-flow bite-proofs 24/24 and media-vps-storage bite-proofs 16 bites in an isolated worktree; CLI smoke on disposable databases; tsc --noEmit 0, eslint 0, git diff --check clean
 - Test environment: isolated worktree in the session scratchpad from 8b0b5373 plus an isolated detached mutation worktree, macOS Darwin 25.2.0, Node 24.16.0, Python 3.9.6 and 3.13.9, disposable PostgreSQL 18.6 cluster at 127.0.0.1:55432 (initdb -E UTF8 --locale=C, system_identifier proven) stopped and deleted after use; 21 GiB free; no production access, no real dump, no tenant data, no credential, no network beyond loopback
 - Deployment evidence: N/A — not deployed
 - Production acceptance evidence: N/A — synthetic data only; schedule, off-site upload and VPS deployment not authorized
 - Deferred risks: BR2-SCHEDULE-1 (DEFERRED); BR2-OFFSITE-1 (DEFERRED); BR2-MEDIA-VPS-1 (DEFERRED); BR2-KEY-ESCROW-1 (DEFERRED); BR2-SEAL-READBACK-PIN-1 (DEFERRED)
-- Director approvals: PACKAGE 4 / CONTINUE DEVELOPMENT, local implementation and targeted validation, 2026-11-09; BR-2 CONTINUATION, commit, push and one draft pull request, 2026-11-09; merge, full suite, schedule installation, off-site upload, VPS deployment NOT approved
+- Director approvals: PACKAGE 4 / CONTINUE DEVELOPMENT, local implementation and targeted validation, 2026-11-09; BR-2 CONTINUATION, commit, push and one draft pull request, 2026-11-09; BR-2 DELIVERY, commit and push of the off-site work to PR #4 with quick and targeted checks, 2026-11-09; merge, full suite, schedule installation, off-site upload, VPS deployment NOT approved
 
 ### Deferred risk detail
 
@@ -116,9 +141,11 @@ tenants):
   runbook, but it is not installed, and no production backup has run through it. Acceptance
   dependency: a Director decision to install it with `DATABASE_URL` available to launchd, then a
   first production run read back with `verify`.
-- **BR2-OFFSITE-1 (DEFERRED).** Sealed files stay on the backup host, and one disk is not a backup.
-  Acceptance dependency: a Director decision on provider, location and cost, then an upload of
-  `.hbk` files only.
+- **BR2-OFFSITE-1 (DEFERRED).** The transport, verification, retries, idempotency, off-site restore
+  and off-site retention exist and are proven against a simulated remote. No real destination exists,
+  so sealed files still stay on the backup host. Acceptance dependency: a Director decision on
+  provider, location and cost, a provider adapter behind `OffsiteTransport`, and a first push and pull
+  of `.hbk` files only.
 - **BR2-MEDIA-VPS-1 (DEFERRED).** `hebun_media_backup.py` is not deployed and no production media
   snapshot exists. Acceptance dependency: a Director-approved VPS deployment and a first snapshot,
   verified after sealing.
@@ -127,6 +154,22 @@ tenants):
 - **BR2-SEAL-READBACK-PIN-1 (DEFERRED).** Mutation M8 (removing the post-seal decrypt in
   `backupDatabase`) survives, because the public path cannot produce a bad seal. Acceptance
   dependency: a fault-injection seam, if the Director judges it worth its cost.
+
+## Package 4 handoff — production activation requirements (NOT complete)
+
+None of these is done. Each is an external operation or a Director decision, and each has its own
+gate.
+
+| # | Requirement | What exists | What is missing | Owner record |
+|---|---|---|---|---|
+| 1 | Real off-site provider | `OffsiteTransport` interface with push/pull/prune, proven against a simulated remote | Provider, region and cost decision; a provider adapter; credential handling; a first push and pull | BR2-OFFSITE-1 |
+| 2 | Encryption key recovery | Owner-only key file, key id in every header, key never in archives or logs | Where the second copy lives, and a recorded recovery test that opens a vault with the escrowed copy | BR2-KEY-ESCROW-1 |
+| 3 | Daily backup scheduling | `backup-db --prune` as one unit, launchd template in the runbook | Installation, with `DATABASE_URL` available to launchd; a first production run checked with `verify` | BR2-SCHEDULE-1 |
+| 4 | VPS media deployment | `hebun_media_backup.py` with 16 tests, plus `seal-media` | Deployment to the VPS; a first snapshot, sealed and verified; a decision on the snapshot location | BR2-MEDIA-VPS-1 |
+| 5 | Neon PITR / RPO / RTO | Runbook list of the exact Console values (BR-0) | Values read in the Console; RPO and RTO targets decided | BR-0 (discovery) |
+| 6 | Production-data restore drill | BR-1 drill and `restore-db`, proven on synthetic data | Director choice of the dump; a local run that measures the first real RTO | BR1-PROD-DUMP-DRILL-1 |
+
+Minimum order to a working off-site backup: 5 → 2 → 1 → 3, then 6 as proof. Item 4 is independent.
 
 ## Weekly three questions
 

@@ -8,11 +8,19 @@
  *   open         --file FILE.hbk --key FILE --out FILE
  *   prune        --vault DIR --kind KIND --key FILE [--apply]
  *   restore-db   --file FILE.hbk --key FILE --target-url-env NAME     (loopback target only)
+ *   seal-media   --in SNAPSHOT.tar --vault DIR --key FILE    (plaintext removed on success and failure)
+ *   offsite-push  --vault DIR --kind KIND --key FILE --remote-dir DIR
+ *   offsite-pull  --object NAME.hbk --key FILE --remote-dir DIR --out DIR
+ *   offsite-prune --kind KIND --key FILE --remote-dir DIR [--apply]
+ *
+ * Off-site commands use the local-directory adapter only (`--remote-dir`); a real provider is a new
+ * adapter and a Director gate.
  *
  * A connection string is read from the environment variable NAMED by the flag, never from argv, and
  * is never printed. Output is one JSON line: names, sizes, digests, key id — never content or keys.
  * Exit 0 on success, 1 on a refusal, 2 on a usage error.
  */
+import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   VAULT_KINDS,
@@ -26,6 +34,7 @@ import {
   type VaultKind,
 } from "./lib/backup-vault";
 import { backupDatabase, restoreFromVault } from "./lib/database-backup";
+import { LocalDirectoryTransport, pruneOffsite, pullSealed, pushVault, sealMediaSnapshot } from "./lib/offsite-backup";
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 
@@ -107,8 +116,30 @@ async function main(): Promise<void> {
       const r = restoreFromVault({ vault: need(f, "file"), key: loadKeyFile(need(f, "key")), targetUrl: fromEnv(f, "target-url-env") });
       return emit(r.status === "refused" ? { status: r.status, reason: r.reason, detail: r.detail } : { status: r.status, elapsedMs: r.elapsedMs });
     }
+    case "seal-media": {
+      const vault = need(f, "vault");
+      assertFreeSpace(vault);
+      const keyFile = need(f, "key");
+      return emit(sealMediaSnapshot({ snapshot: need(f, "in"), vaultDirectory: vault, key: loadKeyFile(keyFile), keyFile }));
+    }
+    case "offsite-push": {
+      const kind = need(f, "kind") as VaultKind;
+      if (!VAULT_KINDS.includes(kind)) usage(`--kind must be one of ${VAULT_KINDS.join(", ")}`);
+      const results = await pushVault({ directory: need(f, "vault"), kind, key: loadKeyFile(need(f, "key")), transport: new LocalDirectoryTransport(need(f, "remote-dir")) });
+      return emit({ status: results.some((r) => r.status === "refused") ? "refused" : "pushed", results });
+    }
+    case "offsite-pull": {
+      const r = await pullSealed({ object: need(f, "object"), key: loadKeyFile(need(f, "key")), transport: new LocalDirectoryTransport(need(f, "remote-dir")), outDirectory: need(f, "out") });
+      return emit(r.status === "pulled" ? { status: r.status, file: r.file, header: r.header } : r);
+    }
+    case "offsite-prune": {
+      const kind = need(f, "kind") as VaultKind;
+      if (!VAULT_KINDS.includes(kind)) usage(`--kind must be one of ${VAULT_KINDS.join(", ")}`);
+      const r = await pruneOffsite({ transport: new LocalDirectoryTransport(need(f, "remote-dir")), kind, key: loadKeyFile(need(f, "key")), workDirectory: tmpdir(), apply: f.get("apply") === true });
+      return emit("status" in r ? r : { status: f.get("apply") === true ? "pruned" : "dry-run", ...r });
+    }
     default:
-      usage("command must be init-key, backup-db, seal, verify, open, prune or restore-db");
+      usage("command must be init-key, backup-db, seal, seal-media, verify, open, prune, restore-db, offsite-push, offsite-pull or offsite-prune");
   }
 }
 
