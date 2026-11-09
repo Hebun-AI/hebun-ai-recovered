@@ -5824,6 +5824,7 @@ re-graded here.
 | CI-QUALITY-GATES-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` |
 | V1-STAGE-2 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` |
 | V1-STAGE-4 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-4-profile-team-closure.md` |
+| V1-STAGE-6 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-6-plan-usage-closure.md` |
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
 
 ---
@@ -6054,5 +6055,6 @@ before §16.1 are not yet indexed (Phase B).
 | V1S2-AUTO-PUBLISH-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Governance boundary | DEFERRED | Director decision on a governed machine path for scheduled external publication |
 | V1S2-BROWSER-UNVERIFIED-1 | V1-STAGE-2 | `docs/product-vision/runtime/hebun-v1-stage-2-content-calendar-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /operations after release |
 | V1S4-BROWSER-UNVERIFIED-1 | V1-STAGE-4 | `docs/product-vision/runtime/hebun-v1-stage-4-profile-team-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /account by a Governance authority and by a plain member |
+| V1S6-BROWSER-UNVERIFIED-1 | V1-STAGE-6 | `docs/product-vision/runtime/hebun-v1-stage-6-plan-usage-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /account/plan |
 | BR1-PROD-DUMP-DRILL-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification gap | DEFERRED | A Director decision naming the production dump the drill may read locally; first real RTO |
 | BR1-COMPARE-DEPTH-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification depth | DEFERRED | A Director decision on a row-content digest and a normalized CHECK comparison |

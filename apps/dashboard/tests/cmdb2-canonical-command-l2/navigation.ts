@@ -116,7 +116,7 @@ const LEGACY = [
  * unannounced — it was never a claim that the product stops growing, and the pin is amended
  * deliberately rather than relaxed into an inequality.
  */
-const DASHBOARD_ROUTE_COUNT = 134; /* V1-STAGE-4: +1, `/account` (Profile & Team). */
+const DASHBOARD_ROUTE_COUNT = 135; /* V1-STAGE-4: +1, `/account` (Profile & Team). V1-STAGE-6: +1, `/account/plan`. */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
