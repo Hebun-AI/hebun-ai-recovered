@@ -404,8 +404,14 @@ export function createValidatedBackup(options: {
       detail: `${target} already exists. A backup never overwrites a backup.`,
     };
   }
-  mkdirSync(options.directory, { recursive: true });
+  /*
+   * A DUMP IS TENANT DATA, readable by its owner only (BR-1). pg_dump creates the file under the
+   * process umask, which left most historical dumps 0644. The child inherits a 077 umask for the
+   * call, so the archive is born 0600 and a new directory 0700.
+   */
+  mkdirSync(options.directory, { recursive: true, mode: 0o700 });
 
+  const umask = process.umask(0o077);
   try {
     execFileSync("pg_dump", ["--format=custom", "--no-password", "--file", target], {
       env: childEnv,
@@ -424,6 +430,8 @@ export function createValidatedBackup(options: {
       reason: "dump-failed",
       detail: `pg_dump failed: ${String(stderr ?? (error as Error).message).trim()}`,
     };
+  } finally {
+    process.umask(umask);
   }
 
   const bytes = existsSync(target) ? statSync(target).size : 0;
