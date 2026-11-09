@@ -199,6 +199,11 @@ function main(): void {
      * below; the reachability census follows, so nothing slips into the sink unnoticed either.
      */
     const sinkOwners = [
+      /*
+       * V1-STAGE-4 — the account profile audit sibling: a person changing their OWN display name.
+       * Appends to the SHARED sink; no second audit table. The census GREW; nothing was widened.
+       */
+      "src/features/governance-audit/account-profile-audit.server.ts",
       "src/features/governance-audit/action-authorization-audit.server.ts",
       "src/features/governance-audit/action-execution-audit.server.ts",
       /*
@@ -215,6 +220,12 @@ function main(): void {
        * The census GREW; nothing in it was widened.
        */
       "src/features/governance-audit/ai-dispatch-cap-audit.server.ts",
+      /*
+       * V1-STAGE-2 — the content publication intent ("schedule") audit sibling. It appends
+       * created/rescheduled/cancelled/requested to the SHARED sink and creates no second audit table.
+       * The census GREW; nothing in it was widened.
+       */
+      "src/features/governance-audit/content-schedule-audit.server.ts",
       "src/features/governance-audit/departmental-placement-audit.server.ts",
       /* APF-5 — evidence of an External AI disclosure decision, recorded as the authority made it. */
       "src/features/governance-audit/external-ai-disclosure-audit.server.ts",
@@ -255,6 +266,8 @@ function main(): void {
        * not observing.
        */
       "src/features/governance-audit/standing-observation-audit.server.ts",
+      /* V1-STAGE-5 — the support ticket audit sibling: creation and status changes, status and version only. Appends to the SHARED sink. */
+      "src/features/governance-audit/support-ticket-audit.server.ts",
       /*
        * AP-4A — the Work Domain Authority's audit sibling. It appends create/rename/retire of a work
        * domain to the SHARED sink and creates no second audit table. The census GREW; nothing in it

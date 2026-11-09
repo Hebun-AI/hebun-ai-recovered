@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { Gauge, LogOut, UserRound } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 
 /**
@@ -135,6 +136,26 @@ export function AccountMenu({ account }: { account: ShellAccount | null }) {
             {account.role ? <p className="truncate text-xs text-fg-muted">{account.role}</p> : null}
           </div>
           <div role="separator" className="my-1 h-px bg-border" />
+          {/* V1-STAGE-4 — the viewer's own profile and, for the Governance authority, the team. */}
+          <Link
+            href="/account"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-fg transition-colors duration-(--dur-fast) hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-ring"
+          >
+            <UserRound className="size-4" aria-hidden="true" />
+            Profile &amp; team
+          </Link>
+          {/* V1-STAGE-6 — the organization's plan, today's AI limits and recorded usage. Read only. */}
+          <Link
+            href="/account/plan"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-fg transition-colors duration-(--dur-fast) hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-ring"
+          >
+            <Gauge className="size-4" aria-hidden="true" />
+            Plan &amp; usage
+          </Link>
           <form action={logoutAction} role="none">
             <button
               ref={itemRef}

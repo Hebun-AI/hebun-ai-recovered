@@ -96,14 +96,14 @@ export function TopBar({ account = null }: { account?: ShellAccount | null }) {
           <ClipboardCheck className="size-4" />
         </Link>
 
-        <button
-          type="button"
-          disabled
-          aria-label="Notifications — coming soon"
-          className="relative flex size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed"
+        {/* V1-STAGE-3 — the in-app notification center: a read-time projection, nothing sent. */}
+        <Link
+          href="/notifications"
+          aria-label="Notifications"
+          className="relative flex size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors duration-(--dur-fast) hover:bg-surface-sunken hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
         >
           <Bell className="size-4" />
-        </button>
+        </Link>
 
         <button
           type="button"

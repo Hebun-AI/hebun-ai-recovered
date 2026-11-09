@@ -116,7 +116,7 @@ const LEGACY = [
  * unannounced — it was never a claim that the product stops growing, and the pin is amended
  * deliberately rather than relaxed into an inequality.
  */
-const DASHBOARD_ROUTE_COUNT = 133;
+const DASHBOARD_ROUTE_COUNT = 136; /* V1-STAGE-3: +1, `/notifications`. */ /* V1-STAGE-4: +1, `/account` (Profile & Team). V1-STAGE-6: +1, `/account/plan`. */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
@@ -131,6 +131,8 @@ const DASHBOARD_ROUTE_COUNT = 133;
  * fails on an ADDITION, on a REMOVAL, and on a RENAME, where the count only ever noticed the first.
  */
 const USE_SERVER_MODULES = [
+  /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
+  "src/app/(dashboard)/account/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
@@ -160,6 +162,10 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/actions.ts",
   /* CONTENT-PUBLISH-FROM-PACKAGE-1: the READY-package publish proposal boundary. It files through the released propose dispatcher; operations/actions.ts is the Media door and may not reach an act authority. */
   "src/app/(dashboard)/operations/publication-actions.ts",
+  /* V1-STAGE-2: the content calendar boundary — schedule, move, cancel, and propose a due schedule through the released governed path (never approves or executes). */
+  "src/app/(dashboard)/operations/schedule-actions.ts",
+  /* V1-STAGE-5: the support ticket boundary — file a ticket (any member), change its status (Governance authority). */
+  "src/app/(dashboard)/tickets/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
   /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
@@ -468,7 +474,7 @@ function navigationOnly(): void {
     "20261008143657_l1b_agent_lifecycle_domain.sql",
     "20261013113340_eai_work_planning_purpose.sql",
     "20261014042643_work_update_v1_mandate_scope.sql",
-    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership.sql", /* RA-AUTH-1 — the `prepare-research` preparation kind joins the mandate scope CHECK and `research-report` joins `work_artifact_type`; additive. A declared later phase. */ "20261028183456_ra_auth_1_research_preparation.sql", /* RA-EAI-1 — `tenant_ai_data_use_scopes_purpose_chk` gains `research`; additive. A declared later phase. */ "20261029090953_ra_eai_1_research_purpose.sql",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership.sql", /* RA-AUTH-1 — the `prepare-research` preparation kind joins the mandate scope CHECK and `research-report` joins `work_artifact_type`; additive. A declared later phase. */ "20261028183456_ra_auth_1_research_preparation.sql", /* RA-EAI-1 — `tenant_ai_data_use_scopes_purpose_chk` gains `research`; additive. A declared later phase. */ "20261029090953_ra_eai_1_research_purpose.sql", /* V1-STAGE-2 — content publication schedules (one additive table). A declared later phase. */ "20261109131304_v1_content_publication_intent.sql", "20261109142723_v1_support_tickets.sql",
   ];
   const journal = (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] }).entries.map((e) => `${e.tag}.sql`);
   assert.deepEqual(journal, migrations, "the journal and the files agree, in order");

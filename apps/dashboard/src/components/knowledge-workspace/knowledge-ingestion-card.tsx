@@ -428,15 +428,15 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
         <span className="text-xs text-fg-muted">
           {previewAvailable ? (
             <>
-              {preview.normalized.length.toLocaleString()} of{" "}
-              {MAX_SOURCE_CHARACTERS.toLocaleString()} characters ·{" "}
+              {preview.normalized.length.toLocaleString("en-US")} of{" "}
+              {MAX_SOURCE_CHARACTERS.toLocaleString("en-US")} characters ·{" "}
               {preview.chunks === 0
                 ? "no records yet"
                 : `${preview.chunks} ${preview.chunks === 1 ? "record" : "records"} will be created`}
             </>
           ) : (
             <>
-              At most {MAX_SOURCE_CHARACTERS.toLocaleString()} characters and{" "}
+              At most {MAX_SOURCE_CHARACTERS.toLocaleString("en-US")} characters and{" "}
               {MAX_CHUNKS_PER_SOURCE} records. The exact counts are known once Hebun reads the file;
               if it holds more than that, nothing is ingested rather than part of it.
             </>

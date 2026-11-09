@@ -43,6 +43,7 @@ import {
 import type { DashboardSnapshot } from "@/features/director-dashboard-data";
 import { DASHBOARD_SCOPE as dashboardScope } from "@/features/director-dashboard-ui/scope";
 import { scheduleFrame } from "@/lib/frame-scheduler";
+import { utcInstant } from "@/lib/format";
 
 const widgetOrder: readonly DashboardWidgetId[] = [
   "runtime-overview", "active-agents", "active-workflows", "monitoring-summary",
@@ -220,7 +221,7 @@ export function WidgetRuntimeBoard({ initialSnapshot, initialRuntime, initialOve
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-4">
         <div className="flex flex-wrap items-center gap-2 text-sm text-fg-secondary">
           <Badge variant={snapshot ? "success" : "warning"}>{snapshot ? "Snapshot Ready" : "Snapshot Unavailable"}</Badge>
-          <span>{snapshot ? `Generated ${new Date(snapshot.generatedAt).toLocaleString()}` : "No dashboard snapshot is available."}</span>
+          <span>{snapshot ? `Generated ${utcInstant(snapshot.generatedAt)}` : "No dashboard snapshot is available."}</span>
         </div>
         <Button variant="outline" size="sm" onClick={refresh} disabled={widgetOrder.some((widgetId) => runtime.states[widgetId].state === "loading")}>
           <RefreshCw className="size-4" /> Refresh

@@ -137,7 +137,9 @@ async function main(): Promise<void> {
     assert.ok(LIST_SERVER.includes("{ tenantId: tenant.tenantId, actorId: tenant.userId }"), "scope comes from the session");
 
     const uiImports = [...LIST_UI.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(uiImports, ["react", "lucide-react", "@/app/(dashboard)/heby/actions"]);
+    /* MEDIA3-ADMITTED-AT-HYDRATION-1: `@/lib/format` is the pure `utcInstant` formatter (no read, no
+       state), added so the list renders the same instant on server and browser. */
+    assert.deepEqual(uiImports, ["react", "lucide-react", "@/app/(dashboard)/heby/actions", "@/lib/format"]);
     assert.ok(/import \{ listHebyConversationsAction, type ListConversationsResult \} from "@\/app\/\(dashboard\)\/heby\/actions";/.test(LIST_UI), "the component reaches only the list action");
     assert.ok(!/localStorage|askHebyAction|loadHebyConversationAction|dangerouslySetInnerHTML/.test(LIST_UI));
     assert.ok(LIST_UI.includes("disabled={props.disabled || current}"));

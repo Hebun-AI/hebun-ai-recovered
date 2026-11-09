@@ -103,9 +103,11 @@ function departmentsDemoted(): void {
   for (const href of ["/finance", "/hr", "/legal", "/tickets"]) {
     assert.ok(match.includes(href), `${href} still resolves to Workforce (reachable for 25D)`);
   }
-  for (const [name, src] of [["finance", financeSrc], ["hr", hrSrc], ["legal", legalSrc], ["tickets", ticketsSrc]] as const) {
+  for (const [name, src] of [["finance", financeSrc], ["hr", hrSrc], ["legal", legalSrc]] as const) {
     assert.ok(/LegacyDomainNotice/.test(src), `${name} renders the legacy domain notice`);
   }
+  /* V1-STAGE-5: /tickets is no longer a legacy mock — it reads real, tenant-scoped support tickets. */
+  assert.ok(/readSupportTickets/.test(ticketsSrc) && !/features\/tickets\/mock/.test(ticketsSrc), "tickets reads real support tickets, not the mock");
 }
 
 /* 13 — Finance no longer presents Approve/Reject (Decisions duplication removed). */
@@ -136,7 +138,7 @@ function ticketsNotOperations(): void {
   const opsMatch = getWorkspace("operations").match ?? [];
   assert.ok(!opsMatch.includes("/tickets"), "/tickets is not claimed by Operations");
   assert.ok(!/owned by the Operations Department/.test(ticketsSrc), "tickets drops the Operations-ownership claim");
-  assert.ok(/LegacyDomainNotice/.test(ticketsSrc), "tickets is a legacy domain surface");
+  assert.ok(/claims no Operations authority/.test(ticketsSrc), "tickets is business-domain work, not Operations (V1-STAGE-5: no longer a legacy mock)");
 }
 
 /* 18, 22 — Phase 25B truth preserved: AgentCard is not in the authoritative Agents surface. */

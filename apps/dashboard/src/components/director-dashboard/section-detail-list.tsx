@@ -10,6 +10,7 @@ import type {
   SectionListQuery,
   SectionListView,
 } from "@/features/director-dashboard-navigation";
+import { utcInstant } from "@/lib/format";
 
 const sortFields: readonly { readonly field: ListSortField; readonly label: string }[] = [
   { field: "label", label: "Name" },
@@ -64,7 +65,7 @@ export function SectionDetailList({ view, query, onQueryChange, onClose, onOpenR
           <Badge variant="neutral">{view.evidenceCount} evidence</Badge>
           {view.snapshotTimestamp ? (
             <span className="text-xs text-fg-muted">
-              Snapshot {new Date(view.snapshotTimestamp).toLocaleString()}
+              Snapshot {utcInstant(view.snapshotTimestamp)}
             </span>
           ) : null}
         </div>
