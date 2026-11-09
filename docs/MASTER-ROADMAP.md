@@ -3440,8 +3440,9 @@ Not every deferred risk blocks a release. Only a `BLOCKED` row does, and it name
 
 **Enforcement, stated exactly.** `apps/dashboard/tests/development-continuity/closure-contract.ts`
 checks this subsection against the repository: contract fields, state/evidence consistency, §21 and
-§22 references, and the legacy census. It runs whenever the test runner runs. **There is no CI**:
-nothing runs it automatically, and the Vercel build type-checks tests without executing them. The test
+§22 references, and the legacy census. It runs whenever the test runner runs, and in CI: it is a step of the required `quick` check on every
+pull request to `main` (`.github/workflows/ci.yml`, ruleset `HEBUN-MAIN-QUALITY-GATE`, CI-QUALITY-GATES-1).
+The Vercel build still only type-checks tests without executing them. The test
 cannot judge whether evidence is *true*; it checks only that evidence is present and consistent with
 the claimed state. That judgement, every commit, push and deploy, and every production acceptance
 remain Director gates (`CLAUDE.md`). A record documents an approval. It never grants one.
@@ -5820,6 +5821,7 @@ re-graded here.
 | APPROVED-OUTCOME-TRUTH-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-approved-outcome-truth-1-closure.md` |
 | AI-FAILURE-TRUTH-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ai-failure-truth-1-closure.md` |
 | SCAN-FAILURE-LEGIBILITY-1 | VERIFIED | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` |
+| CI-QUALITY-GATES-1 | DEPLOYED | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` |
 
 ---
 
@@ -5832,7 +5834,7 @@ before §16.1 are not yet indexed (Phase B).
 | Risk ID | Owning phase | Detail record | Category | Disposition | Acceptance dependency |
 |---|---|---|---|---|---|
 | CONTINUITY-STALE-PRIMARY-TREE-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-b2-primary-tree-reconciliation-closure.md` | Session recovery | DEFERRED | Primary tree reconciled by PHASE-B2; older worktrees and running sessions remain — sessions restarted or opened fresh, and a Director decision on worktree cleanup |
-| CONTINUITY-NO-CI-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Verification enforcement | DEFERRED | Director decision on CI or another integration |
+| CONTINUITY-NO-CI-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification enforcement | CLOSED | — |
 | CONTINUITY-CODE-DEFERRED-SCAN-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Risk discoverability | DEFERRED | Phase B historical deferred-risk reconciliation |
 | CONTINUITY-PICKER-STRANDED-ACCEPTANCE-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Historical record integrity | DEFERRED | Director decision on the proposed GOOGLE-PICKER-1 addendum |
 | CONTINUITY-BRAIN-LAG-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Director-selected Hebun Brain catch-up |
@@ -6042,3 +6044,7 @@ before §16.1 are not yet indexed (Phase B).
 | SFL1-CAUSE-PROD-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Verification gap | DEFERRED | A deployment of this change and an organically unsuccessful tick with a `cause`, read from the runtime log; no failure induced |
 | SFL1-LOG-RETENTION-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Observability | DEFERRED | Retention is not known exactly (about 15 hours reachable on 2026-11-02); a Director decision on paid retention or a report cadence |
 | SFL1-NOTIFY-CHANNEL-1 | SCAN-FAILURE-LEGIBILITY-1 | `docs/product-vision/runtime/hebun-scan-failure-legibility-1-closure.md` | Observability | DEFERRED | A Director decision on a notification channel (cost confirmed first) or on who runs the report and when |
+| CIQG1-PROD-ACCEPTANCE-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification gap | DEFERRED | An organic production observation of a fixed runtime path; nothing induced |
+| CIQG1-VPS-MEDIA-DRIFT-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Release drift | DEFERRED | A Director-approved VPS deployment of e8d63a4a with its own verification |
+| CIQG1-HANG-ROOT-CAUSE-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification reliability | DEFERRED | Further full runs without a timeout; a timeout reopens it with the watchdog hang report |
+| CIQG1-FULL-SUITE-PER-SHA-1 | CI-QUALITY-GATES-1 | `docs/product-vision/runtime/hebun-ci-quality-gates-1-closure.md` | Verification cost | DEFERRED | Director decision on the full-suite trigger or rule for documentation-only commits |

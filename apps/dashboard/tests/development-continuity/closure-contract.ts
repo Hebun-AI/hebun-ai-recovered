@@ -9,8 +9,8 @@
  * through §22 to a detail record that names it with the same disposition.
  *
  * It cannot see whether evidence is TRUE. A record that invents a deployment id passes. That judgement
- * is the Director's, and §16.1 says so. It also cannot run itself: there is no CI, so it runs only when
- * the test runner runs.
+ * is the Director's, and §16.1 says so. It runs when the test runner runs, and in CI as a step of the
+ * required `quick` check on every pull request to main (CI-QUALITY-GATES-1).
  *
  * ── THE LEGACY BOUNDARY ──────────────────────────────────────────────────────
  *
