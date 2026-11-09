@@ -59,7 +59,9 @@ function departmentDisposition(): void {
   for (const href of ["/finance", "/hr", "/legal", "/tickets"]) {
     assert.ok(match.includes(href), `${href} resolves to Workforce (legacy, reachable)`);
   }
-  assert.ok(/LegacyDomainNotice/.test(financeSrc) && /LegacyDomainNotice/.test(legalSrc) && /LegacyDomainNotice/.test(ticketsSrc), "departments carry legacy notice");
+  assert.ok(/LegacyDomainNotice/.test(financeSrc) && /LegacyDomainNotice/.test(legalSrc), "departments carry legacy notice");
+  /* V1-STAGE-5: /tickets became real support tickets; it no longer carries the legacy notice. */
+  assert.ok(/readSupportTickets/.test(ticketsSrc), "tickets reads real support tickets");
   // Not Operations authority.
   assert.ok(!(getWorkspace("operations").match ?? []).includes("/tickets"), "/tickets is not Operations");
   assert.ok(!/owned by the Operations Department/.test(ticketsSrc), "tickets makes no Operations-ownership claim");

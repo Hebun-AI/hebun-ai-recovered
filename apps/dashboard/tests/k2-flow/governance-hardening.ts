@@ -266,6 +266,8 @@ function main(): void {
        * not observing.
        */
       "src/features/governance-audit/standing-observation-audit.server.ts",
+      /* V1-STAGE-5 — the support ticket audit sibling: creation and status changes, status and version only. Appends to the SHARED sink. */
+      "src/features/governance-audit/support-ticket-audit.server.ts",
       /*
        * AP-4A — the Work Domain Authority's audit sibling. It appends create/rename/retire of a work
        * domain to the SHARED sink and creates no second audit table. The census GREW; nothing in it

@@ -107,6 +107,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/publication-actions.ts",
   /* V1-STAGE-2: the content calendar boundary — schedule, move, cancel, and propose a due schedule through the released governed path (never approves or executes). */
   "src/app/(dashboard)/operations/schedule-actions.ts",
+  /* V1-STAGE-5: the support ticket boundary — file a ticket (any member), change its status (Governance authority). */
+  "src/app/(dashboard)/tickets/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
   /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the

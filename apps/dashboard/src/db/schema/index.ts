@@ -79,3 +79,4 @@ export * from "./follow-up-source-work";
 export * from "./external-recipient";
 export * from "./action-execution";
 export * from "./content-publication-intent";
+export * from "./support-ticket";
