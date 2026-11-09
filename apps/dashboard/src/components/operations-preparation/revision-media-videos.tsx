@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MEDIA_ASSET_REVIEW_ACCEPT_NON_EFFECTS } from "@/features/media-asset-review/contracts";
 import type { MediaAssetReviewState } from "@/features/media-asset-review/contracts";
+import { utcInstant } from "@/lib/format";
 
 /*
  * revision-media-videos.tsx — the videos of ONE content draft (MV-3, widened by VIDEO CONTENT CHAIN).
@@ -124,7 +125,7 @@ function GenerationRow({ generation }: { readonly generation: DraftVideoGenerati
       {generation.pollCount > 0 ? (
         <p className="text-[11px] text-fg-muted">
           Observed {generation.pollCount} time{generation.pollCount === 1 ? "" : "s"}
-          {generation.lastPolledAt ? `, last ${new Date(generation.lastPolledAt).toLocaleString()}` : ""}.
+          {generation.lastPolledAt ? `, last ${utcInstant(generation.lastPolledAt)}` : ""}.
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">

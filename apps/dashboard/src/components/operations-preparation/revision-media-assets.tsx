@@ -26,6 +26,7 @@ import type {
   MediaGenerationRefusal,
   RequestMediaGenerationResult,
 } from "@/features/media-assets/contracts";
+import { utcInstant } from "@/lib/format";
 
 /*
  * revision-media-assets.tsx — the images generated for one content-draft revision (MEDIA-3).
@@ -289,7 +290,7 @@ function AssetCard({
         </div>
         <div className="min-w-0">
           <dt className="text-xs text-fg-muted">{supplied ? "Admitted" : "Generated"}</dt>
-          <dd className="text-fg-primary">{new Date(asset.admittedAt).toLocaleString()}</dd>
+          <dd className="text-fg-primary">{utcInstant(asset.admittedAt)}</dd>
         </div>
       </dl>
 
