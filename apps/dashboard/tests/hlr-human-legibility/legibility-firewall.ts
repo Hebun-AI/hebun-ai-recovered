@@ -596,6 +596,13 @@ function walk(dir: string): string[] {
        * from the authorized session. It names nobody else.
        */
       "src/app/(dashboard)/layout.tsx",
+      /*
+       * V1-STAGE-4: Profile & Team. Two reads, both through this module: `resolveHumanLabels` for
+       * the team list — Governance-gated, the same gate as every page above — and
+       * `readOwnNameFields`, the session user's OWN name columns and nobody else's. It renders on
+       * /account for that human; nothing it composes reaches a model provider.
+       */
+      "src/features/account-profile/account-profile.server.ts",
     ].sort(),
     "exactly three pages read legibility, five components receive it, THREE grounding projections " +
       "resolve it for Heby, and Live Map composes it for the map. No other consumer.",

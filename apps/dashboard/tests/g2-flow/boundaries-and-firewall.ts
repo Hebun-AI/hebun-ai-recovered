@@ -289,6 +289,11 @@ function main(): void {
      * else reaches the sink" is a real guarantee and is simply a different one.
      */
     const AUDIT_SINK_WRITERS = [
+      /*
+       * V1-STAGE-4 — the account profile audit sibling: a person changing their OWN display name.
+       * Appends to the SHARED sink; no second audit table. The census GREW; nothing was widened.
+       */
+      "src/features/governance-audit/account-profile-audit.server.ts",
       "src/features/governance-audit/action-authorization-audit.server.ts",
       "src/features/governance-audit/action-execution-audit.server.ts",
       /*

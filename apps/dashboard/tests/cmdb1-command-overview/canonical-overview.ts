@@ -125,6 +125,8 @@ const LEDGER_DIGEST = "df1de6fd1768c3de"; /* MV-6: 66 -> 67 appended; the first 
  * fails on an ADDITION, on a REMOVAL, and on a RENAME, where the count only ever noticed the first.
  */
 const USE_SERVER_MODULES = [
+  /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
+  "src/app/(dashboard)/account/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */

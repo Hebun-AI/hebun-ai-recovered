@@ -799,6 +799,8 @@ const LEDGER_COUNT = 67; /* MV-6: ledger 66 -> 67 (generation-failed + provider-
  * the number: a count tolerates any swap that keeps the total, and this does not.
  */
 const USE_SERVER_MODULES = [
+  /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
+  "src/app/(dashboard)/account/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */

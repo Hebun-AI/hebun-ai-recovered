@@ -114,6 +114,11 @@ async function main(): Promise<void> {
      * anything at that moment; Identity and Credential authority finished a ceremony.
      */
     const AUDIT_SINK_OWNERS = [
+      /*
+       * V1-STAGE-4 — the account profile audit sibling: a person changing their OWN display name.
+       * Appends to the SHARED sink; no second audit table. The census GREW; nothing was widened.
+       */
+      "src/features/governance-audit/account-profile-audit.server.ts",
       "src/features/governance-audit/action-authorization-audit.server.ts",
       "src/features/governance-audit/action-execution-audit.server.ts",
       /*

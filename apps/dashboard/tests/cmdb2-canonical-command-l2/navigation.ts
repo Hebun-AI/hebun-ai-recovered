@@ -116,7 +116,7 @@ const LEGACY = [
  * unannounced — it was never a claim that the product stops growing, and the pin is amended
  * deliberately rather than relaxed into an inequality.
  */
-const DASHBOARD_ROUTE_COUNT = 133;
+const DASHBOARD_ROUTE_COUNT = 134; /* V1-STAGE-4: +1, `/account` (Profile & Team). */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
@@ -131,6 +131,8 @@ const DASHBOARD_ROUTE_COUNT = 133;
  * fails on an ADDITION, on a REMOVAL, and on a RENAME, where the count only ever noticed the first.
  */
 const USE_SERVER_MODULES = [
+  /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
+  "src/app/(dashboard)/account/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
