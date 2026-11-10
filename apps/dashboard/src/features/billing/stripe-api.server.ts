@@ -1,6 +1,7 @@
 /*
  * billing/stripe-api.server.ts — COMMERCIAL-ACTIVATION-1. The few Stripe REST calls Hebun makes,
- * over `fetch`, with no SDK. Form-encoded requests, JSON responses, bearer secret key.
+ * over `fetch`, with no SDK: one fixed origin (https://api.stripe.com/v1), redirects refused, 15 s
+ * timeout, no retry. Form-encoded requests, JSON responses, bearer secret key.
  *
  * Every call is server-side; the secret key never reaches a browser, a log or a response. An error
  * surfaces as `StripeCallFailed` carrying the HTTP status and Stripe's error code only — never the
@@ -8,7 +9,10 @@
  */
 import type { BillingConfig } from "./billing-config.server";
 
-export type FetchLike = (input: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<{
+export type FetchLike = (
+  input: string,
+  init: { method: string; headers: Record<string, string>; body?: string; redirect?: "error"; signal?: AbortSignal },
+) => Promise<{
   readonly ok: boolean;
   readonly status: number;
   json(): Promise<unknown>;
@@ -24,6 +28,7 @@ export class StripeCallFailed extends Error {
 }
 
 const STRIPE_API = "https://api.stripe.com/v1";
+const STRIPE_TIMEOUT_MS = 15_000;
 
 type FormValue = string | number | boolean;
 
@@ -49,7 +54,14 @@ export async function stripeRequest(
   if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey;
   let response: Awaited<ReturnType<FetchLike>>;
   try {
-    response = await fetchImpl(url, { method, headers, ...(method === "POST" ? { body } : {}) });
+    /* One fixed origin; a redirect is refused, and a hung call is abandoned after the timeout. */
+    response = await fetchImpl(url, {
+      method,
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(STRIPE_TIMEOUT_MS),
+      ...(method === "POST" ? { body } : {}),
+    });
   } catch {
     throw new StripeCallFailed(null, null);
   }

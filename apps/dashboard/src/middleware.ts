@@ -88,17 +88,17 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * secret in constant time before it reads anything, and an unset secret refuses every request. This
  * line moves the authentication, it does not remove it.
  */
+/*
+ * COMMERCIAL-ACTIVATION-1 — the last entry is Stripe's webhook. Not a bearer route: it is
+ * authenticated by the Stripe-Signature HMAC over the raw body, verified before anything is read;
+ * an unset webhook secret refuses every request.
+ */
 const MACHINE_INGRESS_PATHS = [
   "/api/observation/scan",
   "/api/machine-delivery/scan",
   "/api/standing-issuance/scan",
   "/api/media-storage/acceptance",
   "/api/standing-research/scan",
-  /*
-   * COMMERCIAL-ACTIVATION-1 — Stripe's webhook. Not a bearer route: it is authenticated by the
-   * Stripe-Signature HMAC over the raw body, verified before anything is read, and an unset
-   * webhook secret refuses every request.
-   */
   "/api/billing/stripe/webhook",
 ];
 
