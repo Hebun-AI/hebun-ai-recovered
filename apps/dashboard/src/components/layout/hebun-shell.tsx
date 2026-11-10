@@ -2,6 +2,7 @@ import { RoleProvider } from "./role-context";
 import { WorkspaceRail } from "./workspace-rail";
 import { TopBar } from "./topbar";
 import type { ShellAccount } from "./account-menu";
+import type { ShellExperience } from "@/config/customer-nav";
 import { HebySurfaceProvider } from "./heby/heby-surface-context";
 import { HebyVoiceProvider } from "./heby/heby-voice-runtime";
 import { HebyQuickPanelClient } from "./heby/heby-quick-panel-client";
@@ -55,21 +56,29 @@ import { HebyFocusProvider } from "./heby/heby-focus-mode";
  *
  * Role is currently fixed to Director (the shipped single-user surface).
  * Navigation visibility is convenience only — the server enforces authority.
+ *
+ * P2 PHASE 2B — `experience` picks the navigation, nothing else. "director" (the default) is the
+ * released rail above, unchanged. "customer" swaps the rail and mobile sheet for the grouped
+ * Customer Workspace navigation (`config/customer-nav.ts`); providers, top bar, Heby and content
+ * are the same tree. The fixed `role="director"` stays: tenant role ids are tenant-defined and no
+ * released mapping to UI roles exists, so nothing here guesses one.
  */
 export function HebunShell({
   children,
   account = null,
+  experience = "director",
 }: {
   children: React.ReactNode;
   /** Who is signed in, resolved by the authenticated layout. Null in the pre-auth build. */
   account?: ShellAccount | null;
+  experience?: ShellExperience;
 }) {
   return (
-    <RoleProvider role="director">
+    <RoleProvider role="director" experience={experience}>
       <HebySurfaceProvider>
         <HebyVoiceProvider>
           <HebyFocusProvider>
-            <div className="min-h-dvh bg-background text-fg">
+            <div data-shell-experience={experience} className="min-h-dvh bg-background text-fg">
               {/* One route-derived navigation rail; focused mode only changes its presentation. */}
               <WorkspaceRail />
               <div className="min-w-0 md:pl-(--rail-w) lg:pl-(--shell-nav-w)">

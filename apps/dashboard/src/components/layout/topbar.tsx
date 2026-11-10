@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Building2, ClipboardCheck, Search } from "lucide-react";
 import { resolveShellSurface } from "@/config/workspace-nav";
+import { CUSTOMER_NAV, resolveActiveNavHref } from "@/config/customer-nav";
 import { MobileNav } from "./mobile-nav";
+import { useShellExperience } from "./role-context";
 import { HebyLauncher } from "./heby/heby-launcher";
 import { HebyFocusControl } from "./heby/heby-focus-mode";
 import { AccountMenu, type ShellAccount } from "./account-menu";
@@ -27,7 +29,11 @@ export function TopBar({ account = null }: { account?: ShellAccount | null }) {
    * surface, under Command's own tagline. Heby is still not a workspace and gains none here; the
    * shell simply stops claiming it is one.
    */
-  const surface = resolveShellSurface(pathname);
+  const resolved = resolveShellSurface(pathname);
+  /* P2 Phase 2B: the customer header names the row its own navigation marks current. */
+  const customerHref = useShellExperience() === "customer" ? resolveActiveNavHref(CUSTOMER_NAV, pathname) : null;
+  const customerLabel = CUSTOMER_NAV.flatMap((g) => g.items).find((item) => item.href === customerHref)?.label;
+  const surface = customerLabel ? { ...resolved, label: customerLabel } : resolved;
   return (
     <header
       /*

@@ -679,6 +679,21 @@
 }
 
 /*
+ * P2 Phase 2B — Customer Workspace navigation width. Collapsed icon rail on tablet, the full
+ * sidebar from 1280px. Scoped to the customer shell; the Director rail above is untouched.
+ * `--shell-nav-w` is redeclared here because its calc() resolves where it is declared.
+ */
+[data-shell-experience="customer"] {
+  --rail-w: var(--sidebar-w-collapsed);
+  --shell-nav-w: var(--rail-w);
+}
+@media (min-width: 1280px) {
+  [data-shell-experience="customer"] {
+    --rail-w: var(--sidebar-w);
+  }
+}
+
+/*
  * ── The hero's REAL ROOM ──────────────────────────────────────────────────────
  *
  * The presence field is bounded by BOTH axes of the space it actually occupies, and this rule is

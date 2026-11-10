@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { UiRole } from "@/config/workspace-nav";
+import type { ShellExperience } from "@/config/customer-nav";
 
 /*
  * RoleContext — the UI's view of the current role, used ONLY to filter which
@@ -17,15 +18,27 @@ import type { UiRole } from "@/config/workspace-nav";
  */
 
 const RoleContext = createContext<UiRole>("director");
+/* Which navigation the shell renders (P2 Phase 2B). Presentation only, like the role above. */
+const ExperienceContext = createContext<ShellExperience>("director");
 
 export function RoleProvider({
   role = "director",
+  experience = "director",
   children,
 }: {
   role?: UiRole;
+  experience?: ShellExperience;
   children: React.ReactNode;
 }) {
-  return <RoleContext.Provider value={role}>{children}</RoleContext.Provider>;
+  return (
+    <RoleContext.Provider value={role}>
+      <ExperienceContext.Provider value={experience}>{children}</ExperienceContext.Provider>
+    </RoleContext.Provider>
+  );
+}
+
+export function useShellExperience(): ShellExperience {
+  return useContext(ExperienceContext);
 }
 
 export function useRole(): UiRole {
