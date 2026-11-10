@@ -5828,6 +5828,7 @@ re-graded here.
 | V1-STAGE-5 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-5-support-tickets-closure.md` |
 | V1-STAGE-3 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-3-notifications-closure.md` |
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
+| BR-2 | VERIFIED | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` |
 
 ---
 
@@ -6063,3 +6064,8 @@ before §16.1 are not yet indexed (Phase B).
 | V1S3-BROWSER-UNVERIFIED-1 | V1-STAGE-3 | `docs/product-vision/runtime/hebun-v1-stage-3-notifications-closure.md` | Verification gap | DEFERRED | A signed-in read-only render of /notifications by the Governance authority and by a plain member |
 | BR1-PROD-DUMP-DRILL-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification gap | DEFERRED | A Director decision naming the production dump the drill may read locally; first real RTO |
 | BR1-COMPARE-DEPTH-1 | BR-1 | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` | Verification depth | DEFERRED | A Director decision on a row-content digest and a normalized CHECK comparison |
+| BR2-SCHEDULE-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Operational gap | DEFERRED | Director decision to install the launchd schedule; first production backup verified |
+| BR2-OFFSITE-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Data durability | DEFERRED | Transport proven against a simulated remote; Director decision on provider, location and cost, then a provider adapter and a first push/pull of .hbk files |
+| BR2-MEDIA-VPS-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Operational gap | DEFERRED | Director-approved VPS deployment of hebun_media_backup.py and a first verified snapshot |
+| BR2-KEY-ESCROW-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Data durability | DEFERRED | Director decision where the second vault-key copy lives, recorded by key id only |
+| BR2-SEAL-READBACK-PIN-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Verification gap | DEFERRED | A fault-injection seam for the post-seal read-back, if worth its cost |

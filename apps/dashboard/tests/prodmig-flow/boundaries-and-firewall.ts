@@ -178,8 +178,13 @@ function itIsNotAGenericSqlExecutor(): void {
     "fingerprintDrift",
     "OrganizationalFingerprint",
   ]);
+  /*
+   * BR-2 (2026-11-09): the scheduled database backup seals what `createValidatedBackup` produces;
+   * it takes that helper and `readServerVersion` and nothing that migrates.
+   */
   const HELPER_IMPORTERS = [
     "scripts/i2v-production-acceptance.ts",
+    "scripts/lib/database-backup.ts",
     "scripts/lib/processor-attestation.ts",
     "scripts/mv7-production-acceptance.ts",
     "scripts/processor-attestation.ts",
