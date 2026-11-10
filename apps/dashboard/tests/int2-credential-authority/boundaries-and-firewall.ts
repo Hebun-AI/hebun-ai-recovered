@@ -149,8 +149,13 @@ function main(): void {
       .sort();
     assert.deepEqual(
       decryptors,
-      [PRIMITIVE, ROTATION, REPOSITORY].sort(),
-      "only the primitive, the scoped-access seam and the rotation ceremony may decrypt",
+      /*
+       * P4 adds exactly one decryptor: the operator MFA verifier opens the TOTP secret of the
+       * credential it is checking, inside one function, and returns only a step number — never the
+       * secret (MFA design gate, O2: its own key set, AAD-bound to the credential row).
+       */
+      [PRIMITIVE, ROTATION, REPOSITORY, "src/features/operator-mfa/mfa-verification.server.ts"].sort(),
+      "only the primitive, the scoped-access seam, the rotation ceremony and the MFA verifier may decrypt",
     );
 
     /*

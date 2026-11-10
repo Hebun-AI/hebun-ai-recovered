@@ -421,8 +421,14 @@ function phaseFirewalls(): void {
   const platformAdminSites = SRC_FILES.filter((f) => codeOf(read(f)).includes("platform-admin"));
   assert.deepEqual(
     platformAdminSites.sort(),
-    ["src/db/schema/audit-log.ts", "src/features/observability/types.ts"],
-    "platform-admin remains vocabulary only — a CHECK and a type, with no writer",
+    /*
+     * P4 gives `platform-admin` its FIRST writer, by the Director-approved design gates (operator
+     * principal D5, MFA gate O3): the operator authority audit sibling records operator grants, revokes
+     * and MFA acts with `authority_source = 'platform-admin'`. It is the only writer, and a writer of
+     * audit rows only — it grants nothing.
+     */
+    ["src/db/schema/audit-log.ts", "src/features/governance-audit/operator-authority-audit.server.ts", "src/features/observability/types.ts"],
+    "platform-admin is vocabulary plus exactly one audit writer — the P4 operator authority sibling",
   );
 }
 

@@ -75,14 +75,17 @@ test("customer, admin and director navigations are separate models", () => {
   assert.ok(PLATFORM_ADMIN_NAV.every((a) => !("href" in a)), "admin rows carry no route");
 });
 
-test("the admin navigation is mounted nowhere and has no route", () => {
+test("the admin navigation is mounted nowhere; the only admin route is the guarded P4 one", () => {
   const src = walk(path.join(ROOT, "src")).filter((f) => /\.(ts|tsx)$/.test(f));
   const users = src.filter(
     (f) => !f.endsWith(path.join("config", "customer-nav.ts")) && readFileSync(f, "utf8").includes("PLATFORM_ADMIN_NAV"),
   );
   assert.deepEqual(users, [], "no component renders PLATFORM_ADMIN_NAV");
   const appDirs = walk(path.join(ROOT, "src/app")).map((f) => path.relative(ROOT, f));
-  assert.ok(!appDirs.some((f) => /(^|\/)\(?admin\)?\//.test(f)), "no admin route or layout exists");
+  /* P4 added `src/app/admin` behind the operator grant + MFA guard (design gates D6, O1). Nothing else. */
+  const adminFiles = appDirs.filter((f) => /(^|\/)\(?admin\)?\//.test(f));
+  assert.ok(adminFiles.every((f) => f.startsWith(path.join("src", "app", "admin") + path.sep)), "admin lives only under src/app/admin");
+  for (const f of adminFiles.filter((f) => f.includes("(protected)"))) assert.match(read(f), /await requireAdminAccess\(\);/, f);
   assert.ok(!read("src/app/(dashboard)/layout.tsx").includes('experience="admin"'), "no admin theme scope is mounted");
 });
 

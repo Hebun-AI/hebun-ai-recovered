@@ -19,6 +19,7 @@ export * from "./auth-credential";
 export * from "./auth-email-challenge";
 export * from "./invitation";
 export * from "./user-session-context";
+export * from "./platform-operator";
 export * from "./role-permission";
 export * from "./provider";
 export * from "./agent";

@@ -935,8 +935,12 @@ export async function switchTenantForSession(
         activeTenantId: membership.tenantId,
         activeMembershipId: membership.membershipId,
         membershipVersion: membership.membershipVersion,
+        /*
+         * P4: a tenant switch DROPS any MFA elevation. The replacement is an ordinary aal1 session;
+         * Platform Admin needs a fresh verification in it. (It used to copy `mfaVerified` forward.)
+         */
         assuranceLevel: SESSION_ASSURANCE_LEVEL,
-        mfaVerified: session.mfaVerified,
+        mfaVerified: false,
         authenticatedAt,
         issuedAt: now,
         lastActivityAt: now,
@@ -961,7 +965,7 @@ export async function switchTenantForSession(
       activeMembershipId: membership.membershipId,
       sessionMembershipVersion: membership.membershipVersion,
       assuranceLevel: SESSION_ASSURANCE_LEVEL,
-      mfaVerified: session.mfaVerified,
+      mfaVerified: false,
       authenticatedAt,
       issuedAt: now,
       lastActivityAt: now,

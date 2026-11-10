@@ -250,6 +250,10 @@ function main(): void {
        * Governance authority that permitted the transition is recorded in the metadata.
        */
       "src/features/governance-audit/membership-lifecycle-audit.server.ts",
+      /* P4 — the operator authority audit sibling: operator grant/revoke and MFA enroll/revoke/verify, each row
+         written in the same transaction as the change it records (MFA design gate O3). No secret or code. Appends
+         to the SHARED sink. */
+      "src/features/governance-audit/operator-authority-audit.server.ts",
       "src/features/governance-audit/organization-structure-audit.server.ts",
       /*
        * WORK-1 — the Organizational Work Authority's audit sibling. It appends to the SHARED sink
