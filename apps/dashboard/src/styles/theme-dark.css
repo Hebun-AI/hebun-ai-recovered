@@ -1,0 +1,82 @@
+/*
+ * P2 Design System, Phase 2A — the Dark theme.
+ *
+ * Same token NAMES as `tokens.css`, new values. Nothing here renames, adds or removes a token, and no
+ * component changes: every `bg-surface`, `text-fg`, `border-border` keeps resolving through the same
+ * chain. Light stays exactly as `tokens.css` declares it; this block applies only while a theme scope
+ * (`components/theme/theme-provider.tsx`) on the page says "dark", so public pages, sign-in and any
+ * page without a scope are untouched.
+ *
+ * Scopes that already own a dark ground keep it: Live Map (`[data-live-map]`), Heby
+ * (`.heby-surface`) and the public ink register re-point the same tokens on their own subtree, and a
+ * declaration on a nearer ancestor always wins over `:root`.
+ *
+ * Contrast (WCAG 2.x, measured, `tests/p2-theme-foundation/theme.ts` re-measures every pair):
+ *   text-primary / secondary / muted on every ground  ≥ 5.4 : 1
+ *   primary, success, warning, error, info as text    ≥ 6.1 : 1 on every ground
+ *   on-primary (#0b0f14) on primary / hover / press   ≥ 6.1 : 1
+ * Primary is a LIGHT blue in Dark. `--color-primary` is both a fill under `--color-on-primary` and a
+ * text colour; no single dark blue can carry white text at 4.5:1 and also read at 4.5:1 on a near-
+ * black ground, so the fill takes dark ink instead (`--color-on-primary`), as the Live Map scope does.
+ */
+:root:has([data-hebun-theme="dark"]) {
+  color-scheme: dark;
+
+  /* ── Surfaces ── */
+  --color-bg:             #0b0f14;
+  --color-surface:        #11161d;
+  --color-surface-raised: #161c24;
+  --color-surface-sunken: #0d1217;
+  --color-border:         #1f2732;
+  --color-border-strong:  #2c3643;
+
+  /* ── Text ── */
+  --color-text-primary:   #e8edf3;
+  --color-text-secondary: #aab4c0;
+  --color-text-muted:     #8792a0;
+  --color-text-inverse:   #ffffff;
+
+  /* ── Brand ── */
+  --color-primary:        #7aa2ff;
+  --color-primary-hover:  #9bb9ff;
+  --color-primary-press:  #5f8ef5;
+  --color-secondary:      #8fb0ff;
+  --color-accent:         #38bdf8;
+  --color-highlight:      #818cf8;
+  --color-primary-subtle: rgba(122, 162, 255, 0.14);
+  --color-primary-ring:   rgba(122, 162, 255, 0.5);
+
+  /* ── Semantic ── */
+  --color-success:        #34d399;
+  --color-success-subtle: rgba(52, 211, 153, 0.13);
+  --color-warning:        #fbbf24;
+  --color-warning-subtle: rgba(251, 191, 36, 0.13);
+  --color-error:          #f87171;
+  --color-error-subtle:   rgba(248, 113, 113, 0.13);
+  --color-info:           #60a5fa;
+  --color-info-subtle:    rgba(96, 165, 250, 0.13);
+
+  /* ── On-color text ── */
+  --color-on-primary: #0b0f14;
+  --color-on-success: #04130d;
+  --color-on-warning: #1a1102;
+  --color-on-error:   #0b0f14;
+
+  /* ── Overlay ── */
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  /* ── Elevation: borders carry depth on a dark ground; shadows only darken ── */
+  --shadow-xs:   0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:   0 8px 22px rgba(0, 0, 0, 0.5);
+  --shadow-lg:   0 18px 45px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(122, 162, 255, 0.3), 0 8px 24px rgba(122, 162, 255, 0.18);
+
+  /*
+   * The command cockpit's ink is DERIVED from the light text colour (`tokens.css`). Under Dark that
+   * colour is near-white, which would turn the cockpit's dark hero light under its white text. Pin the
+   * two values the Light derivation produces, so the cockpit looks the same in both themes.
+   */
+  --cmd-ink:        #121d2f;
+  --cmd-ink-raised: #101928;
+}

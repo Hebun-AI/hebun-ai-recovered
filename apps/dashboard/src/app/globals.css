@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
+@import "../styles/theme-dark.css";
 
 /*
  * Tailwind theme = alias layer over Hebun design tokens (src/styles/tokens.css).
@@ -8,6 +9,8 @@
  */
 @theme inline {
   --font-sans: var(--font-jakarta, ui-sans-serif), system-ui, sans-serif;
+  /* Technical values only: IDs, audit records, technical tables, code-like values (P2 Phase 2A). */
+  --font-mono: var(--font-jetbrains-mono, ui-monospace), SFMono-Regular, Menlo, monospace;
 
   /* Surfaces */
   --color-background: var(--color-bg);
@@ -42,6 +45,7 @@
   --color-error-subtle: var(--color-error-subtle);
   --color-info: var(--color-info);
   --color-info-subtle: var(--color-info-subtle);
+  --color-overlay: var(--color-overlay);
 
   /*
    * Type scale (Stage 0). ADDITIVE: these create `text-display|title|body|meta|label` alongside

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { HebunShell } from "@/components/layout/hebun-shell";
+import { ThemeScope } from "@/components/theme/theme-scope";
 import type { ShellAccount } from "@/components/layout/account-menu";
 import {
   getAuthEnvironment,
@@ -60,10 +61,13 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  /* P2 Phase 2A: the authenticated workspace is the customer experience — Light unless chosen. */
   return (
-    <HebunShell account={account}>
-      <EmailOwnershipNotice state={emailOwnership} />
-      {children}
-    </HebunShell>
+    <ThemeScope experience="customer">
+      <HebunShell account={account}>
+        <EmailOwnershipNotice state={emailOwnership} />
+        {children}
+      </HebunShell>
+    </ThemeScope>
   );
 }

@@ -8,6 +8,7 @@ import { MobileNav } from "./mobile-nav";
 import { HebyLauncher } from "./heby/heby-launcher";
 import { HebyFocusControl } from "./heby/heby-focus-mode";
 import { AccountMenu, type ShellAccount } from "./account-menu";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 /*
  * Global chrome (Level-1). Kept deliberately lean:
@@ -116,6 +117,9 @@ export function TopBar({ account = null }: { account?: ShellAccount | null }) {
         </button>
 
         <HebyLauncher variant="topbar" />
+
+        {/* P2 Phase 2A — Light / Dark. Renders nothing outside a theme scope. */}
+        <ThemeToggle />
 
         {/*
           The account control. It used to be a disabled button with a name and role written into this

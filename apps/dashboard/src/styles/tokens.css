@@ -46,6 +46,9 @@
   --color-on-warning: #1a1102;
   --color-on-error:   #ffffff;
 
+  /* ── Overlay (P2 Phase 2A) — the scrim behind a modal or drawer ── */
+  --color-overlay: rgba(15, 23, 42, 0.45);
+
   /* ── Type scale ───────────────────────────────
    * Stage 0. The FIRST type scale this repository has had: `07 - Design System` names one
    * typeface and one rejection rule ("text below 16px for body"), and the token files it points
