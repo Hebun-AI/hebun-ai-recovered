@@ -1,22 +1,47 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { RecordedUsageCard } from "@/components/platform-providers/recorded-usage-card";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readBillingState } from "@/features/billing/billing.server";
+import { asPlanCode, PLAN_LABEL, planFeatures, PRO_PRICE } from "@/features/tenant-entitlements/plans";
 import { readPlanAndUsage } from "@/features/plan-usage/plan-usage.server";
 import { utcInstant } from "@/lib/format";
+import { openBillingPortalAction, startProCheckoutAction } from "./actions";
 
 export const metadata = { title: "Plan & Usage — Hebun AI" };
 export const dynamic = "force-dynamic";
 
 /*
- * V1-STAGE-6 — Plan & Usage. Read only: the organization's plan as recorded, today's AI dispatch
- * safety limits with the admissions measured against them, and recorded provider token usage.
- * No price, bill, payment, subscription or plan change exists here, because none exists in Hebun.
+ * V1-STAGE-6 — Plan & Usage: the organization's plan as recorded, today's limits with the admissions
+ * measured against them, and recorded provider token usage.
+ *
+ * COMMERCIAL-ACTIVATION-1 — the plan now has rights and a way to change it. The limits shown are the
+ * ones the cap enforces (same constants). Upgrading and managing the subscription leave for Stripe
+ * through Owner-only server actions; the plan itself changes only when Stripe's signed webhook
+ * confirms it, so this page never claims a plan the records do not hold.
  */
 const CLASS_LABEL = { model: "AI model requests (Heby, agents)", media: "Image and video generations" } as const;
 
-export default async function PlanUsagePage() {
-  const read = await readPlanAndUsage(await resolveTenantContext());
+/** Closed set: anything else in `?billing=` is ignored, never echoed. */
+const BILLING_NOTICE: Readonly<Record<string, string>> = {
+  success:
+    "Stripe accepted the checkout. Your plan becomes Pro as soon as Stripe confirms the payment to Hebun — usually within a minute. Refresh to see it.",
+  cancelled: "Checkout was cancelled. Nothing was charged and your plan is unchanged.",
+  "not-the-owner": "Only your organization's Owner can change the plan or manage the subscription.",
+  "already-pro": "Your organization already has an active Pro subscription. Use “Manage subscription” to change it.",
+  "billing-unavailable": "Paid plans are not available right now. Nothing was charged.",
+  "price-mismatch": "The Pro price is not configured correctly, so no checkout was opened. Nothing was charged.",
+  "no-billing-account": "There is no subscription to manage yet.",
+  "stripe-unavailable": "Stripe could not be reached. Nothing was charged; try again shortly.",
+  "persistence-unavailable": "Hebun is unavailable right now. Nothing was charged or changed.",
+  unauthenticated: "Your session ended. Sign in again.",
+};
+
+export default async function PlanUsagePage({ searchParams }: { searchParams?: Promise<{ billing?: string }> }) {
+  const tenant = await resolveTenantContext();
+  const [read, billing, params] = await Promise.all([readPlanAndUsage(tenant), readBillingState(tenant), searchParams ?? Promise.resolve({} as { billing?: string })]);
+  const notice = typeof params.billing === "string" ? BILLING_NOTICE[params.billing] : undefined;
   const header = <PageHeader title="Plan & Usage" context="Your organization's plan, today's AI limits, and recorded AI usage." />;
 
   if (read.status !== "read") {
@@ -30,6 +55,8 @@ export default async function PlanUsagePage() {
     );
   }
   const { organization, dispatch, recorded } = read;
+  const plan = asPlanCode(organization.plan);
+  const features = planFeatures(plan);
   return (
     <>
       {header}
@@ -40,6 +67,12 @@ export default async function PlanUsagePage() {
         </Link>
       </p>
 
+      {notice ? (
+        <p role="status" className="mb-6 max-w-3xl rounded-md border border-border-subtle px-3 py-2 text-sm text-fg-primary">
+          {notice}
+        </p>
+      ) : null}
+
       <section aria-labelledby="plan-heading" className="max-w-3xl space-y-3">
         <h2 id="plan-heading" className="text-sm font-semibold text-fg-primary">
           Plan
@@ -48,11 +81,56 @@ export default async function PlanUsagePage() {
           <dt className="text-fg-muted">Organization</dt>
           <dd className="text-fg-primary">{organization.name}</dd>
           <dt className="text-fg-muted">Plan</dt>
-          <dd className="text-fg-primary">{organization.plan}</dd>
+          <dd className="text-fg-primary">{PLAN_LABEL[plan]}</dd>
+          <dt className="text-fg-muted">Video generation</dt>
+          <dd className="text-fg-primary">
+            {features.videoGeneration ? "Included (counts toward the daily media limit)" : "Not included in Free — available on Pro"}
+          </dd>
+          <dt className="text-fg-muted">Members</dt>
+          <dd className="text-fg-primary">
+            {features.memberLimit === null ? "No plan limit" : `Up to ${features.memberLimit} (members plus pending invitations)`}
+          </dd>
+          {billing?.subscriptionStatus ? (
+            <>
+              <dt className="text-fg-muted">Subscription</dt>
+              <dd className="text-fg-primary">{billing.subscriptionStatus.replace(/_/g, " ")}</dd>
+            </>
+          ) : null}
         </dl>
+        {plan === "founding" ? (
+          <p className="text-xs text-fg-muted">
+            Founding: your organization existed before paid plans, so it keeps its original limits. Upgrading to Pro is
+            optional, and cancelling Pro returns it to Founding — never to Free.
+          </p>
+        ) : null}
+        {billing?.billingConfigured ? (
+          billing.isOwner ? (
+            <div className="flex flex-wrap gap-3 pt-1">
+              {plan !== "pro" ? (
+                <form action={startProCheckoutAction}>
+                  <Button type="submit">Upgrade to Pro — {PRO_PRICE.display}/month</Button>
+                </form>
+              ) : null}
+              {billing.hasBillingAccount ? (
+                <form action={openBillingPortalAction}>
+                  <Button type="submit" variant="outline">
+                    Manage subscription
+                  </Button>
+                </form>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-xs text-fg-muted">Only your organization&apos;s Owner can change the plan.</p>
+          )
+        ) : (
+          <p className="text-xs text-fg-muted">Paid plans are not available in this environment yet.</p>
+        )}
         <p className="text-xs text-fg-muted">
-          This is the plan recorded for your organization. Hebun does not show prices, invoices or amounts due, and plans
-          are not changed here.
+          Prices and limits for every plan are on the{" "}
+          <Link href="/pricing" className="underline underline-offset-2">
+            pricing page
+          </Link>
+          . Payments are processed by Stripe; Hebun never sees or stores card details.
         </p>
       </section>
 

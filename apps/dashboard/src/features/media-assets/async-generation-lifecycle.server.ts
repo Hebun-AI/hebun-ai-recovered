@@ -78,6 +78,8 @@ import { type AsyncGenerationView } from "./read-video-generations.server";
 import { isExternalGenerativeUseCleared, type RecordedDataUseDecision } from "./external-generative-data-use";
 import { resolveExternalGenerativeEligibility } from "./external-generative-eligibility.server";
 import { admitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
+import { readTenantPlan } from "@/features/tenant-entitlements/tenant-dispatch-ceiling.server";
+import { planFeatures } from "@/features/tenant-entitlements/plans";
 
 export interface AsyncGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -120,6 +122,8 @@ export type AsyncGenerationRefusal =
   | "source-data-use-not-cleared"
   /* AP-3 — the tenant's persistent daily AI dispatch safety cap for media is reached. Nothing recorded or sent. */
   | "dispatch-safety-cap-reached"
+  /* COMMERCIAL-ACTIVATION-1 — the tenant's plan (Free) does not include video. Nothing recorded or sent. */
+  | "plan-video-not-included"
   /* IMAGE → VIDEO — after registration, before any generation POST. Nothing was generated. */
   | "source-type-unsupported"
   | "source-upload-refused"
@@ -234,6 +238,13 @@ export async function registerAsyncMediaGeneration(
   const db = (deps.getDb ?? resolveMediaDbOrNull)();
   if (!db) return refused("persistence-unavailable");
   const now = deps.now ?? (() => new Date());
+
+  /* COMMERCIAL-ACTIVATION-1 — video is a plan feature, checked before any source, row or paid call. */
+  try {
+    if (!planFeatures(await readTenantPlan(db, tenant.tenantId)).videoGeneration) return refused("plan-video-not-included");
+  } catch {
+    return refused("persistence-unavailable");
+  }
 
   /*
    * IMAGE → VIDEO: the source's eligibility and digest are read from the Media row HERE, so the

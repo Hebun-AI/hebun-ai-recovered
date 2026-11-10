@@ -382,6 +382,8 @@ function main(): void {
       "src/app/api/standing-issuance/scan/route.ts",
       /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
       "src/app/api/standing-research/scan/route.ts",
+      /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook, authenticated by signature; not an R4A route. */
+      "src/app/api/billing/stripe/webhook/route.ts",
     ].sort();
     const routes = collect("src/app")
       .filter((f) => /\/route\.tsx?$/.test(f))
@@ -597,9 +599,21 @@ function main(): void {
       1,
       "exactly one companies insert",
     );
-    assert.ok(
-      !keysOf(valuesFor("companies")).includes("plan"),
-      "tenant birth assigns `plan` no meaning and does not write it",
+    /*
+     * COMMERCIAL-ACTIVATION-1 (Director-approved): `plan` now has a consumer, so a SELF-SERVICE birth
+     * writes the literal `free` — and only that. A ceremony (R4A's own root) still omits `plan` and
+     * gets the column default `founding`. No other plan value can be written at birth.
+     */
+    const companiesBlock = valuesFor("companies");
+    assert.deepEqual(
+      [...companiesBlock.matchAll(/plan\s*:\s*"([a-z]+)"/g)].map((m) => m[1]),
+      ["free"],
+      "tenant birth writes at most the literal free",
+    );
+    assert.match(
+      companiesBlock,
+      /\.\.\.\(input\.provisioningSource === TENANT_PROVISIONING_SOURCE_SELF_SERVICE \? \{ plan: "free" \} : \{\}\)/,
+      "only a self-service birth writes it; a ceremony keeps the column default",
     );
   }
 

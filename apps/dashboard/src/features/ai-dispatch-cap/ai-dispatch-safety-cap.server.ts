@@ -45,6 +45,7 @@
 import { and, count, eq, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { mediaGenerationInvocations } from "@/db/schema/media-asset";
+import { resolveTenantDispatchCeiling } from "@/features/tenant-entitlements/tenant-dispatch-ceiling.server";
 import {
   countAuthorizedDisclosuresInWindow,
   recordAiDispatchCapRefusal,
@@ -85,6 +86,18 @@ export function resolveAiDispatchCap(
   const parsed = Number(text);
   if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > MAX_CONFIGURABLE_AI_DISPATCH_CAPS[dispatchClass]) return 0;
   return parsed;
+}
+
+/**
+ * The deployment's own resolution for one class, plus whether an operator set it. COMMERCIAL-
+ * ACTIVATION-1: the tenant's daily ceiling is asked of `tenant-dispatch-ceiling` with this as input;
+ * the counting, locking and refusing below are unchanged.
+ */
+function deploymentCap(dispatchClass: AiDispatchClass, env: Readonly<Record<string, string | undefined>>) {
+  return {
+    cap: resolveAiDispatchCap(dispatchClass, env),
+    operatorSet: (env[AI_DISPATCH_CAP_ENV_KEYS[dispatchClass]]?.trim() ?? "") !== "",
+  };
 }
 
 /** The UTC day containing `at`, as a half-open window. */
@@ -181,7 +194,8 @@ export const admitAiDispatch: AdmitAiDispatch = async <T>(
   if (!db) return { status: "refused", reason: "persistence-unavailable" };
   const at = (deps.now ?? (() => new Date()))();
   const day = utcDayWindow(at);
-  const cap = resolveAiDispatchCap(input.dispatchClass, deps.env ?? process.env);
+  const env = deps.env ?? process.env;
+  let cap = 0;
 
   let outcome: { readonly status: "admitted"; readonly value: T } | { readonly status: "cap-reached"; readonly admitted: number };
   try {
@@ -190,6 +204,8 @@ export const admitAiDispatch: AdmitAiDispatch = async <T>(
       await handle.execute(
         sql`select pg_advisory_xact_lock(hashtext('hebun.ai-dispatch-safety-cap'), hashtext(${`${input.tenantId}:${input.dispatchClass}`}))`,
       );
+      /* The tenant's ceiling is read under the same lock and transaction as the count it bounds. */
+      cap = await resolveTenantDispatchCeiling(handle, input.tenantId, input.dispatchClass, deploymentCap(input.dispatchClass, env));
       const admitted = await admittedInWindow(handle, input.tenantId, input.dispatchClass, day);
       if (admitted >= cap) return { status: "cap-reached" as const, admitted };
       if (input.prepay && !input.prepay()) throw new ProcessBudgetRefusal();
@@ -251,7 +267,7 @@ export async function readAiDispatchUsageToday(
     const classes = await Promise.all(
       (["model", "media"] as const).map(async (dispatchClass) => ({
         dispatchClass,
-        capPerTenantUtcDay: resolveAiDispatchCap(dispatchClass, env),
+        capPerTenantUtcDay: await resolveTenantDispatchCeiling(db, tenantId, dispatchClass, deploymentCap(dispatchClass, env)),
         admittedInWindow: await admittedInWindow(db, tenantId, dispatchClass, day),
       })),
     );

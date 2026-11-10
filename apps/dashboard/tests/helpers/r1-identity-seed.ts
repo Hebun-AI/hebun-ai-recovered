@@ -45,8 +45,13 @@ export async function seedLocalIdentity(
   input: SeedLocalIdentityInput,
 ): Promise<SeededLocalIdentity> {
   const company = await client.query<{ id: string }>(
-    `insert into companies (name, slug, plan, tenant_status)
-     values ($1, $2, 'free', 'active')
+    /*
+     * COMMERCIAL-ACTIVATION-1: `plan` is omitted so the column default (`founding`) applies — the
+     * pre-billing rights every seeded tenant has always exercised (50 / 5 cap, video, no member
+     * limit). Writing 'free' here would now mean the commercial Free plan.
+     */
+    `insert into companies (name, slug, tenant_status)
+     values ($1, $2, 'active')
      returning id`,
     [input.companyName, input.companySlug],
   );

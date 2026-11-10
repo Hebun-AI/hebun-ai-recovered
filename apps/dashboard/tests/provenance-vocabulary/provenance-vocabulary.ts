@@ -213,11 +213,21 @@ async function main(): Promise<void> {
      * writing `companies` would be a tenant authority nobody approved, and this list is what stops
      * one appearing quietly.
      */
+    /*
+     * COMMERCIAL-ACTIVATION-1 (Director-approved): the Stripe sync is the second writer, and it may set
+     * ONLY `plan` (and `updatedAt`) — never create, rename, suspend or delete an organization.
+     */
     assert.deepEqual(
-      writers,
-      ["src/features/tenant-provisioning/provision-tenant.server.ts"],
-      "exactly one file under src may write companies — the tenant provisioning authority",
+      writers.sort(),
+      ["src/features/billing/billing.server.ts", "src/features/tenant-provisioning/provision-tenant.server.ts"],
+      "exactly two files under src may write companies — the tenant provisioning authority and the plan sync",
     );
+    {
+      const billingCode = codeOf(read("src/features/billing/billing.server.ts"));
+      assert.ok(!/\.insert\(\s*companies\s*\)|\.delete\(\s*companies\s*\)/.test(billingCode), "the plan sync never inserts or deletes a company");
+      const sets = [...billingCode.matchAll(/\.update\(companies\)\.set\(\{([^}]*)\}\)/g)].map((m) => m[1]!.replace(/\s+/g, " ").trim());
+      assert.deepEqual(sets, ["plan: target, updatedAt: now"], "the plan sync sets plan and updatedAt, nothing else");
+    }
 
     /*
      * Nothing under src/ names the production root either — it is schema vocabulary, not a value

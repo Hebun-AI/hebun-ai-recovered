@@ -335,6 +335,8 @@ async function main(): Promise<void> {
     assert.deepEqual(
       routes,
       [
+        /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook: a machine door authenticated by its signature, named not matched. */
+        "src/app/api/billing/stripe/webhook/route.ts",
         "src/app/api/integrations/github/setup/route.ts",
         "src/app/api/integrations/github/start/route.ts",
         "src/app/api/integrations/google/callback/route.ts",

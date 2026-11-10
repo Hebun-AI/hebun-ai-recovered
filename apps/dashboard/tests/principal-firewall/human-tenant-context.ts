@@ -355,6 +355,8 @@ function main(): void {
   assert.deepEqual(
     routes.sort(),
     [
+      /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook: a machine door authenticated by its signature, named not matched. */
+      "src/app/api/billing/stripe/webhook/route.ts",
       "src/app/api/integrations/github/setup/route.ts",
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
@@ -507,8 +509,9 @@ function main(): void {
     };
     assert.deepEqual(
       listOf("PUBLIC_PREFIXES"),
-      ['"/login"', '"/register"', '"/privacy"', '"/terms"', '"/contact"'],
-      "the signed-out HUMAN surface is exactly the released four prefixes",
+      /* COMMERCIAL-ACTIVATION-1: + the static pricing page and refund policy, readable signed out. */
+      ['"/login"', '"/register"', '"/privacy"', '"/terms"', '"/contact"', '"/pricing"', '"/refund"'],
+      "the signed-out HUMAN surface is exactly the released prefixes plus pricing and refunds",
     );
     assert.deepEqual(
       listOf("PUBLIC_EXACT_PATHS"),
@@ -518,8 +521,9 @@ function main(): void {
     );
     assert.deepEqual(
       listOf("MACHINE_INGRESS_PATHS"),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', '"/api/standing-research/scan"'],
-      "exactly FOUR machine paths skip the session check: the observation due-scan, the delivery scan, the standing issuance scan and the storage acceptance run",
+      /* COMMERCIAL-ACTIVATION-1: + Stripe's webhook, authenticated by the Stripe-Signature HMAC instead of a bearer. */
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', '"/api/standing-research/scan"', '"/api/billing/stripe/webhook"'],
+      "exactly SIX machine paths skip the session check: the observation due-scan, the delivery scan, the standing issuance scan, the storage acceptance run, the 08:00 research tick and Stripe's signed webhook",
     );
     assert.ok(
       /url\.pathname = "\/login";/.test(middleware) && /NextResponse\.redirect/.test(middleware),

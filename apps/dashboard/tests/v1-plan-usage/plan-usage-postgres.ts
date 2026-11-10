@@ -1,6 +1,7 @@
 /*
  * V1-STAGE-6 — Plan & Usage against a disposable PostgreSQL with the canonical migrations.
- * Acme (plan "growth") and Globex (plan "free"), synthetic identities only.
+ * Acme (plan "pro") and Globex (plan "free"), synthetic identities only. (COMMERCIAL-ACTIVATION-1:
+ * `companies_plan_chk` now admits only free | pro | founding, so Acme's former "growth" label is "pro".)
  *
  * Proves: the plan is the session tenant's own `companies.plan`; today's admitted model dispatches are
  * counted exactly as the AP-3 cap counts them (yesterday's row and another tenant's rows excluded);
@@ -43,7 +44,7 @@ async function main(): Promise<void> {
       });
     const acme = (await seedLocalIdentity(setup, { companyName: "Acme Rugs", companySlug: "acme-v1u", email: "d@acme.test" })) as Seeded;
     const globex = (await seedLocalIdentity(setup, { companyName: "Globex", companySlug: "globex-v1u", email: "d@globex.test" })) as Seeded;
-    await setup.query(`update companies set plan = 'growth' where id = $1`, [acme.tenantId]);
+    await setup.query(`update companies set plan = 'pro' where id = $1`, [acme.tenantId]);
 
     const disclosure = (s: Seeded, at: string) =>
       setup.query(
@@ -81,13 +82,15 @@ async function main(): Promise<void> {
     const a = await readPlanAndUsage(ctxFor(acme), { getDb, env });
     assert.equal(a.status, "read");
     if (a.status !== "read") throw new Error("unreachable");
-    assert.deepEqual(a.organization, { name: "Acme Rugs", plan: "growth" });
+    assert.deepEqual(a.organization, { name: "Acme Rugs", plan: "pro" });
     assert.equal(a.dispatch.status, "read");
     if (a.dispatch.status !== "read") throw new Error("unreachable");
     assert.deepEqual(
       a.dispatch.classes.map((c) => [c.dispatchClass, c.admittedInWindow, c.capPerTenantUtcDay]),
-      [["model", 3, 40], ["media", 0, 5]],
-      "U1: today only, this tenant only, the cap as resolved",
+      /* COMMERCIAL-ACTIVATION-1: the cap is the PLAN's — Pro is 100 / 10, and an operator-set env value
+       * (model = 40 here) still bounds it from above. */
+      [["model", 3, 40], ["media", 0, 10]],
+      "U1: today only, this tenant only, the cap as resolved for the tenant's plan",
     );
     assert.equal(a.dispatch.windowEnd.getTime() - a.dispatch.windowStart.getTime(), 86_400_000);
     assert.equal(a.recorded.status, "read");
@@ -101,7 +104,7 @@ async function main(): Promise<void> {
 
     /* U2 — the other tenant sees its own figures, never Acme's. */
     const g = await readPlanAndUsage(ctxFor(globex), { getDb });
-    assert.ok(g.status === "read" && g.organization.plan === "free" && g.dispatch.status === "read" && g.recorded.status === "read");
+    assert.ok(g.status === "read" && g.organization.plan === "founding" /* seeded pre-billing tenant */ && g.dispatch.status === "read" && g.recorded.status === "read");
     if (g.status !== "read" || g.dispatch.status !== "read" || g.recorded.status !== "read") throw new Error("unreachable");
     assert.equal(g.dispatch.classes[0]!.admittedInWindow, 7);
     assert.equal(g.recorded.usage.totals.totalTokens, 18000);

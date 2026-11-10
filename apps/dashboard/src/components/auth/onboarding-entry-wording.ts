@@ -86,6 +86,8 @@ const ACCEPTANCE_REFUSALS: Record<InvitationAcceptanceRefusal, string> = {
     "The authorization behind this capability is no longer in a state that allows joining. Tell the person who gave it to you.",
   "role-not-eligible":
     "The role this capability names may no longer be joined this way. Tell the person who gave it to you.",
+  "plan-member-limit-reached":
+    "That organization's plan has no free member seat. Tell the person who gave you this capability. Nothing was changed.",
   "persistence-unavailable": "Hebun is unavailable right now. Nothing was changed.",
 };
 

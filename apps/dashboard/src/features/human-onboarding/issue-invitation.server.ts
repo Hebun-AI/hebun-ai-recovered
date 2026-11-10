@@ -30,6 +30,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
+import type { ControlPlaneDatabase } from "@/db/client.server";
 import { invitations } from "@/db/schema/invitation";
 import { membershipAuthorizations } from "@/db/schema/membership-authorization";
 import { roles } from "@/db/schema/role";
@@ -39,6 +40,7 @@ import { recordInvitationIssuedWithin } from "@/features/governance-audit/human-
 import { resolveGovernanceDbOrNull, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { digestInvitationToken } from "@/features/identity-enrollment/enrollment-digest.server";
+import { enforceMemberLimitWithin, PlanMemberLimitReached } from "@/features/tenant-entitlements/member-limit.server";
 import {
   INVITATION_ISSUED_ACTION,
   INVITATION_LIFETIME_HOURS,
@@ -137,6 +139,8 @@ export async function issueInvitation(
     let issued: { invitationId: string } | null = null;
 
     await db.transaction(async (tx) => {
+      /* COMMERCIAL-ACTIVATION-1 — the plan's member limit, under the tenant lock, before any write. */
+      await enforceMemberLimitWithin(tx as unknown as ControlPlaneDatabase, authorization.tenantId, now, "issue-invitation");
       const inserted = await tx
         .insert(invitations)
         .values({
@@ -217,6 +221,7 @@ export async function issueInvitation(
     };
   } catch (error) {
     if (error instanceof AuthorizationRaceLost) return refused("authorization-already-consumed");
+    if (error instanceof PlanMemberLimitReached) return refused("plan-member-limit-reached");
     /*
      * A pending invitation already exists for this human in this tenant. That is a real, nameable
      * state rather than an outage, and `invitations_pending_email_uq` is what detects it.

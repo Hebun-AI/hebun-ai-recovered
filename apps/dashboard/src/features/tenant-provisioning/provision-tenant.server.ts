@@ -48,6 +48,7 @@ import {
   BOOTSTRAP_ROLE_NAME,
   BOOTSTRAP_ROLE_TYPE,
   normalizeSlug,
+  TENANT_PROVISIONING_SOURCE_SELF_SERVICE,
   validateTenantBootstrapInput,
   type ProvisionedTenant,
   type TenantBootstrapInput,
@@ -148,9 +149,9 @@ export async function provisionTenant(
   let tenantId: string;
   try {
     /*
-     * THE TENANT. `plan` is omitted so the column keeps its own default — this authority assigns it
-     * no meaning, and writing 'free' would be tenant birth quietly claiming a billing concept that
-     * has no consumer.
+     * THE TENANT. COMMERCIAL-ACTIVATION-1: a self-service signup is born on the `free` plan, written
+     * explicitly because billing now consumes it. An operator ceremony omits `plan`, so the column
+     * default `founding` applies — the pre-billing rights every ceremony tenant has always had.
      *
      * `tenant_status` starts at `provisioning` and is promoted below, inside the same transaction,
      * exactly as the R4A ceremony did. The transient value is never observable by any reader, so
@@ -168,6 +169,7 @@ export async function provisionTenant(
         slug,
         tenantStatus: "provisioning",
         provisioningSource: input.provisioningSource,
+        ...(input.provisioningSource === TENANT_PROVISIONING_SOURCE_SELF_SERVICE ? { plan: "free" } : {}),
       })
       .returning({ id: companies.id });
     tenantId = companyRows[0]!.id;

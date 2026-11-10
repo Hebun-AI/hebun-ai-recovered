@@ -27,7 +27,11 @@ import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
  * is reachable through this list. Adding `/register` widened anonymous reach by exactly one form and
  * changed nothing about what an unauthenticated request may READ.
  */
-const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];
+/*
+ * `/pricing` and `/refund` (COMMERCIAL-ACTIVATION-1) are the public plan comparison and the refund
+ * policy a payment processor requires to be reachable signed out. Static; they read nothing.
+ */
+const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact", "/pricing", "/refund"];
 
 /*
  * The public paths matched EXACTLY, never as a prefix.
@@ -90,6 +94,12 @@ const MACHINE_INGRESS_PATHS = [
   "/api/standing-issuance/scan",
   "/api/media-storage/acceptance",
   "/api/standing-research/scan",
+  /*
+   * COMMERCIAL-ACTIVATION-1 — Stripe's webhook. Not a bearer route: it is authenticated by the
+   * Stripe-Signature HMAC over the raw body, verified before anything is read, and an unset
+   * webhook secret refuses every request.
+   */
+  "/api/billing/stripe/webhook",
 ];
 
 /*

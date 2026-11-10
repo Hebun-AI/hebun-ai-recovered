@@ -19,8 +19,14 @@ import Link from "next/link";
  *   - a provider connection carries only the scopes Google actually granted
  *     (`coversRequiredScopes`, `getCapabilityAvailability`)
  *   - Drive is metadata-only                        (`GOOGLE_DRIVE_METADATA_SCOPE`)
- * No uptime, support, billing, certification, ownership or jurisdiction claim appears, because
- * nothing in the repository establishes one.
+ * No uptime, support, certification or jurisdiction claim appears, because nothing in the
+ * repository establishes one.
+ *
+ * COMMERCIAL-ACTIVATION-1 (DRAFT — Director approval required before it is published): adds the
+ * operator (the CURRENT legal entity, Turkish Rug House LLC; a planned rename is not claimed), the
+ * Free/Pro plans with their published limits, Stripe as the payment processor, monthly renewal,
+ * cancellation through the Stripe Customer Portal, and that ending a subscription deletes no data —
+ * each bounded by `tenant-entitlements/plans.ts` and `billing/billing.server.ts`.
  */
 
 export const metadata: Metadata = {
@@ -28,7 +34,7 @@ export const metadata: Metadata = {
   description: "The terms that apply to use of Hebun AI.",
 };
 
-const LAST_UPDATED = "23 August 2026";
+const LAST_UPDATED = "10 November 2026";
 const CONTACT_EMAIL = "hebuntech@gmail.com";
 
 function Section({
@@ -75,6 +81,13 @@ export default function TermsOfServicePage() {
           to them. If you do not agree, do not use the service.
         </p>
       </div>
+
+      <Section heading="Who operates Hebun">
+        <p>
+          Hebun AI is a service operated by Turkish Rug House LLC (&ldquo;we&rdquo;, &ldquo;us&rdquo;). References to
+          Hebun in these terms mean the service and its operator.
+        </p>
+      </Section>
 
       <Section heading="The service">
         <p>
@@ -174,6 +187,33 @@ export default function TermsOfServicePage() {
           To the fullest extent permitted by law, Hebun is not liable for indirect, incidental,
           special or consequential damages, or for loss of data, revenue or profit, arising from
           your use of or inability to use the service.
+        </p>
+      </Section>
+
+      <Section heading="Plans, payments and subscriptions">
+        <p>
+          Hebun offers a Free plan and a paid Pro plan. The price of Pro and the limits of each plan are published on the{" "}
+          <Link className="underline underline-offset-2" href="/pricing">
+            pricing page
+          </Link>
+          . Limits are counted per organization per UTC day and are enforced as published.
+        </p>
+        <p>
+          Pro is a monthly subscription that renews automatically until it is cancelled. Payments are processed by Stripe,
+          Inc.; Hebun does not receive or store your card details. Prices are in US dollars, and any taxes that apply are
+          shown at checkout.
+        </p>
+        <p>
+          Only your organization&apos;s Owner can start or manage a subscription. You can cancel at any time from Plan &amp;
+          Usage through Stripe&apos;s customer portal. When a subscription ends, your organization returns to the plan it
+          had before subscribing. Ending a subscription does not delete your organization&apos;s data.
+        </p>
+        <p>
+          Refunds are described in the{" "}
+          <Link className="underline underline-offset-2" href="/refund">
+            refund policy
+          </Link>
+          .
         </p>
       </Section>
 

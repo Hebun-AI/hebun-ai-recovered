@@ -38,7 +38,12 @@ export const companies = pgTable(
     ...rootColumns,
     name: text("name").notNull(),
     slug: text("slug").notNull(),
-    plan: text("plan").notNull().default("free"),
+    /*
+     * COMMERCIAL-ACTIVATION-1: one of `free` | `pro` | `founding` (companies_plan_chk). The default
+     * is `founding` so every operator-ceremony tenant keeps the pre-billing rights; self-service
+     * signup writes `free` explicitly, and only the Stripe sync writes `pro`.
+     */
+    plan: text("plan").notNull().default("founding"),
     tenantStatus: tenantStatusEnum("tenant_status"),
     tenantStatusChangedAt: timestamp("tenant_status_changed_at", { withTimezone: true }),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
@@ -53,6 +58,8 @@ export const companies = pgTable(
   },
   (t) => [
     uniqueIndex("companies_slug_uq").on(t.slug),
+
+    check("companies_plan_chk", sql`${t.plan} in ('free', 'pro', 'founding')`),
 
     /*
      * Only roots that exist may be named. Widening this is a deliberate schema decision, exactly as

@@ -82,6 +82,8 @@ export type InvitationIssuanceRefusal =
   | "invitation-already-pending"
   /** Somebody else spent the authorization inside the window. */
   | "authorization-already-consumed"
+  /** COMMERCIAL-ACTIVATION-1: the tenant's plan has no free member seat (members + pending invitations). */
+  | "plan-member-limit-reached"
   | "persistence-unavailable";
 
 export type InvitationIssuanceResult =
@@ -119,6 +121,8 @@ export type InvitationAcceptanceRefusal =
   | "authorization-provenance-broken"
   /** The intended role is gone or its band is no longer eligible. */
   | "role-not-eligible"
+  /** COMMERCIAL-ACTIVATION-1: the tenant's plan has no free member seat. Nothing was accepted. */
+  | "plan-member-limit-reached"
   | "persistence-unavailable";
 
 export type InvitationAcceptanceResult =

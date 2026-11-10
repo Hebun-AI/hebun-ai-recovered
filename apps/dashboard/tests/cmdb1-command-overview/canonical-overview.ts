@@ -127,6 +127,7 @@ const LEDGER_DIGEST = "df1de6fd1768c3de"; /* MV-6: 66 -> 67 appended; the first 
 const USE_SERVER_MODULES = [
   /* V1-STAGE-4: the profile boundary — the session user's own display name, nothing else. */
   "src/app/(dashboard)/account/actions.ts",
+  /* COMMERCIAL-ACTIVATION-1: Owner-only, input-less Stripe checkout and portal actions. */ "src/app/(dashboard)/account/plan/actions.ts",
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
