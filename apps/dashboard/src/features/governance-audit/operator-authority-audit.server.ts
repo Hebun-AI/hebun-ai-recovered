@@ -77,7 +77,14 @@ export async function writeOperatorAudit(
 }
 
 /** Platform Admin read-only views (operator principal D4/D5). */
-export type AdminViewName = "overview" | "organizations" | "organization" | "usage" | "status";
+/** `organization-detail` — a detail request whose id is malformed: refused before any query. */
+export type AdminViewName =
+  | "overview"
+  | "organizations"
+  | "organization"
+  | "organization-detail"
+  | "usage"
+  | "status";
 
 export interface AdminViewAuditRecord {
   readonly actorUserId: string;

@@ -282,6 +282,25 @@ export async function readPlatformOrganizationMetrics(
   if (!isOrganizationId(organizationId)) {
     const access = await evaluateAdminAccess(ctx.db, ctx.authentication, ctx.now);
     if (access.status !== "granted") return { status: "denied", access };
+    /*
+     * D5: this view is audited too. The malformed id is never written — the operator's own identity
+     * is the bounded entity — and no organization query runs.
+     */
+    try {
+      await writeAdminViewAudit(ctx.db, {
+        actorUserId: access.operator.userId,
+        view: "organization-detail",
+        tenantId: null,
+        entityType: "auth_identity",
+        entityId: access.operator.authIdentityId,
+        result: "rejected",
+        sessionContextId: access.operator.sessionContextId,
+        requestId: ctx.requestId,
+        occurredAt: ctx.now,
+      });
+    } catch {
+      return { status: "audit-failed" };
+    }
     return { status: "read", data: null, operator: access.operator };
   }
   return adminRead(

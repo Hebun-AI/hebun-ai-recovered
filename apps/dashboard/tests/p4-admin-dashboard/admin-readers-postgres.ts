@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
+import { getTableName, type Table } from "drizzle-orm";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb, type ControlPlaneDatabase } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
@@ -236,6 +237,49 @@ async function main(): Promise<void> {
     }
     ok("11 · an organization id from the client selects, never authorizes; unknown ids return nothing");
 
+    /* ── D5 fix · a malformed organization id is audited `rejected` and queries no organization ── */
+    const detailRows = async () =>
+      (await setup.query(`select * from audit_log where action = 'platform.admin.view.organization-detail' order by recorded_at`)).rows;
+    const detailBefore = (await detailRows()).length;
+    const tables: string[] = [];
+    const tracingDb = new Proxy(db, {
+      get(target, prop) {
+        if (prop === "select")
+          return (...args: unknown[]) => {
+            const builder = (target.select as (...a: unknown[]) => object)(...args);
+            return new Proxy(builder, {
+              get(b, key) {
+                if (key === "from") return (table: Table) => { tables.push(getTableName(table)); return (b as { from: (t: Table) => unknown }).from(table); };
+                const value = Reflect.get(b, key, b);
+                return typeof value === "function" ? value.bind(b) : value;
+              },
+            });
+          };
+        if (prop === "execute") return (...args: unknown[]) => { tables.push("<execute>"); return (target.execute as (...a: unknown[]) => unknown)(...args); };
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as ControlPlaneDatabase;
+    const MALFORMED = "x' or 1=1 -- malformed-org-ref";
+    const malformed = await readPlatformOrganizationMetrics(await ctxFor(adminRef, at(6), { db: tracingDb }), MALFORMED);
+    assert.equal(malformed.status === "read" && malformed.data, null, "D5-2: no organization data");
+    assert.ok(!tables.includes("companies") && !tables.includes("agents") && !tables.includes("memberships") && !tables.includes("<execute>"),
+      `D5-2: no organization query runs (read: ${tables.join(",")})`);
+    const added = (await detailRows()).slice(detailBefore);
+    assert.equal(added.length, 1, "D5-1: one audit row");
+    assert.equal(added[0].result, "rejected");
+    assert.equal(added[0].actor_id, op.userId);
+    assert.equal(added[0].authority_source, "platform-admin");
+    assert.equal(added[0].tenant_id, null);
+    assert.equal(added[0].entity_id, op.authIdentityId, "a bounded identifier, never the raw id");
+    assert.ok(added[0].occurred_at && added[0].session_context_id);
+    assert.ok(!JSON.stringify(added[0]).includes("malformed-org-ref"), "the malformed id is never written");
+    /* D5-4 · a non-operator naming a malformed id is still refused, and writes nothing. */
+    const dirMalformed = await readPlatformOrganizationMetrics(await ctxFor(dirRef, at(6)), MALFORMED);
+    assert.equal(dirMalformed.status === "denied" && dirMalformed.access.status, "forbidden");
+    assert.equal((await detailRows()).length, detailBefore + 1, "D5-4: a refused request audits nothing new");
+    ok("D5 · a malformed organization id: audited rejected, bounded identifier, no organization query; refusal unchanged");
+
     /* ── 12 · Pagination ──────────────────────────────────────────────────────────────────── */
     await setup.query(
       `insert into companies (name, slug, created_at) select 'Bulk ' || g, 'bulk-' || g, now() - (g || ' minutes')::interval from generate_series(1, 27) g`,
@@ -266,6 +310,8 @@ async function main(): Promise<void> {
       assert.equal(r.status, "audit-failed");
       assert.ok(!("data" in r), "14: no data when the audit row cannot be written");
     }
+    const malformedNoAudit = await readPlatformOrganizationMetrics(await ctxFor(adminRef, at(8), { db: failingDb }), "not-a-uuid");
+    assert.deepEqual(malformedNoAudit, { status: "audit-failed" }, "D5-3: a malformed id with a failed audit returns nothing");
     ok("14 · a failed audit write returns no data from any reader");
 
     /* ── 17 · An unreadable source is "unavailable" (audited as rejected), never zero ───────── */
