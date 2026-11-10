@@ -13,7 +13,8 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { CUSTOMER_NAV } from "../../src/config/customer-nav";
+import { CUSTOMER_NAV, resolveShellExperience } from "../../src/config/customer-nav";
+import { landingRouteFor } from "../../src/features/auth-runtime/landing-route";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -165,6 +166,45 @@ test("every quick action points at a route that exists", () => {
   for (const action of QUICK_ACTIONS) {
     assert.ok(existsSync(path.join(ROOT, "src/app/(dashboard)", action.href, "page.tsx")), action.href);
   }
+});
+
+test("sign-in lands on the shell's home: customer → /home, Director → /command", () => {
+  assert.equal(landingRouteFor("customer"), "/home");
+  assert.equal(landingRouteFor("director"), "/command");
+  for (const value of [undefined, "", "Customer", "admin", "director", "https://evil.example"]) {
+    assert.equal(landingRouteFor(resolveShellExperience(value)), "/command", `${String(value)} keeps Director`);
+  }
+  assert.equal(landingRouteFor(resolveShellExperience("customer")), "/home");
+  assert.match(read("src/features/auth-runtime/landing-route.ts"), /resolveShellExperience\(process\.env\.HEBUN_SHELL_EXPERIENCE\)/);
+});
+
+test("every sign-in seam uses the one landing route, and no redirect takes a request value", () => {
+  const seams = ["src/app/login/page.tsx", "src/app/login/actions.ts", "src/app/login/select-workspace/page.tsx", "src/app/register/page.tsx", "src/app/register/actions.ts"];
+  for (const file of seams) {
+    const code = read(file);
+    assert.ok(!code.includes('redirect("/command")'), `${file} holds no copy of the landing route`);
+    /* Each target starts with the landing constant or a fixed internal path ("/x" or `/x?…`): never a request value, never another origin. */
+    for (const m of code.matchAll(/redirect\(\s*([^\s,)]+)/g)) {
+      assert.ok(/^(AUTHENTICATED_LANDING_ROUTE\b|"\/[a-z]|`\/[a-z])/.test(m[1]!), `${file}: redirect(${m[1]}…) starts with a fixed internal path`);
+    }
+  }
+  assert.ok(read("src/app/login/actions.ts").includes("redirect(AUTHENTICATED_LANDING_ROUTE)"));
+});
+
+test("the client picker is handed the landing route; it never reads the setting itself", () => {
+  const card = read("src/components/auth/workspace-selection-card.tsx");
+  assert.ok(card.includes('"use client"'));
+  assert.ok(!card.includes("landing-route") && !card.includes("process.env"), "no server setting in the browser");
+  assert.match(card, /router\.replace\(landingRoute\)/);
+  assert.match(read("src/app/login/select-workspace/page.tsx"), /landingRoute=\{AUTHENTICATED_LANDING_ROUTE\}/);
+});
+
+test("access control is unchanged: /home is protected and sign-in carries no return address", () => {
+  const middleware = read("src/middleware.ts");
+  const publicBlock = middleware.slice(middleware.indexOf("PUBLIC_PREFIXES"), middleware.indexOf("];", middleware.indexOf("PUBLIC_PREFIXES")));
+  assert.ok(!publicBlock.includes('"/home"'), "/home is not public");
+  assert.match(middleware, /url\.pathname = "\/login";\s*url\.search = "";/, "the redirect to /login drops every query");
+  assert.match(read("src/app/(dashboard)/layout.tsx"), /redirect\("\/login"\)/, "the dashboard gate still refuses an unauthorized session");
 });
 
 if (failures > 0) {

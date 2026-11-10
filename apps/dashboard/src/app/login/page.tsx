@@ -29,7 +29,7 @@ export default async function LoginPage(props: {
   // Auth subsystem is off: preserve the pre-auth landing (honest — nothing is
   // being enforced, so nothing is claimed).
   if (env.status === "disabled") {
-    redirect("/command");
+    redirect(AUTHENTICATED_LANDING_ROUTE);
   }
 
   if (env.status === "invalid") {

@@ -45,6 +45,7 @@ export default async function SelectWorkspacePage() {
   return (
     <main className="mx-auto flex min-h-svh max-w-lg flex-col justify-center gap-4 p-6">
       <WorkspaceSelectionCard
+        landingRoute={AUTHENTICATED_LANDING_ROUTE}
         workspaces={workspaces.map((workspace) => ({
           membershipId: workspace.membershipId,
           tenantName: workspace.tenantName,
