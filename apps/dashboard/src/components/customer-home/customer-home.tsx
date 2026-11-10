@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleDashed,
   History,
+  Info,
   ListChecks,
   ShieldCheck,
   Sparkles,
@@ -151,22 +152,41 @@ export function agentCount(organization: LiveMapAwareness): string | null {
   return organization.agents.status === "counted" ? String(organization.agents.count) : null;
 }
 
-/** A count chip, or a quiet "not readable" chip — never a zero standing in for an unread source. */
-function Stat({ value, label, href }: { value: string | null; label: string; href: string }) {
+export interface WorkspaceStat {
+  readonly label: string;
+  readonly value: string;
+  readonly href: string;
+}
+
+/**
+ * The status row: only counts that were actually read. An unreadable source is left out — never
+ * shown as zero, never as its own error card — and named in `unavailable` so the page can say, once,
+ * that some information is missing.
+ */
+export function workspaceStatus(input: {
+  waiting: WaitingOnYouState;
+  work: WorkInMotionState;
+  organization: LiveMapAwareness;
+}): { stats: readonly WorkspaceStat[]; unavailable: readonly string[] } {
+  const all = [
+    { label: "Decisions waiting", value: waitingCount(input.waiting), href: "/approvals" },
+    { label: "Work in progress", value: workCount(input.work), href: "/operations" },
+    { label: "AI agents", value: agentCount(input.organization), href: "/agents" },
+  ];
+  return {
+    stats: all.flatMap((s) => (s.value === null ? [] : [{ ...s, value: s.value }])),
+    unavailable: all.filter((s) => s.value === null).map((s) => s.label),
+  };
+}
+
+function Stat({ value, label, href }: WorkspaceStat) {
   return (
     <Link
       href={href}
-      className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border bg-surface px-3 py-3 transition-colors sm:px-5 sm:py-4 duration-(--dur-fast) hover:border-border-strong hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+      className="flex min-w-0 flex-col gap-1 rounded-2xl border border-border bg-surface px-3 py-3 transition-colors duration-(--dur-fast) hover:border-border-strong hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring sm:px-5 sm:py-4"
     >
       <span className="line-clamp-2 text-meta font-medium text-fg-muted">{label}</span>
-      {value === null ? (
-        <span className="flex items-center gap-1.5 text-meta text-fg-muted sm:text-sm">
-          <CircleDashed aria-hidden="true" className="size-3.5 shrink-0" />
-          Not readable
-        </span>
-      ) : (
-        <span className="text-title font-semibold leading-none tabular-nums text-fg sm:text-display">{value}</span>
-      )}
+      <span className="text-title font-semibold leading-none tabular-nums text-fg sm:text-display">{value}</span>
     </Link>
   );
 }
@@ -174,78 +194,85 @@ function Stat({ value, label, href }: { value: string | null; label: string; hre
 export function CustomerHome({ name, organization, waiting, work, activity, evaluatedAt }: CustomerHomeProps) {
   const orgName = organization.organization.status === "named" ? organization.organization.name : null;
   const modules = CUSTOMER_NAV.flatMap((group) => group.items).filter((item) => item.href !== "/home");
+  const status = workspaceStatus({ waiting, work, organization });
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 lg:gap-10">
-      {/* ── A. Welcome ─────────────────────────────────────────────── */}
-      <header className="flex flex-col gap-4 sm:gap-5">
-        <div className="min-w-0">
-          <p className="text-meta font-medium text-fg-muted">{orgName ?? "Your workspace"}</p>
-          <h1 className="mt-1 text-display font-semibold tracking-tight text-fg text-balance">
-            {name ? `Welcome back, ${name}` : "Welcome to Hebun"}
-          </h1>
-        </div>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <Stat value={waitingCount(waiting)} label="Decisions waiting" href="/approvals" />
-          <Stat value={workCount(work)} label="Work in progress" href="/operations" />
-          <Stat value={agentCount(organization)} label="AI agents" href="/agents" />
-        </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 lg:gap-8">
+      {/* ── 1. Welcome ─────────────────────────────────────────────── */}
+      <header className="min-w-0">
+        <h1 className="text-display font-semibold tracking-tight text-fg text-balance">
+          {name ? `Welcome back, ${name}` : "Welcome to Hebun"}
+        </h1>
+        <p className="mt-1 text-sm text-fg-secondary">
+          {orgName ? `Here is where ${orgName} stands today.` : "Here is where your workspace stands today."}
+        </p>
       </header>
 
-      {/* ── B. Heby ────────────────────────────────────────────────── */}
+      {/* ── 2. Heby — the primary action. A doorway to /heby, not a composer. ── */}
       <section
         aria-labelledby="home-heby"
-        className="relative overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-sm sm:p-8 lg:p-10"
+        className="relative overflow-hidden rounded-2xl border border-primary/25 bg-primary-subtle p-5 sm:p-6"
       >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-(image:--gradient-ambient)" />
-        <div className="relative flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-(image:--gradient-primary) text-on-primary shadow-sm">
-              <Sparkles aria-hidden="true" className="size-5" />
-            </span>
-            <div>
-              <h2 id="home-heby" className="text-title font-semibold text-fg">Heby</h2>
-              <p className="text-meta text-fg-muted">Heby proposes, you decide.</p>
-            </div>
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-(image:--gradient-primary) text-on-primary shadow-sm">
+            <Sparkles aria-hidden="true" className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="home-heby" className="text-title font-semibold text-fg">Heby</h2>
+            <p className="mt-0.5 text-sm text-fg-secondary text-pretty">
+              Plan work, prepare content or understand what is happening in your organization. Heby proposes, you decide.
+            </p>
           </div>
-          <p className="max-w-2xl text-body text-fg-secondary">What would you like Heby to help you with?</p>
-          {/* A doorway, not a composer: it opens the existing Heby workspace and sends nothing. */}
           <Link
             href="/heby"
-            className="group flex min-h-14 w-full max-w-3xl items-center gap-3 rounded-2xl border border-border-control bg-surface px-5 text-left shadow-xs transition-colors duration-(--dur-fast) hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-on-primary shadow-xs transition-colors duration-(--dur-fast) hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
           >
-            <span className="min-w-0 flex-1 truncate text-sm text-fg-muted sm:text-base">
-              <span className="sm:hidden">Ask Heby…</span>
-              <span className="hidden sm:inline">Ask Heby to plan, prepare or explain…</span>
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-medium text-on-primary transition-colors duration-(--dur-fast) group-hover:bg-primary-hover">
-              Open Heby
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </span>
+            Open Heby
+            <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
         </div>
       </section>
 
-      {/* ── C. Quick actions ───────────────────────────────────────── */}
-      <nav aria-label="Quick actions" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* ── 3. Workspace status — read counts only, or one plain notice ── */}
+      <section aria-label="Workspace status" className="flex flex-col gap-2">
+        {status.stats.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {status.stats.map((stat) => (
+              <Stat key={stat.href} {...stat} />
+            ))}
+          </div>
+        ) : null}
+        {status.unavailable.length > 0 ? (
+          <p className="flex items-center gap-2 rounded-xl bg-surface-sunken px-4 py-3 text-sm text-fg-secondary">
+            <Info aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+            {status.stats.length === 0
+              ? "Workspace information is unavailable in this session."
+              : "Some workspace information is unavailable in this session."}
+          </p>
+        ) : null}
+      </section>
+
+      {/* ── 4. Quick actions ───────────────────────────────────────── */}
+      <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         {QUICK_ACTIONS.map(({ label, detail, href, icon: Icon }) => (
           <Link
             key={href}
             href={href}
-            className="group flex min-h-24 min-w-0 flex-col justify-between gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors duration-(--dur-fast) hover:border-border-strong hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring sm:p-5"
+            className="group flex min-h-14 min-w-0 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 transition-colors duration-(--dur-fast) hover:border-border-strong hover:bg-fg/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring sm:px-4"
           >
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary-subtle text-primary">
-              <Icon aria-hidden="true" className="size-4.5" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
+              <Icon aria-hidden="true" className="size-4" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-fg">{label}</span>
-              <span className="block truncate text-meta text-fg-muted">{detail}</span>
+              <span className="block text-sm font-semibold leading-tight text-fg">{label}</span>
+              <span className="hidden truncate text-meta text-fg-muted sm:block">{detail}</span>
             </span>
           </Link>
         ))}
       </nav>
 
-      {/* ── D. Activity & tasks ────────────────────────────────────── */}
+      {/* ── 5. Activity & tasks ────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Panel title="Pending approvals" icon={ShieldCheck} href="/approvals" hrefLabel="All approvals">
           {waiting.status === "unavailable" ? (

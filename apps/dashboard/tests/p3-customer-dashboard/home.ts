@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { CUSTOMER_NAV } from "../../src/config/customer-nav";
-import { QUICK_ACTIONS, agentCount, waitingCount, workCount } from "../../src/components/customer-home/customer-home";
+import { QUICK_ACTIONS, agentCount, waitingCount, workCount, workspaceStatus } from "../../src/components/customer-home/customer-home";
 
 const ROOT = path.resolve(__dirname, "../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
@@ -84,6 +84,33 @@ test("an unreadable source is never shown as zero", () => {
   assert.equal(agentCount(org({ status: "unavailable" })), null);
   assert.equal(agentCount(org({ status: "known-empty" })), "0");
   assert.equal(agentCount(org({ status: "counted", count: 3 })), "3");
+});
+
+test("workspace status: read counts only, unreadable ones named, never zero", () => {
+  const unavailableOrg = { organization: { status: "unavailable", detail: "" }, agents: { status: "unavailable" }, intelligence: { status: "unavailable" }, freshness: "" } as const;
+  const none = workspaceStatus({ waiting: { status: "unavailable", reason: "x" }, work: { status: "unavailable", detail: "x" }, organization: unavailableOrg });
+  assert.deepEqual(none.stats, [], "nothing read: no stat card at all");
+  assert.deepEqual(none.unavailable, ["Decisions waiting", "Work in progress", "AI agents"]);
+
+  const partial = workspaceStatus({
+    waiting: { status: "none-waiting" },
+    work: { status: "unavailable", detail: "x" },
+    organization: { ...unavailableOrg, agents: { status: "counted", count: 2 } },
+  });
+  assert.deepEqual(partial.stats.map((s) => [s.label, s.value]), [["Decisions waiting", "0"], ["AI agents", "2"]]);
+  assert.deepEqual(partial.unavailable, ["Work in progress"], "the unread one is not turned into a number");
+
+  const component = read(COMPONENT);
+  assert.match(component, /Workspace information is unavailable in this session\./);
+  assert.ok(!component.includes("Not readable"), "no per-card error chip");
+});
+
+test("Heby is one real link to /heby, not a fake input", () => {
+  const component = read(COMPONENT);
+  const heby = component.slice(component.indexOf('aria-labelledby="home-heby"'), component.indexOf("3. Workspace status"));
+  assert.equal((heby.match(/href="\/heby"/g) ?? []).length, 1, "one doorway");
+  assert.ok(!/<input|<textarea|contentEditable|placeholder|Ask Heby to plan, prepare or explain…/.test(heby), "nothing that looks typeable");
+  assert.ok(existsSync(path.join(ROOT, "src/app/(dashboard)/heby/page.tsx")));
 });
 
 test("every quick action points at a route that exists", () => {
