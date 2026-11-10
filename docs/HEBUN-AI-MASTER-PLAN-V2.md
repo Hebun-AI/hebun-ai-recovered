@@ -42,7 +42,7 @@ SIMULATION     != RUNTIME
 | # | Package | Package state | Note |
 |---|---|---|---|
 | P1 | Commercial Activation | PARTIAL — verified on a branch, not on `main` | Waits for its own activation approval |
-| P2 | Design System | PLANNED | **Next active work.** Design decision first, then development |
+| P2 | Design System | COMPLETE (current scope) — on branch `feat/p2-visual-polish`, not on `main` | Closed 2026-11-10 at `069fb90e`; Customer Shell not enabled by default. See P2 §3 |
 | P3 | Customer Dashboard | PLANNED | |
 | P4 | Platform Admin Dashboard | PLANNED | |
 | P5 | Heby & AI Agent Platform | PARTIAL | |
@@ -110,15 +110,31 @@ calls for it.
    at the centre.
 2. **Features.** Visual identity · Light mode as default · Dark mode as an option · typography ·
    colours · components · responsive layout · navigation · Heby-centred UX.
-3. **Current state — PLANNED; foundations exist.**
-   - `app/layout.tsx` fixes `data-theme="light"`. There is no user-selectable theme.
-   - `docs/product-vision/ui/hebun-design-system-foundation.md` records light as canonical and dark as a
-     future candidate (§3.6), still an open decision there.
-   - Live Map has a **scoped** dark theme (`e284bf3c`, `tests/live-map-experience/dark-scope.ts`),
-     approved 2026-10-30 for the Live Map content area only.
-   - Typography contract and visual-integrity work are closed (VI-1, VI-2, typography contract repair).
-4. **Missing.** The design decision itself; dark tokens for the whole application; a theme switch; a
-   component inventory for P3 and P4.
+3. **Current state — COMPLETE (current scope), 2026-11-10.** Release candidate `069fb90e` on branch
+   `feat/p2-visual-polish` (2A `c08530d1` → 2B `0dac9de4` → 2C `069fb90e`). Not merged, not pushed, not
+   deployed: **production is unchanged**.
+   - 2A: Light (customer default) / Dark (admin default) theme with a persisted preference, mono font,
+     shared components (Input, Select, Checkbox, Switch, Tabs, Modal/Drawer, Toast, Tooltip, Dropdown).
+   - 2B: grouped Customer navigation (`config/customer-nav.ts`), responsive sidebar; areas without a
+     runtime are not rendered. The Director shell is unchanged and remains the default.
+   - 2C: control edges ≥3:1 in Light and Dark (`--color-border-control`), focus/hover states, mobile
+     sizes, keyboard tooltip on the collapsed rail.
+   - **The Customer Shell is not active by default.** It renders only when the server setting
+     `HEBUN_SHELL_EXPERIENCE=customer` is set; P2 closing does not mean it is live in production.
+   - Verification at `069fb90e`: full suite once, sequential, disposable detached worktree with a
+     session-owned PostgreSQL 18 on 127.0.0.1:55432 (system identifier 7706516258370629795):
+     1161 PASS / 3 FAIL / 1164. `br1-restore-drill` and `br2-backup-vault` were environment-blocked
+     (`pg_dump` 14 on PATH against server 18) and PASS when re-run with PostgreSQL 18 tools;
+     `r3w-flow/ambient-database-safety` BLOCKED (canonical `hebun_r1` absent;
+     OR2-R3W-AMBIENT-DB-BLOCKED-1, not a pass). 0 REGRESSION; P2 changes no backup, database or auth
+     file. `tsc --noEmit` PASS · ESLint 0 errors (25 pre-existing warnings, none in P2 files) ·
+     `npm run build` PASS.
+   - **DEFERRED** (Director decision, not complete): Heby chat / composer / quick-panel visual renewal;
+     Live Map visual renewal and theme work.
+   - **BLOCKED → P4:** Platform Admin access. Its navigation config and compact styles exist but are
+     mounted nowhere; no platform operator principal exists to gate it on.
+4. **Missing.** Nothing in the current scope. Open beyond it: the deferred and blocked items above, and
+   enabling the Customer Shell by default (a separate Director decision).
 5. **Dependencies.** None blocking. P3 and P4 depend on P2.
 6. **Security and authority limits.** Visual work changes no authority. A redesign must keep every
    truth qualifier (empty states, MOCK labels, "not connected") that existing surfaces show.
