@@ -14,7 +14,18 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { CUSTOMER_NAV } from "../../src/config/customer-nav";
-import { QUICK_ACTIONS, agentCount, waitingCount, workCount, workspaceStatus } from "../../src/components/customer-home/customer-home";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  CustomerHome,
+  QUICK_ACTIONS,
+  UNAVAILABLE_MESSAGE,
+  agentCount,
+  waitingCount,
+  workCount,
+  workspaceStatus,
+  type CustomerHomeProps,
+} from "../../src/components/customer-home/customer-home";
 
 const ROOT = path.resolve(__dirname, "../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
@@ -111,6 +122,43 @@ test("Heby is one real link to /heby, not a fake input", () => {
   assert.equal((heby.match(/href="\/heby"/g) ?? []).length, 1, "one doorway");
   assert.ok(!/<input|<textarea|contentEditable|placeholder|Ask Heby to plan, prepare or explain…/.test(heby), "nothing that looks typeable");
   assert.ok(existsSync(path.join(ROOT, "src/app/(dashboard)/heby/page.tsx")));
+});
+
+const NOW = "2026-11-10T12:00:00.000Z";
+const render = (props: CustomerHomeProps) => renderToStaticMarkup(createElement(CustomerHome, props));
+const UNREAD: CustomerHomeProps = {
+  name: null,
+  evaluatedAt: NOW,
+  organization: { organization: { status: "unavailable", detail: "relation live_map does not exist" }, agents: { status: "unavailable" }, intelligence: { status: "unavailable" }, freshness: "" },
+  waiting: { status: "unavailable", reason: "no-authorized-tenant-context" },
+  work: { status: "unavailable", detail: "SQL error 42P01 on work_items" },
+  activity: { sourceClass: "audit", state: "unavailable", authoritative: false, provenance: "", limits: "", generatedAt: null, acts: [], totalRecordedActs: null, truncated: false, unavailableReason: "connect ECONNREFUSED 127.0.0.1:5432" },
+};
+
+test("unreadable panels show one plain sentence, never the reader's reason", () => {
+  const html = render(UNREAD);
+  for (const internal of ["no-authorized-tenant-context", "42P01", "ECONNREFUSED", "relation live_map", "could not be read"]) {
+    assert.ok(!html.includes(internal), `"${internal}" is not shown to the customer`);
+  }
+  assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 4, "each of the four panels says it once");
+  assert.ok(html.includes("Workspace information is unavailable in this session."));
+  assert.ok(!/>0</.test(html), "no zero stands in for an unread source");
+});
+
+test("real data still renders as before", () => {
+  const html = render({
+    ...UNREAD,
+    name: "Ada",
+    organization: { organization: { status: "named", name: "Acme" }, agents: { status: "counted", count: 3 }, intelligence: { status: "unavailable" }, freshness: "" },
+    waiting: { status: "waiting", items: [{ requestId: "r1", actionKind: "instagram.publish", targetLabel: "Autumn post", expectedEffect: "Publishes", proposedAt: NOW, waitingFor: null }], boundReached: false, awaitingCount: 1, oldestWaiting: null },
+    work: { status: "empty", detail: "none" },
+  });
+  for (const shown of ["Welcome back, Ada", "Acme", "instagram.publish", "Autumn post", "No work recorded yet", ">3<", ">1<"]) {
+    assert.ok(html.includes(shown), `${shown} is rendered`);
+  }
+  assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 1, "only the still-unread activity panel says unavailable");
+  assert.ok(html.includes(">0<"), "a read, known-empty work register is a real zero");
+  assert.ok(!html.includes("unavailable in this session"), "every count was read, so no status notice");
 });
 
 test("every quick action points at a route that exists", () => {

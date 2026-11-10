@@ -38,6 +38,14 @@ export interface CustomerHomeProps {
 
 const SHOWN = 4;
 
+/*
+ * What a customer reads when a source could not be read. The reader's own reason (codes such as
+ * `no-authorized-tenant-context`, service sentences) is internal: it stays in the read result the
+ * route receives and is not rendered. One sentence for every panel, because the page cannot tell an
+ * access problem from an outage without guessing.
+ */
+export const UNAVAILABLE_MESSAGE = "This information is currently unavailable.";
+
 /** Rows a customer reaches in one step. Each is a route with a runtime behind it. */
 export const QUICK_ACTIONS: readonly { label: string; detail: string; href: string; icon: LucideIcon }[] = [
   { label: "Ask Heby", detail: "Plan, prepare and ask", href: "/heby", icon: Sparkles },
@@ -276,7 +284,7 @@ export function CustomerHome({ name, organization, waiting, work, activity, eval
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Panel title="Pending approvals" icon={ShieldCheck} href="/approvals" hrefLabel="All approvals">
           {waiting.status === "unavailable" ? (
-            <Quiet tone="unavailable" title="Approvals could not be read" detail={waiting.reason} />
+            <Quiet tone="unavailable" title={UNAVAILABLE_MESSAGE} />
           ) : waiting.status === "none-waiting" ? (
             <Quiet tone="empty" title="Nothing is waiting on you" />
           ) : (
@@ -295,7 +303,7 @@ export function CustomerHome({ name, organization, waiting, work, activity, eval
 
         <Panel title="Active work" icon={ListChecks} href="/operations" hrefLabel="Content Studio">
           {work.status === "unavailable" ? (
-            <Quiet tone="unavailable" title="Work could not be read" detail={work.detail} />
+            <Quiet tone="unavailable" title={UNAVAILABLE_MESSAGE} />
           ) : work.status === "empty" ? (
             <Quiet tone="empty" title="No work recorded yet" detail="Work your organization records appears here." />
           ) : work.items.length === 0 ? (
@@ -316,7 +324,7 @@ export function CustomerHome({ name, organization, waiting, work, activity, eval
 
         <Panel title="AI agents" icon={Bot} href="/agents" hrefLabel="View agents">
           {organization.agents.status === "unavailable" ? (
-            <Quiet tone="unavailable" title="Agent status could not be read" />
+            <Quiet tone="unavailable" title={UNAVAILABLE_MESSAGE} />
           ) : organization.agents.status === "known-empty" ? (
             <Quiet tone="empty" title="No agents recorded yet" detail="Agents your organization records appear here." />
           ) : (
@@ -338,7 +346,7 @@ export function CustomerHome({ name, organization, waiting, work, activity, eval
 
         <Panel title="Recent activity" icon={History} href="/director/governance/security" hrefLabel="Full record">
           {activity.state === "unavailable" ? (
-            <Quiet tone="unavailable" title="Activity could not be read" detail={activity.unavailableReason} />
+            <Quiet tone="unavailable" title={UNAVAILABLE_MESSAGE} />
           ) : activity.state === "known-empty" ? (
             <Quiet tone="empty" title="No recorded activity yet" detail="Governed actions in your organization appear here." />
           ) : (
