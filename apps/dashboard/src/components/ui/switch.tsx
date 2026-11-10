@@ -16,11 +16,12 @@ function Switch({ checked, onCheckedChange, className, ...props }: SwitchProps) 
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent",
+        /* `after:` widens the touch target to 36×36 without changing the drawn size. */
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent after:absolute after:-inset-2 after:content-['']",
         "transition-colors duration-(--dur-fast)",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
         "disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-primary" : "bg-border-strong",
+        checked ? "bg-primary" : "bg-border-control",
         className
       )}
       {...props}
@@ -28,8 +29,9 @@ function Switch({ checked, onCheckedChange, className, ...props }: SwitchProps) 
       <span
         aria-hidden="true"
         className={cn(
-          "block size-4 rounded-full bg-fg-inverse shadow-xs transition-transform duration-(--dur-fast)",
-          checked ? "translate-x-4" : "translate-x-0.5"
+          "block size-4 rounded-full shadow-xs transition-transform duration-(--dur-fast)",
+          /* On: the ink that reads on primary in both themes (white thumb on Dark's light blue is 2.5:1). */
+          checked ? "translate-x-4 bg-on-primary" : "translate-x-0.5 bg-fg-inverse"
         )}
       />
     </button>

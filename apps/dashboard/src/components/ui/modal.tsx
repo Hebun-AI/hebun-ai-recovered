@@ -72,7 +72,7 @@ function DialogShell({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-secondary hover:bg-surface-sunken hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-fg-secondary hover:bg-fg/5 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
           >
             <X className="size-4" />
           </button>

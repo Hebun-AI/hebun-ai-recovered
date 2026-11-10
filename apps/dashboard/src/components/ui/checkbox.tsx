@@ -20,7 +20,7 @@ function Checkbox({ className, label, ...props }: CheckboxProps) {
   );
   if (label === undefined) return box;
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-fg has-disabled:cursor-not-allowed has-disabled:text-fg-muted">
+    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-sm text-fg sm:min-h-0 has-disabled:cursor-not-allowed has-disabled:text-fg-muted">
       {box}
       <span>{label}</span>
     </label>

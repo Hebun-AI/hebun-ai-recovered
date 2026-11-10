@@ -51,9 +51,9 @@ function ToastItem({ toast, onDismiss }: { toast: ToastEntry; onDismiss: (id: nu
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="flex size-6 shrink-0 items-center justify-center rounded text-fg-secondary hover:text-fg focus-visible:outline-2 focus-visible:outline-primary-ring"
+        className="-my-1.5 -mr-2 flex size-8 shrink-0 items-center justify-center rounded-md text-fg-secondary hover:bg-fg/5 hover:text-fg focus-visible:outline-2 focus-visible:outline-primary-ring"
       >
-        <X className="size-3.5" />
+        <X className="size-4" />
       </button>
     </li>
   );

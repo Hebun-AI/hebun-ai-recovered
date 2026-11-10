@@ -122,7 +122,7 @@ function Dropdown({ label, items, align = "end", className }: DropdownProps) {
                 close(true);
                 item.onSelect();
               }}
-              className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-fg hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:outline-none disabled:cursor-not-allowed disabled:text-fg-muted"
+              className="flex min-h-10 w-full items-center rounded-md px-3 py-2 text-left text-sm text-fg hover:bg-fg/5 focus-visible:bg-primary-subtle focus-visible:text-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:text-fg-muted disabled:hover:bg-transparent sm:min-h-9"
             >
               {item.label}
             </button>

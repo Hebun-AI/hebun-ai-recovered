@@ -178,12 +178,38 @@ test("new components reference tokens only", () => {
     "dropdown",
   ].map((name) => `src/components/ui/${name}.tsx`);
   files.push("src/components/theme/theme-toggle.tsx", "src/components/theme/theme-provider.tsx");
+  /* P2 2C: the shared shell navigation is held to the same rule. */
+  files.push("src/components/layout/shell-nav.tsx");
   const raw = /#[0-9a-f]{3,8}\b|\b(?:bg|text|border|ring|outline|fill|stroke)-(?:white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)\b/i;
   for (const file of files) {
     const source = read(file);
     const hit = source.match(raw);
     assert.ok(!hit, `${file} uses a raw colour: ${hit?.[0]}`);
   }
+});
+
+/*
+ * P2 2C — a control's edge (input, select, switch track) must be visible: WCAG 1.4.11 asks 3:1
+ * against every ground a control sits on. `--color-border-strong` is a divider and stays quiet.
+ */
+test("control edges reach 3:1 on every ground, in Light and Dark", () => {
+  const lightHex = (name: string) => {
+    const value = light.get(name);
+    assert.ok(value && /^#[0-9a-f]{6}$/i.test(value), `${name} is a 6-digit hex in Light`);
+    return value!;
+  };
+  for (const [theme, hex] of [["Light", lightHex], ["Dark", hexOf]] as const) {
+    const edge = hex("--color-border-control");
+    for (const ground of ["--color-bg", "--color-surface", "--color-surface-sunken"]) {
+      const ratio = contrast(edge, hex(ground));
+      assert.ok(ratio >= 3, `${theme} border-control on ${ground} is ${ratio.toFixed(2)}:1`);
+    }
+  }
+  assert.match(globals, /--color-border-control: var\(--color-border-control\);/, "exposed to Tailwind");
+  assert.match(read("src/components/ui/input.tsx"), /border-border-control/, "fields use it");
+  const sw = read("src/components/ui/switch.tsx");
+  assert.match(sw, /"bg-border-control"/, "the off track uses it");
+  assert.match(sw, /translate-x-4 bg-on-primary/, "the on thumb takes the ink that reads on primary");
 });
 
 if (failures > 0) {

@@ -71,11 +71,11 @@ function Tabs({ items, defaultValue, className, ...rest }: TabsProps) {
               tabIndex={active ? 0 : -1}
               onClick={() => setSelected(item.id)}
               className={cn(
-                "-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--dur-fast)",
+                "-mb-px min-h-10 shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors duration-(--dur-fast)",
                 "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-ring",
                 active
                   ? "border-primary text-fg"
-                  : "border-transparent text-fg-secondary hover:text-fg"
+                  : "border-transparent text-fg-secondary hover:border-border-strong hover:text-fg"
               )}
             >
               {item.label}

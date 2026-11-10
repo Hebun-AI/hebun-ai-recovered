@@ -19,6 +19,7 @@
   --color-surface-sunken: var(--color-surface-sunken);
   --color-border: var(--color-border);
   --color-border-strong: var(--color-border-strong);
+  --color-border-control: var(--color-border-control);
 
   /* Text */
   --color-fg: var(--color-text-primary);
