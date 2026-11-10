@@ -602,6 +602,12 @@ function walk(dir: string): string[] {
        */
       "src/app/(dashboard)/layout.tsx",
       /*
+       * P4 dashboard: the Platform Admin top bar shows the CURRENT OPERATOR's own name through
+       * `readOwnNameFields` — the session user's own columns, tenant from the authorized session, the
+       * same read as the dashboard layout above. It names nobody else and never reaches a provider.
+       */
+      "src/app/admin/(protected)/layout.tsx",
+      /*
        * V1-STAGE-4: Profile & Team. Two reads, both through this module: `resolveHumanLabels` for
        * the team list — Governance-gated, the same gate as every page above — and
        * `readOwnNameFields`, the session user's OWN name columns and nobody else's. It renders on

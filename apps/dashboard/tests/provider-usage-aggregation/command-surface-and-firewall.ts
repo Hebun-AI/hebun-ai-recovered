@@ -378,10 +378,16 @@ async function main(): Promise<void> {
   const predicateUsers = SRC_FILES.filter(
     (f) => f !== CONTRACTS_PATH && codeOf(read(f)).includes("REAL_PROVIDER_TRANSPORT"),
   );
+  /*
+   * P4 dashboard — the Platform Admin usage reader aggregates the SAME recorded facts across tenants
+   * (operator principal D4.3). It cannot reuse the released seam, which is tenant-locked by design and
+   * keeps its "no all-tenants mode" pin. It imports the same predicate rather than restating it, so
+   * there is still exactly one definition of what counts; the census names both computations.
+   */
   assert.deepEqual(
-    predicateUsers,
-    [AGGREGATION_PATH],
-    "exactly one module decides what counts as recorded provider usage",
+    [...predicateUsers].sort(),
+    [AGGREGATION_PATH, "src/features/admin-views/platform-readers.server.ts"].sort(),
+    "the tenant seam and the P4 admin reader are the only modules that decide what counts as recorded provider usage",
   );
 
   const ENTRY = "readRecordedProviderUsage";

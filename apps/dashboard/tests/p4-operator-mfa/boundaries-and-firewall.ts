@@ -77,7 +77,8 @@ test("the admin decision reads no request value, role, email or shell setting", 
 test("every admin route calls the guard; the challenge reads one field", () => {
   const routes = walk("src/app/admin");
   const guarded = routes.filter((f) => f.includes("(protected)") && /\/(layout|page)\.tsx$/.test(f));
-  assert.equal(guarded.length, 2);
+  /* P4 dashboard: layout + overview, organizations, organization, usage, status (was 2: layout + landing). */
+  assert.equal(guarded.length, 6);
   for (const file of guarded) assert.match(read(file), /await requireAdminAccess\(\);/, file);
   const action = codeOf(read("src/app/admin/verify/actions.ts"));
   assert.deepEqual([...action.matchAll(/formData\.get\("([^"]+)"\)/g)].map((m) => m[1]), ["code"]);

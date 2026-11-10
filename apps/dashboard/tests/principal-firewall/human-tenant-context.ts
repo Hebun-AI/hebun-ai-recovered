@@ -334,8 +334,15 @@ function main(): void {
       "src/db/schema/standing-mutation-authorization.ts",
       "src/features/standing-mutation-authority/read-standing-mutations.server.ts",
       "src/db/schema/media-asset.ts",
+      /*
+       * P4 dashboard — the Platform Admin agent COUNT per organization (operator principal D4: "counts
+       * only"). `agents.tenantId` is the GROUP BY key and the page's id filter; the reader is reached only
+       * behind an active operator grant AND session MFA, audited per view. It reads no configuration
+       * column and confers nothing.
+       */
+      "src/features/admin-views/platform-readers.server.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in eight readers (AP-2 adds the placement read and write, L-2b the suspension writer) and a composite-key target in five table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in eight readers (AP-2 adds the placement read and write, L-2b the suspension writer) and a composite-key target in five table definitions, and the P4 admin count key — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────

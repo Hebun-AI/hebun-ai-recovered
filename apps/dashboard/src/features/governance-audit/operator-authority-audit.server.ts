@@ -75,3 +75,49 @@ export async function writeOperatorAudit(
     authoritySource: record.bootstrap ? "system" : "platform-admin",
   });
 }
+
+/** Platform Admin read-only views (operator principal D4/D5). */
+export type AdminViewName = "overview" | "organizations" | "organization" | "usage" | "status";
+
+export interface AdminViewAuditRecord {
+  readonly actorUserId: string;
+  readonly view: AdminViewName;
+  /** The tenant viewed, or null for a platform-wide view (D5). */
+  readonly tenantId: string | null;
+  /** The viewed tenant, or the operator's own identity for a platform-wide view. */
+  readonly entityType: "company" | "auth_identity";
+  readonly entityId: string;
+  /** `committed` — the read succeeded; `rejected` — it failed and nothing was shown. */
+  readonly result: "committed" | "rejected";
+  readonly sessionContextId: string;
+  readonly requestId: string;
+  readonly occurredAt: Date;
+}
+
+/**
+ * One row per admin view (D5): `platform.admin.view.<view>`. Carries identifiers only — no tenant
+ * content, no counts, no secret. A failure throws, and the caller then returns no data.
+ */
+export async function writeAdminViewAudit(
+  writer: Pick<ControlPlaneDatabase, "insert">,
+  record: AdminViewAuditRecord,
+): Promise<void> {
+  await writer.insert(auditLog).values({
+    tenantId: record.tenantId,
+    actorType: "human",
+    actorId: record.actorUserId,
+    action: `platform.admin.view.${record.view}`,
+    entityType: record.entityType,
+    entityId: record.entityId,
+    occurredAt: record.occurredAt,
+    previousState: null,
+    nextState: null,
+    metadata: null,
+    result: record.result,
+    simulation: false,
+    source: "platform-admin-view",
+    requestId: record.requestId,
+    sessionContextId: record.sessionContextId,
+    authoritySource: "platform-admin",
+  });
+}
