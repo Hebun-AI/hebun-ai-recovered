@@ -415,8 +415,13 @@ async function main(): Promise<void> {
     .filter((file) => withoutComments(read(file)).includes("resolveHumanNames"));
   assert.deepEqual(
     uiConsumers,
-    [COMMAND_PAGE],
-    "exactly one product surface reads the provider-safe name, and it is named",
+    /*
+     * P3 argues for the second: the Customer Dashboard greets its signed-in human exactly as
+     * Command does — the narrow, address-free read, for the session user only, with the tenant the
+     * route resolved server-side. It discloses no more than Command and is not a picker.
+     */
+    [COMMAND_PAGE, "src/app/(dashboard)/home/page.tsx"],
+    "exactly two product surfaces read the provider-safe name, and they are named",
   );
 
   /*

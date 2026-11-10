@@ -40,7 +40,7 @@ export const CUSTOMER_NAV: readonly ShellNavGroup[] = [
   {
     label: "Workspace",
     items: [
-      { label: "Home", href: "/command", icon: House },
+      { label: "Home", href: "/home", icon: House },
       { label: "Heby", href: "/heby", icon: Sparkles },
       { label: "AI Agents", href: "/agents", icon: Bot },
     ],

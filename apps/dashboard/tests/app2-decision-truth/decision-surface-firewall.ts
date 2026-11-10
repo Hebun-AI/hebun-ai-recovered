@@ -429,8 +429,10 @@ function main(): void {
         "src/app/(dashboard)/approvals/page.tsx",
         "src/app/(dashboard)/command/page.tsx",
         "src/app/(dashboard)/heby/page.tsx",
+        /* P3 — the Customer Dashboard reads the same seam to show what waits on its human. */
+        "src/app/(dashboard)/home/page.tsx",
       ],
-      "the pending-request seam has exactly these three known readers",
+      "the pending-request seam has exactly these four known readers",
     );
     assert.ok(readers.includes(ROUTE), "and the decision route is one of them");
   }

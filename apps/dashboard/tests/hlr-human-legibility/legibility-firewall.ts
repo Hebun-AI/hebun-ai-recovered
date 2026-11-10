@@ -591,6 +591,11 @@ function walk(dir: string): string[] {
        */
       COMMAND_PAGE,
       /*
+       * P3 — the Customer Dashboard greets its own signed-in human exactly as Command does: the
+       * address-free name projection, for the session user only, tenant resolved server-side once.
+       */
+      "src/app/(dashboard)/home/page.tsx",
+      /*
        * SUITE-RECOVERY-1: the dashboard layout (0495b901, account menu with Sign out) resolves the
        * label of the SESSION'S OWN user for the top bar, through the same server-side read, tenant
        * from the authorized session. It names nobody else.

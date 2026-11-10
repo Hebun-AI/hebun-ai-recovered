@@ -211,6 +211,12 @@ const PERMITTED_SEAM_IMPORTERS = [
   "src/app/(dashboard)/approvals/page.tsx",
   "src/app/(dashboard)/heby/page.tsx",
   "src/app/(dashboard)/command/page.tsx",
+  /*
+   * P3 — the Customer Dashboard route. It calls the released reader once with the tenant it
+   * resolved server-side and renders the first few rows; no query, no handle, no copy of the queue.
+   * A fourth surface reading the ONE seam, which is the property this census protects.
+   */
+  "src/app/(dashboard)/home/page.tsx",
   "src/features/action-authorization/read-action-authorizations.server.ts",
   "src/features/attention-observation/read-attention-observation.server.ts",
   /*

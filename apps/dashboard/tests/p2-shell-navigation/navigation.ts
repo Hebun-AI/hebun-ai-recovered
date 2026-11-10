@@ -113,8 +113,9 @@ test("the shell navigation does not reach Heby or Live Map internals", () => {
 });
 
 test("active row: longest prefix, and none when nothing matches", () => {
-  assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/command"), "/command");
-  assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/command/intent"), "/command");
+  /* P3: Home is the Customer Dashboard; the Director's /command is no customer row. */
+  assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/home"), "/home");
+  assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/command"), null);
   assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/intelligence/social/instagram"), "/intelligence/social");
   assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/heby"), "/heby");
   assert.equal(resolveActiveNavHref(CUSTOMER_NAV, "/hebyx"), null);

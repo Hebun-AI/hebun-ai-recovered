@@ -123,7 +123,7 @@ function NavList({
 function Brand() {
   return (
     <Link
-      href="/command"
+      href="/home"
       aria-label="Hebun AI — Home"
       className="flex h-(--topbar-h) shrink-0 items-center justify-center gap-2.5 border-b border-border px-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-ring xl:justify-start xl:px-6"
     >
