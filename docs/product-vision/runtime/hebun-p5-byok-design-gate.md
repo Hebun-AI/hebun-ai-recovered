@@ -1,10 +1,14 @@
-# P5 · BYOK (customer-owned model provider key) · DESIGN GATE — PROPOSED, NOT DECIDED, NOT IMPLEMENTED
+# P5 · BYOK (customer-owned model provider key) · DESIGN GATE — DECIDED, NOT IMPLEMENTED
 
 Master Plan V2 P5 ("Heby & AI Agent Platform") lists BYOK as decided **as a goal** with its technical
 architecture **not decided** and nothing in code. This gate records the facts the architecture has to
 start from and the decisions the Director must take before any code, schema or migration exists.
 Nothing below is built, and nothing here authorizes a migration, a provider call, a credential, a
 deployment or a key.
+
+**Director decision (2026-11-11):** B1–B8 accepted as recommended. See "Final decisions". Each
+migration (B2, B6, B7), the key-verification provider call (B5), every production step and the first
+real tenant key remain separate Director gates.
 
 ## Measured at `fe7b96a5` (remote `main`, 2026-11-11)
 
@@ -114,3 +118,24 @@ migration ceremony as a separate gate) → key entry and sealing on the integrat
 transport credential selection with the no-fallback rule → attribution on call rows → data-use check
 → the proofs above → local acceptance → Director gates for production migration, deployment and the
 first real tenant key.
+
+## Final decisions (Director, 2026-11-11)
+
+- **B1 · ACCEPTED** — first slice is Anthropic only, Heby conversation, through the existing live
+  Claude transport.
+- **B2 · ACCEPTED** — the key lives in `integrations` + `integration_credentials` (`kind = api_key`)
+  under a new model-provider catalog entry, sealed with the integration key set and its existing AAD
+  binding. The required migration is its own gate.
+- **B3 · ACCEPTED (a)** — in-product non-readability is enforced and tested; deployment-level
+  possession (database plus key set) can still decrypt, as for OAuth tokens today, and is documented
+  as such. A separate key set or external KMS is a later hardening decision.
+- **B4 · ACCEPTED** — an active, verified BYOK connection carries every in-scope call; no BYOK keeps
+  the platform key; a revoked or failing BYOK connection refuses the call and never falls back.
+- **B5 · ACCEPTED** — one minimal verification call at entry, response not stored; this new provider
+  call class needs its own approval, and until then a key is stored as unverified.
+- **B6 · ACCEPTED** — a tenant-scoped processor attestation for the customer's account, attested by
+  the tenant's human, with the tenant's existing purpose authorization required against it.
+- **B7 · ACCEPTED** — every model call row records its credential source (`platform` | `tenant` plus
+  connection id). Schema change through the migration gate.
+- **B8 · ACCEPTED** — rotation by add-verify-revoke; revocation effective on the next call; tenant
+  suspension stops BYOK calls; every act audited with no key material.
