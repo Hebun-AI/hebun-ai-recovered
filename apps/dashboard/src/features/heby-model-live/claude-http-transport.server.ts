@@ -99,9 +99,30 @@ export type FetchLike = (
   },
 ) => Promise<{ readonly ok: boolean; readonly status: number; json(): Promise<unknown> }>;
 
+/**
+ * P5 BYOK (B4/B6/B7) — WHOSE CREDENTIAL THIS TRANSPORT SENDS WITH. Carried on the transport itself so
+ * the data-use gate checks, and the message row records, the credential that actually sends — never a
+ * second guess made elsewhere. `tenant` names the tenant's connection and the account ref its
+ * processor attestation lives under; never the key.
+ */
+export type AnthropicCredentialSource =
+  | { readonly source: "platform" }
+  | { readonly source: "tenant"; readonly integrationId: string; readonly accountRef: string };
+
+/**
+ * Runs `run` with the tenant's key opened for that one call, or throws a `ModelConnectivityError`.
+ * Supplied by `provider-anthropic`; this module never reads a credential store.
+ */
+export type WithTenantApiKey = <T>(run: (apiKey: string) => Promise<T>) => Promise<T>;
+
 export interface LiveClaudeTransportConfig {
-  /** Server-only API key. Read once; never logged, returned, or persisted. */
-  readonly apiKey: string;
+  /** Server-only platform API key. Read once; never logged, returned, or persisted. */
+  readonly apiKey?: string;
+  /**
+   * P5 BYOK — the tenant's key, opened only around the one fetch. When present, `apiKey` is not
+   * used and there is NO fallback to it: a failure here refuses the call.
+   */
+  readonly tenantCredential?: { readonly withApiKey: WithTenantApiKey; readonly integrationId: string; readonly accountRef: string };
   /** Hard cap on live calls for this transport instance. Defaults to MAX_LIVE_CALLS (1). */
   readonly maxLiveCalls?: number;
   readonly timeoutMs?: number;
@@ -213,6 +234,14 @@ export function isAnthropicMessagesEgress(transport: ClaudeTransport | undefined
   return Boolean(transport && (transport as unknown as Record<symbol, unknown>)[ANTHROPIC_MESSAGES_EGRESS] === true);
 }
 
+const ANTHROPIC_CREDENTIAL: unique symbol = Symbol("hebun.anthropic-credential-source");
+
+/** The credential a live Anthropic transport sends with; null for any other transport. */
+export function anthropicCredentialOf(transport: ClaudeTransport | undefined): AnthropicCredentialSource | null {
+  const value = (transport as unknown as Record<symbol, unknown> | undefined)?.[ANTHROPIC_CREDENTIAL];
+  return (value as AnthropicCredentialSource | undefined) ?? null;
+}
+
 /*
  * AP-3 — PROCESS-BUDGET ADMISSION BEFORE THE EVIDENCE, NOT A BYPASS OF IT.
  *
@@ -238,10 +267,14 @@ export function prepayLiveDispatch(transport: ClaudeTransport | undefined): bool
 
 export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): ClaudeTransport {
   assertServerRuntime();
-  const apiKey = config.apiKey?.trim();
-  if (!apiKey) {
+  const tenantCredential = config.tenantCredential;
+  const apiKey = tenantCredential ? "" : config.apiKey?.trim();
+  if (!tenantCredential && !apiKey) {
     throw new ModelConnectivityError("missing-credential", "No Anthropic API key is configured.");
   }
+  const credential: AnthropicCredentialSource = tenantCredential
+    ? { source: "tenant", integrationId: tenantCredential.integrationId, accountRef: tenantCredential.accountRef }
+    : { source: "platform" };
   const maxCalls = config.maxLiveCalls ?? MAX_LIVE_CALLS;
   const timeoutMs = config.timeoutMs ?? LIVE_REQUEST_TIMEOUT_MS;
   const doFetch: FetchLike = config.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
@@ -250,6 +283,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
   let prepaid = false;
 
   const transport = {
+    [ANTHROPIC_CREDENTIAL]: credential,
     [ANTHROPIC_MESSAGES_EGRESS]: true,
     async send(request: ClaudeTransportRequest): Promise<ClaudeTransportResponse> {
       /*
@@ -302,12 +336,12 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       let response: { ok: boolean; status: number; json(): Promise<unknown> };
-      try {
-        response = await doFetch(ANTHROPIC_MESSAGES_URL, {
+      const dispatch = (key: string) =>
+        doFetch(ANTHROPIC_MESSAGES_URL, {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "x-api-key": apiKey,
+            "x-api-key": key,
             "anthropic-version": ANTHROPIC_VERSION,
           },
           body: JSON.stringify({
@@ -318,7 +352,12 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
           }),
           signal: controller.signal,
         });
+      try {
+        /* P5 BYOK B4 — a tenant transport sends ONLY with the tenant's key; it has no other to fall back to. */
+        response = tenantCredential ? await tenantCredential.withApiKey(dispatch) : await dispatch(apiKey!);
       } catch (error) {
+        /* The tenant key could not be opened: its own typed refusal, nothing was sent. */
+        if (error instanceof ModelConnectivityError) throw error;
         // Abort → timeout; anything else → unreachable. Neither proves receipt. The raw error never surfaces.
         const aborted = error instanceof Error && error.name === "AbortError";
         throw new ModelConnectivityError(aborted ? "timeout" : "provider-unreachable");

@@ -39,7 +39,6 @@ import {
 import type { PreparationBrief } from "@/features/work-artifacts/preparation-brief";
 import {
   generateHebyModelAnswer,
-  selectModelTransport,
   MODEL_DISPATCH_FACTS,
   ModelConnectivityError,
   type ModelTransportSelection,
@@ -73,6 +72,12 @@ import {
   type DurableConversationRepository,
 } from "@/features/heby-conversation/durable-conversation-repository.server";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
+import {
+  selectTenantModelTransport,
+  type ByokRefusal,
+  type TenantModelTransportSelection,
+} from "@/features/provider-anthropic/model-credential.server";
+import { anthropicCredentialOf, type AnthropicCredentialSource } from "@/features/heby-model-live/claude-http-transport.server";
 import type { KnowledgeReadDeps, KnowledgeTenant } from "@/features/knowledge/knowledge-read.server";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 /*
@@ -168,6 +173,16 @@ const PUBLIC_KNOWLEDGE_NOTE = Object.freeze({
   "no-public-eligible-knowledge":
     "No Knowledge of this organization is both ratified and cleared by Governance for public use, so the model was not asked to write public content.",
 } as const);
+
+/** P5 BYOK B4 — why the tenant's own key could not carry the turn. The platform key is never used instead. */
+const BYOK_REFUSAL_NOTE: Record<ByokRefusal, string> = {
+  "byok-key-revoked":
+    "Your organization's Anthropic key has been revoked; Hebun's own key is not used in its place, so this answer is deterministic and no provider request was made.",
+  "byok-not-verified":
+    "Your organization's Anthropic key is not verified; Hebun's own key is not used in its place, so this answer is deterministic and no provider request was made.",
+  "byok-unavailable":
+    "Your organization's Anthropic key could not be read; Hebun's own key is not used in its place, so this answer is deterministic and no provider request was made.",
+};
 
 const DIRECTOR_DISABLED_NOTE =
   "Claude connectivity is disabled by the Director; this answer is deterministic and no provider request was made.";
@@ -342,6 +357,12 @@ export interface HebyModelAnswerDeps {
   readonly selectTransport?: (
     env: Readonly<Record<string, string | undefined>>,
   ) => ModelTransportSelection;
+  /**
+   * P5 BYOK B4 — the tenant-aware selector used when `selectTransport` is not injected. Defaults to
+   * `selectTenantModelTransport`: the tenant's own key when it holds a verified one, the platform key
+   * when it holds none, and NO transport when its key is revoked or failing.
+   */
+  readonly selectTenantTransport?: typeof selectTenantModelTransport;
   /** Config source for the model boundary. Defaults to process.env (server-only). */
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Correlation id generator. Defaults to crypto.randomUUID. */
@@ -1418,7 +1439,9 @@ export async function answerHebyModelRequest(
     //    Bounded recent history (tenant-scoped, fail-closed to empty) gives the model conversational
     //    continuity — as DATA only. Evidence is re-resolved FRESH for this turn and never carried
     //    from a prior turn, and a prior assistant turn never enters the evidence set.
-    const selection = (deps.selectTransport ?? selectModelTransport)(env);
+    const selection: TenantModelTransportSelection = deps.selectTransport
+      ? deps.selectTransport(env)
+      : await (deps.selectTenantTransport ?? selectTenantModelTransport)(tenant, env);
     const correlationId = (deps.newCorrelationId ?? defaultCorrelationId)();
     const history = await loadBoundedHistory(repo, scope, input.conversationId);
     /*
@@ -1501,6 +1524,7 @@ export async function answerHebyModelRequest(
     response: answer.response,
     transportProvenance: answer.transportProvenance,
     modelResult: answer.modelResult,
+    credential: answer.credential ?? null,
     knowledgeEvidence,
     /*
      * G6D — the non-Knowledge sources this answer cited, taken from the SAME resolutions the answer
@@ -1564,6 +1588,8 @@ export async function answerHebyModelRequest(
 interface ProducedAnswer {
   readonly response: HebyRuntimeResponse;
   readonly transportProvenance?: "fake" | "live";
+  /** P5 BYOK B7 — the credential the live transport sent with; null for any other transport. */
+  readonly credential?: AnthropicCredentialSource | null;
   /** Present only when a validated model answer was produced. */
   readonly modelResult?: ModelGenerationResult;
 }
@@ -1579,7 +1605,7 @@ async function produceAnswer(args: {
   readonly modelRequest: ModelGenerationRequest;
   readonly disclosure: ExternalAiDisclosureDeclaration | undefined;
   readonly projectAuthorizedEvidence: ((authorized: readonly DataClass[]) => readonly string[]) | undefined;
-  readonly selection: ModelTransportSelection;
+  readonly selection: TenantModelTransportSelection;
   readonly context: HebyRuntimeContext;
   readonly authority: HebyAuthorityMode;
   readonly resolutions: readonly SourceResolution[];
@@ -1588,6 +1614,17 @@ async function produceAnswer(args: {
   readonly actionClaims: ActionClaimMode | undefined;
 }): Promise<ProducedAnswer> {
   const { generate, env, modelRequest, disclosure, projectAuthorizedEvidence, selection, context, authority, resolutions, assembled, deterministic, actionClaims } = args;
+
+  /* P5 BYOK B4 — no transport exists for this turn: nothing is generated, nothing is sent, no fallback. */
+  if (selection.byokRefusal) {
+    return {
+      response: {
+        ...withNote(deterministic, BYOK_REFUSAL_NOTE[selection.byokRefusal]),
+        modelFallback: { kind: "provider-failed", code: "missing-credential", dispatch: MODEL_DISPATCH_FACTS["missing-credential"] },
+      },
+    };
+  }
+  const credential = anthropicCredentialOf(selection.transport);
 
   let outcome;
   try {
@@ -1651,12 +1688,14 @@ async function produceAnswer(args: {
       },
       transportProvenance: selection.transportProvenance,
       modelResult: outcome.result,
+      credential,
     };
   }
   return {
     response: { ...validation.response, modelInvocationAttempted: true },
     transportProvenance: selection.transportProvenance,
     modelResult: outcome.result,
+    credential,
   };
 }
 
@@ -1727,6 +1766,8 @@ async function persistExchange(
     readonly response: HebyRuntimeResponse;
     readonly transportProvenance?: "fake" | "live";
     readonly modelResult?: ModelGenerationResult;
+    /** P5 BYOK B7 — whose credential carried the call. */
+    readonly credential?: AnthropicCredentialSource | null;
     readonly knowledgeEvidence?: RetrievalEvidenceSet;
     /** G6D — the resolutions the answer was assembled from, projected to citations below. */
     readonly resolutions?: readonly SourceResolution[];
@@ -1764,6 +1805,13 @@ async function persistExchange(
         inputTokens: invocationOccurred ? result?.inputTokens : undefined,
         outputTokens: invocationOccurred ? result?.outputTokens : undefined,
         tokenCount: invocationOccurred ? result?.totalTokens : undefined,
+        /* P5 BYOK B7 — only beside a live invocation, from the transport that sent it. */
+        ...(invocationOccurred && args.transportProvenance === "live" && args.credential
+          ? {
+              credentialSource: args.credential.source,
+              credentialIntegrationId: args.credential.source === "tenant" ? args.credential.integrationId : undefined,
+            }
+          : {}),
       },
       /*
        * Absent when no retrieval ran. A set with zero items is NOT absent — it records that

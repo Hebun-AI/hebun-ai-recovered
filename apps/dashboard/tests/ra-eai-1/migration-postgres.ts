@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   /* The migration file is exactly the reviewed one: one DROP, one ADD, the six purposes. */
   const migration = readFileSync(path.join(MIGRATIONS_DIR, `${TAG}.sql`), "utf8");
   assert.equal(journal.entries[82]!.tag, TAG, "RA-EAI-1 is ledger entry 83 (idx 82)");
-  assert.equal(journal.entries.length, 86, "and the tail"); /* P4-OPERATOR-MFA: ledger 85 -> 86 (auth_mfa_credentials + platform_operator_grants + two nullable user_session_contexts columns; additive). */ /* V1-STAGE-5: ledger 84 -> 85 (support_tickets; additive). */ /* V1-STAGE-2: ledger 83 -> 84 (content_publication_intents; additive) follows it. */
+  assert.equal(journal.entries.length, 87, "and the tail"); /* P5-BYOK-2: ledger 86 -> 87 (messages.credential_source + credential_integration_id; processor_attestations.owner_tenant_id + attested_by_user_id; control_source CHECK gains tenant-attestation; additive). */ /* P4-OPERATOR-MFA: ledger 85 -> 86 (auth_mfa_credentials + platform_operator_grants + two nullable user_session_contexts columns; additive). */ /* V1-STAGE-5: ledger 84 -> 85 (support_tickets; additive). */ /* V1-STAGE-2: ledger 83 -> 84 (content_publication_intents; additive) follows it. */
   assert.equal(journal.entries[83]!.tag, "20261109131304_v1_content_publication_intent", "only the declared later phase follows RA-EAI-1");
   assert.equal(migration.split("--> statement-breakpoint").length, 2, "two statements");
   assert.match(migration, /^ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk";/);

@@ -34,7 +34,16 @@ const writers = [...walk("src"), ...walk("scripts")].filter((file) => {
   const code = stripComments(read(file));
   return /insert\(\s*processorAttestations\b/.test(code) || /into\s+"?(public"?\.)?"?processor_attestations/i.test(code);
 });
-assert.deepEqual(writers, [CEREMONY_LIB], "the ceremony library is the only processor attestation writer");
+/*
+ * P5 BYOK B6 (Director, 2026-11-11): the tenant own-account writer is the one src/ exception. It can
+ * write only owner-bound `tenant-byok:` rows (CHECK `processor_attestations_tenant_owner_chk`), so
+ * the ceremony stays the only writer of PLATFORM attestations.
+ */
+assert.deepEqual(
+  writers.sort(),
+  [CEREMONY_LIB, "src/features/external-ai-data-use/attest-tenant-anthropic-account.server.ts"].sort(),
+  "the ceremony library writes platform attestations; the tenant writer only its own-account rows",
+);
 
 /* ── 2. The ceremony reaches nothing it must not. ────────────────────────────────────────────── */
 for (const file of [CEREMONY, CEREMONY_LIB]) {

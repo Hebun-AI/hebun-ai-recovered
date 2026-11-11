@@ -120,7 +120,8 @@ export const IDENTITY_STATUSES = ["verified", "attested"] as const;
 export type IdentityStatus = (typeof IDENTITY_STATUSES)[number];
 
 /** Where a root attestation row came from. The same two sources the root control records. */
-export const ATTESTATION_CONTROL_SOURCES = ["local-operator-ceremony", "production-operator-ceremony"] as const;
+/** P5 BYOK B6 adds `tenant-attestation`: a tenant's own account, attested by its human. */
+export const ATTESTATION_CONTROL_SOURCES = ["local-operator-ceremony", "production-operator-ceremony", "tenant-attestation"] as const;
 export type AttestationControlSource = (typeof ATTESTATION_CONTROL_SOURCES)[number];
 
 /** The lifecycle words, shared by both lineages and stored in two SEPARATE enums. */

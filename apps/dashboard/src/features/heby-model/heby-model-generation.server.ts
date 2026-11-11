@@ -28,7 +28,7 @@ import { evaluateModelAvailability } from "./model-availability";
 import { createClaudeModelClient } from "./claude-model-client";
 import type { ClaudeTransport } from "./claude-transport";
 import { ModelConnectivityError, modelFailureLogLine } from "./model-error";
-import { isAnthropicMessagesEgress, prepayLiveDispatch } from "@/features/heby-model-live/claude-http-transport.server";
+import { anthropicCredentialOf, isAnthropicMessagesEgress, prepayLiveDispatch } from "@/features/heby-model-live/claude-http-transport.server";
 import { liveBudgetExhaustedError } from "@/features/heby-model-live/live-spend-budget.server";
 import { admitAiDispatch, type AdmitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
 import { isHebunInstruction } from "@/features/heby-runtime/instruction-channel";
@@ -157,12 +157,19 @@ export async function generateHebyModelAnswer(
      * gate is handed it, and `client.generate` below sends the same value. Nothing re-reads it.
      */
     const modelId = config.modelId!;
+    /*
+     * P5 BYOK B6 — THE ACCOUNT CHECKED IS THE ACCOUNT THAT SENDS. A tenant-key transport is judged
+     * against that tenant's own attested account; the platform transport against the platform's.
+     */
+    const credential = anthropicCredentialOf(deps.transport);
+    const accountRef = credential?.source === "tenant" ? credential.accountRef : undefined;
     const decision = tenantMismatch
       ? null
-      : await (deps.authorizeDisclosure ?? ((d, o, m) => authorizeExternalAiDisclosure(d, o, m)))(
+      : await (deps.authorizeDisclosure ?? ((d, o, m, a) => authorizeExternalAiDisclosure(d, o, m, {}, a)))(
           declaration,
           await (deps.resolveOperatorEnabled ?? resolveClaudeDirectorEnabled)().catch(() => null),
           modelId,
+          accountRef,
         );
     /*
      * APF-5 — DECISION → EVIDENCE → TRANSPORT. The decision is recorded as the authority made it. An
@@ -171,7 +178,7 @@ export async function generateHebyModelAnswer(
      */
     const record = deps.recordDisclosure ?? ((e) => recordExternalAiDisclosureDecision(e));
     const evidence =
-      decision && declaration ? externalAiDisclosureEvidence(declaration, decision, modelId, request.correlationId) : null;
+      decision && declaration ? externalAiDisclosureEvidence(declaration, decision, modelId, request.correlationId, accountRef) : null;
     if (decision?.disposition !== "authorized" || !evidence) {
       if (evidence) await record(evidence).catch(() => false);
       return unavailable("DATA_USE_NOT_AUTHORIZED");

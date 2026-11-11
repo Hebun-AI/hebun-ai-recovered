@@ -53,9 +53,14 @@ assert.deepEqual([...schema.EXTERNAL_AI_CONTROL_SOURCES_SQL], [...contracts.ATTE
  * The exception is one named file; src/ stays writer-free, and no file may update or delete.
  */
 const ATTESTATION_CEREMONY_WRITER = "scripts/lib/processor-attestation.ts";
+/*
+ * P5 BYOK B6 (Director, 2026-11-11) adds exactly one more: the tenant's own-account attestation,
+ * written by a Governance holder of that tenant, owner-bound by CHECK, never a platform row.
+ */
+const TENANT_ATTESTATION_WRITER = "src/features/external-ai-data-use/attest-tenant-anthropic-account.server.ts";
 for (const file of [...SRC, ...SCRIPTS]) {
   const code = stripComments(read(file));
-  if (file !== ATTESTATION_CEREMONY_WRITER) {
+  if (file !== ATTESTATION_CEREMONY_WRITER && file !== TENANT_ATTESTATION_WRITER) {
     assert.ok(!/insert\(\s*processorAttestations\b/.test(code), `${file} must not insert a processor attestation`);
     assert.ok(!/into\s+"?(public"?\.)?"?processor_attestations/i.test(code), `${file} must not insert a processor attestation by SQL`);
   }

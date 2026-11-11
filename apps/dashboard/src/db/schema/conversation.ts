@@ -1,8 +1,9 @@
 /* Conversations and messages — AI conversation history. */
-import { pgTable, integer, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { check, foreignKey, pgTable, integer, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
 import { tenantColumns } from "./_base";
 import { agents } from "./agent";
+import { integrations } from "./integration";
 
 export const conversations = pgTable("conversations", {
   ...tenantColumns,
@@ -47,6 +48,13 @@ export const messages = pgTable("messages", {
   providerRequestId: text("provider_request_id"),
   inputTokens: integer("input_tokens"),
   outputTokens: integer("output_tokens"),
+  /*
+   * P5 BYOK B7 — WHOSE CREDENTIAL CARRIED THE CALL. Written only beside a live transport, from the
+   * transport that actually sent: `platform` = Hebun's deployment key, `tenant` = this tenant's own
+   * Anthropic connection, named by id (never the key). Null on every row with no live invocation.
+   */
+  credentialSource: text("credential_source"),
+  credentialIntegrationId: uuid("credential_integration_id"),
 }, (t) => [
   /*
    * KR5. `id` is already the primary key, so this index adds no uniqueness the table did not
@@ -57,6 +65,18 @@ export const messages = pgTable("messages", {
    * rather than merely checked in application code. Additive, no data change, no backfill.
    */
   uniqueIndex("messages_id_tenant_uidx").on(t.id, t.tenantId),
+  check(
+    "messages_credential_source_chk",
+    sql`(${t.credentialSource} is null and ${t.credentialIntegrationId} is null)
+      or (${t.credentialSource} = 'platform' and ${t.credentialIntegrationId} is null and ${t.transport} = 'live')
+      or (${t.credentialSource} = 'tenant' and ${t.credentialIntegrationId} is not null and ${t.transport} = 'live')`,
+  ),
+  /** A message can only name a connection of its own tenant. */
+  foreignKey({
+    name: "messages_credential_integration_fk",
+    columns: [t.credentialIntegrationId, t.tenantId],
+    foreignColumns: [integrations.id, integrations.tenantId],
+  }).onDelete("restrict"),
 ]);
 
 export const conversationsRelations = relations(conversations, ({ many }) => ({
