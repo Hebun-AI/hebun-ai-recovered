@@ -372,6 +372,8 @@ function main(): void {
    * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`. A second one appearing is a decision to record. */
       /* YOUTUBE-WRITE-1 (named by AGENT-TEST-RECOVERY): which channel a Google grant stands for. */
+      /* P5 BYOK slice 1: the tenant's own Anthropic key — store/replace/revoke through the released credential store. */
+      "src/app/(dashboard)/integrations/anthropic/actions.ts",
       "src/app/(dashboard)/integrations/google/actions.ts",
       "src/app/(dashboard)/integrations/instagram/actions.ts",
       "src/app/(dashboard)/intelligence/social/actions.ts",

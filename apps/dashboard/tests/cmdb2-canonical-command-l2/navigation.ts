@@ -116,7 +116,7 @@ const LEGACY = [
  * unannounced — it was never a claim that the product stops growing, and the pin is amended
  * deliberately rather than relaxed into an inequality.
  */
-const DASHBOARD_ROUTE_COUNT = 137; /* V1-STAGE-3: +1, `/notifications`. */ /* V1-STAGE-4: +1, `/account` (Profile & Team). V1-STAGE-6: +1, `/account/plan`. */ /* P3: +1, `/home` (Customer Dashboard). */
+const DASHBOARD_ROUTE_COUNT = 138; /* V1-STAGE-3: +1, `/notifications`. */ /* V1-STAGE-4: +1, `/account` (Profile & Team). V1-STAGE-6: +1, `/account/plan`. */ /* P3: +1, `/home` (Customer Dashboard). */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
@@ -155,6 +155,8 @@ const USE_SERVER_MODULES = [
    * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`. A second one appearing is a decision to record. */
   /* YOUTUBE-WRITE-1: one READ boundary — the Google page's no-input channel identity read. */
+  /* P5 BYOK slice 1: the tenant's own Anthropic key — store/replace/revoke through the released credential store. */
+  "src/app/(dashboard)/integrations/anthropic/actions.ts",
   "src/app/(dashboard)/integrations/google/actions.ts",
   "src/app/(dashboard)/integrations/instagram/actions.ts",
   "src/app/(dashboard)/intelligence/social/actions.ts",

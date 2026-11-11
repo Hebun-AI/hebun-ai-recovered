@@ -821,6 +821,8 @@ const USE_SERVER_MODULES = [
    * THIN caller of `provider-connection-lifecycle` — a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`, so the composition lives in the feature module. */
   /* SUITE-RECOVERY-1: YOUTUBE-WRITE-1's channel-identity action. */
+  /* P5 BYOK slice 1: the tenant's own Anthropic key — store/replace/revoke through the released credential store. */
+  "src/app/(dashboard)/integrations/anthropic/actions.ts",
   "src/app/(dashboard)/integrations/google/actions.ts",
   "src/app/(dashboard)/integrations/instagram/actions.ts",
   /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */

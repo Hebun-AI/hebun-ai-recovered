@@ -301,7 +301,8 @@ function main(): void {
     .sort();
   assert.deepEqual(
     integrationPages,
-    ["github", "google", "instagram"],
+    /* P5 BYOK slice 1 added `anthropic` (customer key entry) — not an Instagram observation page. */
+    ["anthropic", "github", "google", "instagram"],
     "no observation, analytics or history page was created — the existing surface was used",
   );
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {

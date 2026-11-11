@@ -440,7 +440,12 @@ function main(): void {
        * justify itself here.
        */
       /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: YouTube OAuth is its own Google connection definition. */
-      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
+      /*
+       * P5 BYOK slice 1: ANTHROPIC holds the tenant's own key through the released credential store.
+       * Like GitHub's first entry, its capability is declared and not executable (no verifier, no
+       * transport selection), so availability reports it unavailable — which is the truth.
+       */
+      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram", "anthropic"],
       "every connectable provider, and each only because it is genuinely implemented",
     );
     /*
@@ -477,6 +482,8 @@ function main(): void {
     assert.deepEqual(
       [...listConnectableCapabilities()].sort(),
       [
+        /* P5 BYOK slice 1: declared, not executable until verification (B5) and selection (B4). */
+        "anthropic.model.messages",
         "github.repository.activity.read",
         "google.drive.content.read",
         "google.drive.file.content.read",
@@ -515,8 +522,9 @@ function main(): void {
     assert.equal(
       PROVIDER_CATALOG.length,
       /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1 adds `google-youtube`, a second real Google OAuth definition. */
-      5,
-      "five entries, and no fixture — a fixture retained for tests that inject their own would " +
+      /* P5 BYOK slice 1 adds `anthropic`, the tenant's own model key (credential-only). */
+      6,
+      "six entries, and no fixture — a fixture retained for tests that inject their own would " +
         "still be a false entry in a production authority",
     );
 
@@ -550,6 +558,8 @@ function main(): void {
        * project — a third-party probe would prove the token works and not that it works HERE.
        */
       instagram: "src/features/provider-instagram/verify-instagram-connection.server.ts",
+      /* P5 BYOK (B5): one `GET /v1/models?limit=1`, status only, proving the customer key is accepted. */
+      anthropic: "src/features/provider-anthropic/verify-anthropic-key.server.ts",
     };
     for (const definition of PROVIDER_CATALOG) {
       assert.equal(
@@ -575,9 +585,12 @@ function main(): void {
      * being true when the verifier above was built. It is not left unguarded: the map above now
      * demands a named, existing verifier for every key in the catalog, which is what the vendor
      * ban was approximating.
+     *
+     * `anthropic` leaves it for the same reason (P5 BYOK, design gate B1/B2/B5): the customer-key
+     * connection and its verifier exist, and the map above names that verifier.
      */
     const keys = PROVIDER_CATALOG.map((d) => d.providerKey.toLowerCase()).join(" ");
-    for (const vendor of ["slack", "microsoft", "notion", "resend", "anthropic"]) {
+    for (const vendor of ["slack", "microsoft", "notion", "resend"]) {
       assert.ok(!keys.includes(vendor), `the catalog must not offer "${vendor}" — nothing implements it`);
     }
 

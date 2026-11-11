@@ -416,7 +416,8 @@ function main(): void {
        * justify itself here.
        */
       /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: YouTube OAuth is its own Google connection definition. */
-      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
+      /* P5 BYOK slice 1: the tenant's own Anthropic key (credential-only, capability not yet executable). */
+      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram", "anthropic"],
       "the real providers, and each only because it is genuinely implemented",
     );
     const google = PROVIDER_CATALOG[0]!;
@@ -521,6 +522,8 @@ function main(): void {
       writers,
       [
         "src/features/integration-authority/integration-repository.server.ts",
+        /* P5 BYOK (B5): records `connected` only after Anthropic answered 200 for the entered key. */
+        "src/features/provider-anthropic/verify-anthropic-key.server.ts",
         "src/features/provider-github/connect-installation.server.ts",
         /*
          * GOOGLE-OAUTH-FIRST-BIND-RACE-1 MOVED Google's seam out of the callback, unchanged in kind:

@@ -50,6 +50,11 @@
  * only to support tests is a fake fact about the deployment however well it is labelled.
  */
 import type { ConnectionDefinition, ProviderCatalog } from "@/features/integration-authority/contracts";
+import {
+  ANTHROPIC_MODEL_MESSAGES_CAPABILITY,
+  ANTHROPIC_PROVIDER_KEY,
+  ANTHROPIC_PROVIDER_LABEL,
+} from "@/features/provider-anthropic/contracts";
 /*
  * The capability key and its scope live with the provider that defines them, not here. This file
  * says WHICH capabilities a provider offers; `provider-google` says what they mean to Google.
@@ -423,6 +428,29 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [INSTAGRAM_MEDIA_PUBLISH_CAPABILITY]: Object.freeze({
         read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
         write: Object.freeze([INSTAGRAM_CONTENT_PUBLISH_SCOPE]),
+      }),
+    }),
+  }) satisfies ConnectionDefinition,
+
+  /*
+   * ── ANTHROPIC · the customer's own model key (P5 BYOK, design gate B1/B2) ──────
+   *
+   * Credential-only, like YouTube: one `api_key`, no account, no scopes. Verified once at entry by
+   * one `GET /v1/models` (B5, `provider-anthropic/verify-anthropic-key.server.ts`), so `connected` +
+   * `healthy` mean Anthropic accepted the key. The model transport does NOT select this key yet
+   * (B4 is a later slice): a connected customer key carries no Heby call today.
+   */
+  Object.freeze({
+    providerKey: ANTHROPIC_PROVIDER_KEY,
+    label: ANTHROPIC_PROVIDER_LABEL,
+    authMethod: "api_key",
+    accountIdentity: "none",
+    connectivity: "connectable",
+    minimumScopes: Object.freeze([]),
+    capabilityScopes: Object.freeze({
+      [ANTHROPIC_MODEL_MESSAGES_CAPABILITY]: Object.freeze({
+        read: Object.freeze([]),
+        write: Object.freeze([]),
       }),
     }),
   }) satisfies ConnectionDefinition,
