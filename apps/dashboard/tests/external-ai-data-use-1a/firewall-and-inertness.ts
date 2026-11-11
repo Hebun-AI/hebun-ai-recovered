@@ -100,6 +100,11 @@ assert.deepEqual(
     /* ORGANIZATION-READINESS-1 — reads this tenant's effective authorization for the readiness card. Read only. */
     "src/features/organization-readiness/read-organization-readiness.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
+    /*
+     * P5 BYOK — the own-key page's two acts compose the released writers (tenant attestation, the
+     * Governance authorization) and readers (the platform assistance view gates "stop using my key").
+     */
+    "src/features/provider-anthropic/byok-account-terms.server.ts",
   ],
   "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the readiness card's read-only composition, the operational planning projection and plan-candidate contract checks, the AI planning runtime's declaration and the research seam's preflight reach the authority",
 );
@@ -201,6 +206,9 @@ const actionCalls = stripComments(action).match(/(authorize|withdraw)AssistanceD
 assert.equal(actionCalls.length, 2, "two composer calls, each with exactly (tenant, input)");
 for (const call of actionCalls) assert.ok(!/policy|getDb|scopes|purpose/.test(call), "no deps, scope or purpose crosses from the action");
 const composer = stripComments(read(`${FEATURE}/assistance-data-use.server.ts`));
+const byokComposer = stripComments(read("src/features/provider-anthropic/byok-account-terms.server.ts"));
+assert.ok(!/policy\s*:/.test(byokComposer), "the own-key composer never hands the writer a policy");
+assert.match(byokComposer, /scopes: assistanceScopePairs\(\)/, "its pairs are the recorded policy's assistance pairs");
 assert.ok(!/policy\s*:/.test(composer), "the composer never hands the writer a policy");
 assert.match(composer, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells/, "its pairs are read off the recorded policy");
 assert.match(composer, /cell\.purpose === PURPOSE/);
@@ -208,8 +216,12 @@ assert.match(composer, /const PURPOSE = "assistance" as const/);
 const writerCallers = SRC.filter((f) => /\b(authorize|withdraw)TenantExternalAiDataUse\(/.test(stripComments(read(f)))).sort();
 assert.deepEqual(
   writerCallers,
-  [`${FEATURE}/assistance-data-use.server.ts`, `${FEATURE}/authorize-tenant-external-ai-data-use.server.ts`],
-  "in src, only the assistance composer calls the writer",
+  /*
+   * P5 BYOK — the own-key page's composer calls the writer too, under the same rules: pairs read off the
+   * recorded policy (`assistanceScopePairs`), no policy handed in, the tenant's own account only.
+   */
+  [`${FEATURE}/assistance-data-use.server.ts`, `${FEATURE}/authorize-tenant-external-ai-data-use.server.ts`, "src/features/provider-anthropic/byok-account-terms.server.ts"],
+  "in src, only the assistance composer and the own-key composer call the writer",
 );
 assert.deepEqual(
   [...read("src/components/governance-authority/ai-assistance-decision-card.tsx").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),

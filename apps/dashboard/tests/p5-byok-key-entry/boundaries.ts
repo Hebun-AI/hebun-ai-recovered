@@ -32,7 +32,8 @@ const FILES = [ACTION, PAGE, MODULE, "src/features/provider-anthropic/contracts.
 
 test("the action reads one field and takes the tenant from the session", () => {
   const code = codeOf(read(ACTION));
-  assert.deepEqual([...code.matchAll(/formData\.get\("([^"]+)"\)/g)].map((m) => m[1]), ["apiKey"]);
+  /* P5 BYOK data-use screen adds four closed fields (three vocabulary choices and a justification); the key is still only `apiKey`. */
+  assert.deepEqual([...code.matchAll(/formData\.get\("([^"]+)"\)/g)].map((m) => m[1]), ["apiKey", "training", "retentionClass", "zdr", "justification"]);
   assert.match(code, /await resolveTenantContext\(\)/);
   assert.ok(!/tenantId|searchParams|headers\(|cookies\(/.test(code), "no client-supplied tenant");
   assert.ok(!/\$\{value|\$\{.*apiKey/.test(code), "the key never reaches a redirect URL");
@@ -49,7 +50,10 @@ test("no new credential writer, cipher or decryption", () => {
 test("the key is never logged or rendered", () => {
   for (const f of FILES) assert.ok(!/console\.\w+\(/.test(codeOf(read(f))), `${f} logs`);
   const page = codeOf(read(PAGE));
-  assert.ok(!/defaultValue|value=\{/.test(page), "the input is never pre-filled");
+  /* The data-use screen's selects use defaultValue for their empty choice; the KEY input never has one. */
+  const keyInput = page.match(/<input[^>]*name="apiKey"[^>]*\/>/)?.[0] ?? "";
+  assert.ok(keyInput && !/defaultValue|value=/.test(keyInput), "the key input is never pre-filled");
+  assert.equal((page.match(/<input\b/g) ?? []).length, 1, "the key is the page's only input");
   assert.match(page, /type="password"/);
   assert.match(page, /autoComplete="off"/);
 });
