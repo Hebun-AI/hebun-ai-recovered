@@ -12,6 +12,9 @@ import {
   type WorkspaceId,
 } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
+import { useShellExperience } from "./role-context";
+import { ShellNavSheet } from "./shell-nav";
+import { CUSTOMER_NAV } from "@/config/customer-nav";
 import { SecondaryNavContent } from "./secondary-nav";
 import { HebyLauncher } from "./heby/heby-launcher";
 
@@ -23,6 +26,11 @@ import { HebyLauncher } from "./heby/heby-launcher";
  */
 
 export function MobileNav() {
+  /* P2 Phase 2B: the Customer Workspace sheet lists its grouped rows; Director is unchanged. */
+  return useShellExperience() === "customer" ? <ShellNavSheet groups={CUSTOMER_NAV} /> : <DirectorMobileNav />;
+}
+
+function DirectorMobileNav() {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<WorkspaceId | null>(null);
   const pathname = usePathname();

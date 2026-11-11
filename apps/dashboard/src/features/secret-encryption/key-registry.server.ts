@@ -156,22 +156,40 @@ function registerKeyEntries(
 }
 
 /**
+ * The env variable names one key set is read from. P4 adds a second, separate set for operator MFA
+ * secrets (`HEBUN_MFA_ENCRYPTION_*`); the two never share a key.
+ */
+export interface EncryptionKeyEnvNames {
+  readonly keys: string;
+  readonly additionalKeys: string;
+  readonly activeKeyId: string;
+}
+
+/** The integration-credential key set — unchanged behaviour, now one caller of the shared resolver. */
+export function resolveIntegrationEncryptionKeys(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): EncryptionKeyResolution {
+  return resolveEncryptionKeys(INTEGRATION_ENCRYPTION_ENV_KEYS, env);
+}
+
+/**
  * Read the deployment's keys, or say exactly what is wrong.
  *
  * `env` is a parameter so a test can exercise every invalid shape without mutating the process,
  * which is the same seam `resolveAuthenticationEnvironment` uses.
  */
-export function resolveIntegrationEncryptionKeys(
+export function resolveEncryptionKeys(
+  names: EncryptionKeyEnvNames,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): EncryptionKeyResolution {
   assertServerOnly();
 
-  const rawKeys = env[INTEGRATION_ENCRYPTION_ENV_KEYS.keys]?.trim();
-  const rawActive = env[INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId]?.trim();
+  const rawKeys = env[names.keys]?.trim();
+  const rawActive = env[names.activeKeyId]?.trim();
 
   const missingKeys: string[] = [];
-  if (!rawKeys) missingKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
-  if (!rawActive) missingKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId);
+  if (!rawKeys) missingKeys.push(names.keys);
+  if (!rawActive) missingKeys.push(names.activeKeyId);
   if (missingKeys.length > 0) {
     return Object.freeze({ status: "invalid" as const, missingKeys, invalidKeys: [] });
   }
@@ -180,8 +198,8 @@ export function resolveIntegrationEncryptionKeys(
   const keys = new Map<string, EncryptionKey>();
 
   /* The authoritative list must register at least one key on its own. */
-  if (registerKeyEntries(rawKeys!, INTEGRATION_ENCRYPTION_ENV_KEYS.keys, keys, invalidKeys) === 0) {
-    invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
+  if (registerKeyEntries(rawKeys!, names.keys, keys, invalidKeys) === 0) {
+    invalidKeys.push(names.keys);
   }
 
   /*
@@ -189,14 +207,14 @@ export function resolveIntegrationEncryptionKeys(
    * nothing is a configuration MISTAKE, not an absence, and refuses like any other malformed value.
    * Duplicates against the primary list are caught by the shared parser (same map, same check).
    */
-  const rawAdditional = env[INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys]?.trim();
+  const rawAdditional = env[names.additionalKeys]?.trim();
   if (rawAdditional) {
-    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, invalidKeys) === 0) {
-      invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys);
+    if (registerKeyEntries(rawAdditional, names.additionalKeys, keys, invalidKeys) === 0) {
+      invalidKeys.push(names.additionalKeys);
     }
   }
   if (!KEY_ID_RE.test(rawActive!) || !keys.has(rawActive!)) {
-    invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId);
+    invalidKeys.push(names.activeKeyId);
   }
 
   if (invalidKeys.length > 0) {

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
+@import "../styles/theme-dark.css";
 
 /*
  * Tailwind theme = alias layer over Hebun design tokens (src/styles/tokens.css).
@@ -8,6 +9,8 @@
  */
 @theme inline {
   --font-sans: var(--font-jakarta, ui-sans-serif), system-ui, sans-serif;
+  /* Technical values only: IDs, audit records, technical tables, code-like values (P2 Phase 2A). */
+  --font-mono: var(--font-jetbrains-mono, ui-monospace), SFMono-Regular, Menlo, monospace;
 
   /* Surfaces */
   --color-background: var(--color-bg);
@@ -16,6 +19,7 @@
   --color-surface-sunken: var(--color-surface-sunken);
   --color-border: var(--color-border);
   --color-border-strong: var(--color-border-strong);
+  --color-border-control: var(--color-border-control);
 
   /* Text */
   --color-fg: var(--color-text-primary);
@@ -42,6 +46,7 @@
   --color-error-subtle: var(--color-error-subtle);
   --color-info: var(--color-info);
   --color-info-subtle: var(--color-info-subtle);
+  --color-overlay: var(--color-overlay);
 
   /*
    * Type scale (Stage 0). ADDITIVE: these create `text-display|title|body|meta|label` alongside
@@ -671,6 +676,21 @@
 @media (min-width: 768px) {
   :root {
     --rail-w: var(--rail-inline-w);
+  }
+}
+
+/*
+ * P2 Phase 2B — Customer Workspace navigation width. Collapsed icon rail on tablet, the full
+ * sidebar from 1280px. Scoped to the customer shell; the Director rail above is untouched.
+ * `--shell-nav-w` is redeclared here because its calc() resolves where it is declared.
+ */
+[data-shell-experience="customer"] {
+  --rail-w: var(--sidebar-w-collapsed);
+  --shell-nav-w: var(--rail-w);
+}
+@media (min-width: 1280px) {
+  [data-shell-experience="customer"] {
+    --rail-w: var(--sidebar-w);
   }
 }
 

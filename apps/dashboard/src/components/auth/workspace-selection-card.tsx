@@ -26,7 +26,6 @@ import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { selectWorkspaceAction } from "@/app/login/actions";
-import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import {
   PRE_TENANT_RECEIPT,
   TENANT_SELECTION_EFFECT,
@@ -50,8 +49,11 @@ export interface WorkspaceOption {
 
 export function WorkspaceSelectionCard({
   workspaces,
+  landingRoute,
 }: {
   readonly workspaces: readonly WorkspaceOption[];
+  /** Resolved by the server page; the shell setting is not readable in the browser. */
+  readonly landingRoute: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -67,7 +69,7 @@ export function WorkspaceSelectionCard({
     startTransition(async () => {
       const result = await selectWorkspaceAction({ membershipId: selected });
       if (result.status === "selected") {
-        router.replace(AUTHENTICATED_LANDING_ROUTE);
+        router.replace(landingRoute);
         router.refresh();
         return;
       }

@@ -25,4 +25,19 @@
  * answered before this constant is ever read, by the seams that own them; a caller that has not
  * resolved a tenant must still refuse rather than redirect here.
  */
-export const AUTHENTICATED_LANDING_ROUTE = "/command";
+import { resolveShellExperience, type ShellExperience } from "@/config/customer-nav";
+
+/*
+ * P3 — the default follows the shell this deployment renders: the Customer Shell lands on its
+ * dashboard (`/home`), the Director shell on Command. The setting is the same server-side value the
+ * dashboard layout reads; it chooses a landing page and grants nothing — `/home` sits behind the
+ * same layout gate as every other route. Read on the server only: a client component must be handed
+ * the resolved route, because the setting does not exist in the browser.
+ */
+export function landingRouteFor(experience: ShellExperience): "/home" | "/command" {
+  return experience === "customer" ? "/home" : "/command";
+}
+
+export const AUTHENTICATED_LANDING_ROUTE = landingRouteFor(
+  resolveShellExperience(process.env.HEBUN_SHELL_EXPERIENCE),
+);

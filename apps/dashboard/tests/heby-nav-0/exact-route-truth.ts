@@ -109,6 +109,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/schedule-actions.ts",
   /* V1-STAGE-5: the support ticket boundary — file a ticket (any member), change its status (Governance authority). */
   "src/app/(dashboard)/tickets/actions.ts",
+  /* P4: the Platform Admin MFA challenge — one field (the code); grant and MFA are resolved on the server. */
+  "src/app/admin/verify/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
   /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the

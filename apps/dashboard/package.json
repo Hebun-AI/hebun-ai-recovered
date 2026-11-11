@@ -15,6 +15,7 @@
     "governance:nominate-genesis": "node --import tsx scripts/genesis-nominate.ts",
     "tenant:provision": "node --import tsx scripts/tenant-provision.ts",
     "tenant:lifecycle": "node --import tsx scripts/tenant-lifecycle.ts",
+    "operator": "node --import tsx scripts/operator.ts",
     "provider:connectivity": "node --import tsx scripts/provider-connectivity.ts",
     "platform:external-send": "node --import tsx scripts/external-send-arming.ts",
     "platform:machine-execution": "node --import tsx scripts/machine-execution-arming.ts",

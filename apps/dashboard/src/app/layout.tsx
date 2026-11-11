@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 /*
@@ -32,6 +32,19 @@ const jakarta = Plus_Jakarta_Sans({
   fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
 });
 
+/*
+ * P2 Phase 2A — the technical face, for `font-mono` only (IDs, audit records, technical tables).
+ * Loaded the same way as the brand face; a failed load falls back to the system mono stack the
+ * product used before, so no screen degrades below today's rendering.
+ */
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--font-jetbrains-mono",
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+});
+
 export const metadata: Metadata = {
   title: "Hebun AI — Dashboard",
   description: "The AI Operating System control plane.",
@@ -47,7 +60,7 @@ export default function RootLayout({
       lang="en"
       data-theme="light"
       data-scroll-behavior="smooth"
-      className={`${jakarta.variable} h-full antialiased`}
+      className={`${jakarta.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">{children}</body>
     </html>

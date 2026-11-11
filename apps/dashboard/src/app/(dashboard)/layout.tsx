@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { HebunShell } from "@/components/layout/hebun-shell";
+import { ThemeScope } from "@/components/theme/theme-scope";
 import type { ShellAccount } from "@/components/layout/account-menu";
+import { resolveShellExperience } from "@/config/customer-nav";
 import {
   getAuthEnvironment,
   readSwitchableWorkspacesForRequest,
@@ -60,10 +62,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  /* P2 Phase 2A: the authenticated workspace is the customer experience — Light unless chosen. */
   return (
-    <HebunShell account={account}>
-      <EmailOwnershipNotice state={emailOwnership} />
-      {children}
-    </HebunShell>
+    <ThemeScope experience="customer">
+      {/* P2 Phase 2B: a server-side deployment setting picks the navigation; default Director. */}
+      <HebunShell account={account} experience={resolveShellExperience(process.env.HEBUN_SHELL_EXPERIENCE)}>
+        <EmailOwnershipNotice state={emailOwnership} />
+        {children}
+      </HebunShell>
+    </ThemeScope>
   );
 }

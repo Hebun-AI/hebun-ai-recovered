@@ -138,7 +138,7 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M7 an active key id naming no registered key is tolerated",
     file: REGISTRY,
     suite: CRYPTO_SUITE,
-    find: '  if (!KEY_ID_RE.test(rawActive!) || !keys.has(rawActive!)) {\n    invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId);\n  }',
+    find: '  if (!KEY_ID_RE.test(rawActive!) || !keys.has(rawActive!)) {\n    invalidKeys.push(names.activeKeyId);\n  }',
     replace: "  /* mutated: the active id is no longer checked against the registry */",
     expect: "must FAIL CLOSED",
   },
@@ -151,8 +151,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M17 malformed ADDITIONAL configuration is swallowed instead of refusing",
     file: REGISTRY,
     suite: CRYPTO_SUITE,
-    find: "    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, invalidKeys) === 0) {",
-    replace: "    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, []) === 0) {",
+    /* P4: the registry body became the shared `resolveEncryptionKeys(names, env)`; the anchor follows it. */
+    find: "    if (registerKeyEntries(rawAdditional, names.additionalKeys, keys, invalidKeys) === 0) {",
+    replace: "    if (registerKeyEntries(rawAdditional, names.additionalKeys, keys, []) === 0) {",
     expect: "must FAIL CLOSED",
   },
   /* ── TENANT ISOLATION, ONE LAYER AT A TIME ──────────────────────────────── */

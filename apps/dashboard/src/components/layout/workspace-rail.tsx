@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { resolveShellSurface, workspacesForRole } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
+import { useShellExperience } from "./role-context";
+import { ShellNavRail } from "./shell-nav";
+import { CUSTOMER_NAV } from "@/config/customer-nav";
 import { HebyLauncher } from "./heby/heby-launcher";
 import { SecondaryNavContent } from "./secondary-nav";
 import { Sparkles } from "lucide-react";
@@ -16,6 +19,11 @@ import { Sparkles } from "lucide-react";
  */
 
 export function WorkspaceRail() {
+  /* P2 Phase 2B: the Customer Workspace has its own grouped navigation; Director is unchanged. */
+  return useShellExperience() === "customer" ? <ShellNavRail groups={CUSTOMER_NAV} /> : <DirectorRail />;
+}
+
+function DirectorRail() {
   const pathname = usePathname();
   const role = useRole();
   /*

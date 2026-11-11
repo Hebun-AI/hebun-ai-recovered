@@ -12,6 +12,8 @@
   --color-surface-sunken: #f1f4f8;
   --color-border:         #e2e7ef;
   --color-border-strong:  #c7d0dd;
+  /* P2 2C: the edge of an input, select or switch track — at least 3:1 on surface and sunken (WCAG 1.4.11). */
+  --color-border-control: #7d8a9c;
 
   /* ── Text ─────────────────────────────────── */
   --color-text-primary:   #142033;
@@ -45,6 +47,9 @@
   --color-on-success: #04130d;
   --color-on-warning: #1a1102;
   --color-on-error:   #ffffff;
+
+  /* ── Overlay (P2 Phase 2A) — the scrim behind a modal or drawer ── */
+  --color-overlay: rgba(15, 23, 42, 0.45);
 
   /* ── Type scale ───────────────────────────────
    * Stage 0. The FIRST type scale this repository has had: `07 - Design System` names one

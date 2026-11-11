@@ -52,7 +52,7 @@ export default async function RegisterPage(props: {
    * subsystem enforces nothing, so there is no account to create; a misconfigured one must not write
    * a credential.
    */
-  if (env.status === "disabled") redirect("/command");
+  if (env.status === "disabled") redirect(AUTHENTICATED_LANDING_ROUTE);
   if (env.status !== "configured" || env.provider !== "local") {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 p-8">

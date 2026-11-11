@@ -16,6 +16,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { rootColumns } from "./_base";
 import { authIdentities } from "./auth-identity";
+import { authMfaCredentials } from "./platform-operator";
 import { companies } from "./company";
 import { memberships } from "./membership";
 import { users } from "./user";
@@ -54,6 +55,15 @@ export const userSessionContexts = pgTable(
     recentAuthAt: timestamp("recent_auth_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     revocationReason: varchar("revocation_reason", { length: 64 }),
+    /*
+     * P4 — set only by the server when this session was elevated with a verified TOTP code; never
+     * from a client value. Both null on every ordinary session. Admin access additionally requires an
+     * active operator grant and that the bound credential is still active.
+     */
+    mfaVerifiedAt: timestamp("mfa_verified_at", { withTimezone: true }),
+    mfaCredentialId: uuid("mfa_credential_id").references(() => authMfaCredentials.id, {
+      onDelete: "restrict",
+    }),
   },
   (t) => [
     uniqueIndex("user_session_contexts_provider_session_digest_uq").on(
@@ -89,6 +99,10 @@ export const userSessionContexts = pgTable(
     check(
       "user_session_contexts_mfa_chk",
       sql`${t.mfaVerified} = false or ${t.assuranceLevel} in ('aal2', 'aal3')`,
+    ),
+    check(
+      "user_session_contexts_mfa_binding_chk",
+      sql`${t.mfaVerified} = (${t.mfaVerifiedAt} is not null) and (${t.mfaVerifiedAt} is null) = (${t.mfaCredentialId} is null)`,
     ),
     check(
       "user_session_contexts_tenant_membership_chk",
