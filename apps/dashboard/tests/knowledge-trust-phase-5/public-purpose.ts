@@ -152,7 +152,7 @@ async function main(): Promise<void> {
   const answer = codeOf("src/features/heby-answer/model-answer.server.ts");
   const publicBranch = answer.indexOf('if (purpose === "public-content") {');
   assert.ok(publicBranch > 0 && publicBranch < answer.indexOf("if (deps.resolveKnowledge) {"), "the public branch runs before, and instead of, the internal resolver");
-  assert.ok(answer.indexOf("if (publicKnowledgeBlocked) {") < answer.indexOf("const selection = (deps.selectTransport ?? selectModelTransport)(env);"), "a refusal is decided before any transport is selected");
+  assert.ok(answer.indexOf("if (publicKnowledgeBlocked) {") < answer.indexOf("const selection: TenantModelTransportSelection") /* P5 BYOK: the selection is now tenant-aware. */, "a refusal is decided before any transport is selected");
   /* Clients cannot set it: no action passes answer options from its input. */
   for (const action of ["src/app/(dashboard)/heby/actions.ts", "src/app/(dashboard)/operations/actions.ts"]) {
     assert.ok(!/knowledgePurpose/.test(codeOf(action)), `${action} cannot name a knowledge purpose`);

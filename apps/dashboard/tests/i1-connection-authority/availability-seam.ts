@@ -205,6 +205,8 @@ async function main(): Promise<void> {
       assert.deepEqual(
         listed,
         [
+          /* P5 BYOK: the tenant-owned Anthropic key, a model capability on the tenant's own account. */
+          "anthropic.model.messages",
           "github.repository.activity.read",
           "google.drive.content.read",
           "google.drive.file.content.read",
@@ -243,19 +245,19 @@ async function main(): Promise<void> {
       );
       assert.equal(github.sources.length, 0, "and no connection is offered as a source for it");
       assert.notEqual(
-        view.capabilities[0]!.state,
+        github.state, /* P5 BYOK: index 0 is now anthropic.model.messages; the claim is about the GitHub capability. */
         "available",
         "and an identity-only grant does NOT make it available",
       );
       assert.equal(
         PROVIDER_CATALOG.length,
         /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1 adds `google-youtube`, a second Google OAuth definition. */
-        5,
-        "five released providers, each with a real implementation behind it",
+        6, /* P5 BYOK adds `anthropic`, the tenant-owned model key. */
+        "six released providers, each with a real implementation behind it",
       );
       assert.deepEqual(
         PROVIDER_CATALOG.map((p) => p.providerKey),
-        ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
+        ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram", "anthropic"],
       );
     }
 

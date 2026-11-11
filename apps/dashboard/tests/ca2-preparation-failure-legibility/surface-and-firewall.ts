@@ -28,7 +28,7 @@ function everyFallbackIsNamed(): void {
   const code = codeOf(ANSWER);
   const notes = (code.match(/withNote\(\s*deterministic,/g) ?? []).length;
   const named = (code.match(/modelFallback: \{ kind: "/g) ?? []).length;
-  assert.equal(notes, 5, "A1 the answer flow has exactly five deterministic fallbacks");
+  assert.equal(notes, 6, "A1 the answer flow has exactly six deterministic fallbacks"); /* P5 BYOK B4 added the sixth: a revoked or failing tenant key, named provider-failed / missing-credential. */
   assert.equal(named, notes, "A2 every deterministic fallback names its closed reason");
   for (const kind of ["public-knowledge-blocked", "director-disabled", "provider-failed", "unavailable", "withheld"]) {
     assert.ok(code.includes(`modelFallback: { kind: "${kind}"`), `A3 the ${kind} fallback is named`);

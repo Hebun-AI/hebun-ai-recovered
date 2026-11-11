@@ -273,7 +273,7 @@ function theRuntimeChecksTheDirectorFirst(): void {
   const source = readFileSync("src/features/heby-answer/model-answer.server.ts", "utf8");
   const start = source.indexOf("const directorEnabled = await");
   assert.ok(start > 0, "the orchestration reads the Director control");
-  const transport = source.indexOf("selectTransport ?? selectModelTransport", start);
+  const transport = source.indexOf("selectTenantTransport ?? selectTenantModelTransport", start); /* P5 BYOK: the tenant-aware selector is the default. */
   assert.ok(
     transport > start,
     "the Director control is read BEFORE a transport is selected, so it is the first gate",

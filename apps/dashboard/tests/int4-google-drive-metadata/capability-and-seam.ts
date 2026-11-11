@@ -106,7 +106,9 @@ function theCapabilityIsNarrow(): void {
         c.startsWith("github.") ||
         c.startsWith("youtube.") ||
         /* The second integration provider. Its prefix is `instagram.`, never `meta.`. */
-        c.startsWith("instagram."),
+        c.startsWith("instagram.") ||
+        /* P5 BYOK: the tenant-owned Anthropic key. */
+        c.startsWith("anthropic."),
     ),
     "every mapped capability is named by a provider that exists",
   );
