@@ -133,6 +133,8 @@ function main(): void {
          * and a byte cap. No provider transport exists yet; this names the socket anyway.
          */
         "src/features/media-assets/provider-output-download.server.ts",
+        /* P5 BYOK (B5) — the customer-key verifier: one GET to Anthropic's models list, status only. */
+        "src/features/provider-anthropic/verify-anthropic-key.server.ts",
         /*
          * VPS media storage — the MediaObjectStore adapter. Reaches only the configured Hebun media
          * store origin (https enforced by the resolver), HMAC-signed, redirects refused, timed out.

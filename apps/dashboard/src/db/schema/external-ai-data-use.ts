@@ -51,6 +51,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { rootColumns, tenantColumns } from "./_base";
+import { companies } from "./company";
 import { actorTypeEnum, processorAttestationStateEnum, tenantExternalAiDataUseStateEnum } from "./_enums";
 import { decisionRecords, governanceSessions } from "./governance";
 
@@ -84,7 +85,9 @@ export const EXTERNAL_AI_TRAINING_SQL = ["none", "customer-opt-in", "provider-de
 export const EXTERNAL_AI_RETENTION_SQL = ["zero-data-retention", "bounded-30-days", "extended"] as const;
 export const EXTERNAL_AI_ZDR_SQL = ["enabled", "not-enabled"] as const;
 export const EXTERNAL_AI_IDENTITY_SQL = ["verified", "attested"] as const;
-export const EXTERNAL_AI_CONTROL_SOURCES_SQL = ["local-operator-ceremony", "production-operator-ceremony"] as const;
+export const EXTERNAL_AI_CONTROL_SOURCES_SQL = ["local-operator-ceremony", "production-operator-ceremony", "tenant-attestation"] as const;
+/** P5 BYOK B6 — the account ref of a tenant's own provider connection: this prefix + its integration id. */
+export const TENANT_ACCOUNT_REF_PREFIX = "tenant-byok:";
 
 /** `'a', 'b', 'c'` — for a CHECK over a closed list written in this file. */
 function inList(values: readonly string[]) {
@@ -128,6 +131,15 @@ export const processorAttestations = pgTable(
     supersedesAttestationId: uuid("supersedes_attestation_id").references(
       (): AnyPgColumn => processorAttestations.id,
     ),
+
+    /*
+     * P5 BYOK B6 — A TENANT'S OWN ACCOUNT. Null on every platform row. Set, the row describes the
+     * terms of one tenant's own Anthropic account, attested by a named human of that tenant, and its
+     * account ref is `tenant-byok:<that tenant's connection id>`. Only that tenant may authorize
+     * against it (the writer refuses any other), and the runtime only ever reads its own.
+     */
+    ownerTenantId: uuid("owner_tenant_id").references(() => companies.id, { onDelete: "restrict" }),
+    attestedByUserId: uuid("attested_by_user_id"),
   },
   (t) => [
     uniqueIndex("processor_attestations_lineage_revision_uq").on(t.serviceScope, t.accountRef, t.attestationRevision),
@@ -173,6 +185,14 @@ export const processorAttestations = pgTable(
     check(
       "processor_attestations_control_source_chk",
       sql`${t.controlSource} in (${inList(EXTERNAL_AI_CONTROL_SOURCES_SQL)})`,
+    ),
+    /** P5 BYOK B6 — a tenant row is exactly a tenant-attested, human-named, byok-prefixed row. */
+    check(
+      "processor_attestations_tenant_owner_chk",
+      sql`(${t.ownerTenantId} is not null) = (${t.controlSource} = 'tenant-attestation')
+        and (${t.ownerTenantId} is not null) = (${t.attestedByUserId} is not null)
+        and (${t.ownerTenantId} is not null) = (${t.accountRef} like ${sql.raw(`'${TENANT_ACCOUNT_REF_PREFIX}%'`)})
+        and (${t.ownerTenantId} is null or (${t.serviceScope} = ${sql.raw(`'${EXTERNAL_AI_SERVICE_SCOPES_SQL[0]}'`)} and ${t.identityStatus} = 'attested'))`,
     ),
   ],
 );

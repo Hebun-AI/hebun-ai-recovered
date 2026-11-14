@@ -41,9 +41,14 @@ const SRC = walk("src");
 /* ── 1. ONE FILE REACHES ANTHROPIC, AND ITS TRANSPORT IS MARKED. ──────────────────────────────── */
 const TRANSPORT = "src/features/heby-model-live/claude-http-transport.server.ts";
 assert.deepEqual(
-  SRC.filter((f) => /api\.anthropic\.com/.test(codeOf(read(f)))),
-  [TRANSPORT],
-  "the live transport is the only code that names the Anthropic host",
+  SRC.filter((f) => /api\.anthropic\.com/.test(codeOf(read(f)))).sort(),
+  /*
+   * P5 BYOK (design gate B5) adds the key verifier: one `GET /v1/models?limit=1` carrying only the
+   * customer's key, no tenant content and no prompt, response body never read. Nothing crosses that
+   * a data-use cell governs, so it is named here rather than routed through the generator gate.
+   */
+  [TRANSPORT, "src/features/provider-anthropic/verify-anthropic-key.server.ts"].sort(),
+  "the live transport and the BYOK key verifier are the only code that names the Anthropic host",
 );
 assert.match(codeOf(read(TRANSPORT)), /\[ANTHROPIC_MESSAGES_EGRESS\]: true,\s*async send\(/, "the transport it builds carries the egress mark");
 

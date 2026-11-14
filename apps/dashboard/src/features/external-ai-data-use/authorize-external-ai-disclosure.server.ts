@@ -65,6 +65,8 @@ export type AuthorizeExternalAiDisclosure = (
   operatorEnabled: boolean | null,
   /** APF-5. The model that WILL be sent: the generator's resolved value, never re-read. */
   modelId: string,
+  /** P5 BYOK B6 — the account the sending credential belongs to. Absent: the platform account. */
+  accountRef?: string,
 ) => Promise<DisclosureDecision>;
 
 export async function authorizeExternalAiDisclosure(
@@ -72,6 +74,12 @@ export async function authorizeExternalAiDisclosure(
   operatorEnabled: boolean | null,
   modelId: string,
   deps: ProcessorAttestationReadDeps = {},
+  /*
+   * P5 BYOK B6 — a tenant key's calls are judged against THAT tenant's own attested account
+   * (`tenant-byok:<connection>`) and its authorization under it, through the same composer and
+   * the same platform policy. The platform account's lineage never covers them.
+   */
+  accountRef: string = CONFIGURED_ANTHROPIC_ACCOUNT_REF,
 ): Promise<DisclosureDecision> {
   if (typeof window !== "undefined") throw new Error("External AI disclosure authorization is server-only.");
   const valid =
@@ -90,9 +98,9 @@ export async function authorizeExternalAiDisclosure(
   };
   const [attestation, tenant] = valid
     ? await Promise.all([
-        read(() => readLatestProcessorAttestation(ANTHROPIC_MESSAGES_SCOPE, CONFIGURED_ANTHROPIC_ACCOUNT_REF, deps)),
+        read(() => readLatestProcessorAttestation(ANTHROPIC_MESSAGES_SCOPE, accountRef, deps)),
         read(() =>
-          readEffectiveTenantExternalAiDataUse(declaration!.tenantId, ANTHROPIC_MESSAGES_SCOPE, CONFIGURED_ANTHROPIC_ACCOUNT_REF, deps),
+          readEffectiveTenantExternalAiDataUse(declaration!.tenantId, ANTHROPIC_MESSAGES_SCOPE, accountRef, deps),
         ),
       ])
     : [{ status: "unavailable" as const }, { status: "unavailable" as const }];
@@ -106,7 +114,7 @@ export async function authorizeExternalAiDisclosure(
       modelId: typeof modelId === "string" ? modelId : "",
     },
     policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
-    accountRef: CONFIGURED_ANTHROPIC_ACCOUNT_REF,
+    accountRef,
     attestation: attestation as Parameters<typeof composeExternalAiDisclosure>[0]["attestation"],
     tenant: tenant as Parameters<typeof composeExternalAiDisclosure>[0]["tenant"],
     operatorEnabled,
@@ -145,13 +153,14 @@ export function externalAiDisclosureEvidence(
   decision: DisclosureDecision,
   modelId: string,
   correlationId: string,
+  accountRef: string = CONFIGURED_ANTHROPIC_ACCOUNT_REF,
 ): ExternalAiDisclosureEvidence {
   return {
     tenantId: declaration.tenantId,
     actorUserId: declaration.actorUserId,
     correlationId,
     serviceScope: ANTHROPIC_MESSAGES_SCOPE,
-    accountRef: CONFIGURED_ANTHROPIC_ACCOUNT_REF,
+    accountRef,
     purpose: declaration.purpose,
     declaredDataClasses: [...new Set([...declaration.dataClasses, ...(declaration.optionalDataClasses ?? [])])],
     authorizedDataClasses: [...decision.authorizedDataClasses],

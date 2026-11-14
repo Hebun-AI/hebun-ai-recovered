@@ -117,6 +117,8 @@ const USE_SERVER_MODULES = [
    * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`. A second one appearing is a decision to record. */
   /* SUITE-RECOVERY-1: YOUTUBE-WRITE-1's channel-identity action. */
+  /* P5 BYOK slice 1: the tenant's own Anthropic key — store/replace/revoke through the released credential store. */
+  "src/app/(dashboard)/integrations/anthropic/actions.ts",
   "src/app/(dashboard)/integrations/google/actions.ts",
   "src/app/(dashboard)/integrations/instagram/actions.ts",
   "src/app/(dashboard)/intelligence/social/actions.ts",
@@ -345,7 +347,7 @@ function nothingElseMoved(): void {
     "20261008143657_l1b_agent_lifecycle_domain.sql",
     "20261013113340_eai_work_planning_purpose.sql",
     "20261014042643_work_update_v1_mandate_scope.sql",
-    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership.sql", /* RA-AUTH-1 — the `prepare-research` preparation kind joins the mandate scope CHECK and `research-report` joins `work_artifact_type`; additive. A declared later phase. */ "20261028183456_ra_auth_1_research_preparation.sql", /* RA-EAI-1 — `tenant_ai_data_use_scopes_purpose_chk` gains `research`; additive. A declared later phase. */ "20261029090953_ra_eai_1_research_purpose.sql", /* V1-STAGE-2 — content publication schedules (one additive table). A declared later phase. */ "20261109131304_v1_content_publication_intent.sql", "20261109142723_v1_support_tickets.sql", "20261110151557_p4_operator_mfa.sql",
+    /* PLAN-FOLLOW-UP-REFERENCE-V1 — two insert-only provenance tables (request source work; Work follow-up sources). A declared later phase. */ "20261020170430_plan_follow_up_source_work.sql", /* PLAN-STEP-IDEMPOTENCY-1 — one open proposal per AI plan step on action requests. A declared later phase. */ "20261022003246_plan_step_idempotency.sql", /* AUTH-EMAIL-OWNERSHIP-1 — the email ownership challenge table and the two identity proof columns. A declared later phase. */ "20261024105301_auth_email_ownership.sql", /* RA-AUTH-1 — the `prepare-research` preparation kind joins the mandate scope CHECK and `research-report` joins `work_artifact_type`; additive. A declared later phase. */ "20261028183456_ra_auth_1_research_preparation.sql", /* RA-EAI-1 — `tenant_ai_data_use_scopes_purpose_chk` gains `research`; additive. A declared later phase. */ "20261029090953_ra_eai_1_research_purpose.sql", /* V1-STAGE-2 — content publication schedules (one additive table). A declared later phase. */ "20261109131304_v1_content_publication_intent.sql", "20261109142723_v1_support_tickets.sql", "20261110151557_p4_operator_mfa.sql", "20261111140821_p5_byok_attribution_and_attestation.sql",
   ];
   const journal = (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] }).entries.map((e) => `${e.tag}.sql`);
   assert.deepEqual(journal, migrations, "the journal and the files agree, in order");

@@ -245,6 +245,36 @@ function resolveImport(spec: string, from: string): string | null {
   return null;
 }
 
+/*
+ * P5 BYOK — THE ONE NAMED DOOR. Heby now spends the tenant's own Anthropic key, so it reaches the
+ * integration and credential authorities through exactly one module, the tenant key selector. Those
+ * modules also DEFINE writers, so the walk stops at the selector and the selector itself is pinned:
+ * its whole import list, and the only symbols it takes from either authority, which are reads.
+ */
+const BYOK_SELECTOR = "src/features/provider-anthropic/model-credential.server.ts";
+function byokSelectorEntersForReadsOnly(): void {
+  const code = codeOf(read(BYOK_SELECTOR));
+  const specifiers = [...code.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(specifiers, [
+    "@/db/client.server",
+    "@/db/schema/external-ai-data-use",
+    "@/features/auth/tenant/tenant-context",
+    "@/features/integration-authority/integration-repository.server",
+    "@/features/integration-authority/contracts",
+    "@/features/integration-credentials/credential-repository.server",
+    "@/features/heby-model/model-error",
+    "@/features/heby-model/model-transport-selection.server",
+    "@/features/heby-model-live/claude-http-transport.server",
+    "./contracts",
+  ], "the BYOK selector's imports are pinned; a new edge must be argued here");
+  const named = (mod: string): string[] =>
+    [...code.matchAll(new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*"${mod}"`, "g"))]
+      .flatMap((m) => m[1]!.split(",").map((s) => s.trim()).filter(Boolean))
+      .sort();
+  assert.deepEqual(named("@/features/integration-authority/integration-repository.server"), ["listConnections"], "the selector takes only a connection READ from the integration authority");
+  assert.deepEqual(named("@/features/integration-credentials/credential-repository.server"), ["listCredentialMetadata", "withDecryptedSecret"], "the selector takes only credential READS from the credential authority");
+}
+
 function reachableFrom(entry: string, stopAt: readonly string[] = []): Set<string> {
   const seen = new Set<string>();
   const stack = [entry];
@@ -279,7 +309,9 @@ function workArtifactsStillReachesNoProvider(): void {
    * and proves the seam does not reach one — which is why the composition is a separate module and
    * why what crosses into preparation is a string.
    */
-  const graph = reachableFrom(PREPARATION_SEAM);
+  byokSelectorEntersForReadsOnly();
+  const graph = reachableFrom(PREPARATION_SEAM, [BYOK_SELECTOR]);
+  graph.delete(BYOK_SELECTOR);
   for (const [label, file] of [
     ["the YouTube read seam", YOUTUBE_READ],
     ["the YouTube transport", YOUTUBE_TRANSPORT],
@@ -330,7 +362,8 @@ function workArtifactsStillReachesNoProvider(): void {
 
 function theCompositionReachesYouTubeAndNothingItMustNot(): void {
   const full = reachableFrom(COMPOSITION);
-  const graph = reachableFrom(COMPOSITION, [CREDENTIAL_REPO]);
+  /* P5 BYOK — the answer path now reaches the tenant key selector; its reads are pinned in byokSelectorEntersForReadsOnly. */
+  const graph = reachableFrom(COMPOSITION, [CREDENTIAL_REPO, BYOK_SELECTOR]);
 
   assert.ok(graph.has(YOUTUBE_TRANSPORT), "the composition reaches the YouTube transport — that is its job");
   for (const [label, file] of [["GitHub", GITHUB_TRANSPORT], ["Google", GOOGLE_TRANSPORT]] as const) {

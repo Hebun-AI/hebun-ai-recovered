@@ -63,6 +63,9 @@ export interface AppendMessageInput {
   readonly outputTokens?: number;
   /** Derived total (input + output) when both are known; never invented. */
   readonly tokenCount?: number;
+  /** P5 BYOK B7 — whose credential carried a live call; the connection id only for `tenant`. */
+  readonly credentialSource?: "platform" | "tenant";
+  readonly credentialIntegrationId?: string;
 }
 
 export interface DurableMessageRecord {
@@ -473,6 +476,8 @@ export function createDurableConversationRepository(
             inputTokens: assistant.inputTokens ?? null,
             outputTokens: assistant.outputTokens ?? null,
             tokenCount: assistant.tokenCount ?? null,
+            credentialSource: assistant.credentialSource ?? null,
+            credentialIntegrationId: assistant.credentialIntegrationId ?? null,
             createdBy: scope.actorId ?? null,
           })
           .returning();

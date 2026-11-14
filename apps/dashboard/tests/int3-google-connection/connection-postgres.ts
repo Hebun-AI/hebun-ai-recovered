@@ -331,7 +331,7 @@ async function main(): Promise<void> {
         "the Drive capability is offered to this connection",
       );
       assert.ok(
-        listed.every((c) => c.startsWith("google.") || c.startsWith("github.") || c.startsWith("youtube.") || c.startsWith("instagram.")),
+        listed.every((c) => c.startsWith("google.") || c.startsWith("github.") || c.startsWith("youtube.") || c.startsWith("instagram.") || c.startsWith("anthropic.")) /* P5 BYOK slice 1 */,
         "every offered capability is named by a provider that exists",
       );
       assert.notEqual(

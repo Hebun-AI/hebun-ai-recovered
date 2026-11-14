@@ -45,8 +45,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B2 the gate checks a model other than the one sent",
     file: GENERATOR,
     suite: PG,
-    find: "          modelId,\n        );",
-    replace: '          "claude-haiku-4-5-20251001",\n        );',
+    /* P5 BYOK: the gate now also takes the sending account, so the anchor is the model argument before it. */
+    find: "          modelId,\n          accountRef,\n        );",
+    replace: '          "claude-haiku-4-5-20251001",\n          accountRef,\n        );',
     because: "a non-attested model is refused before the network",
   },
   {

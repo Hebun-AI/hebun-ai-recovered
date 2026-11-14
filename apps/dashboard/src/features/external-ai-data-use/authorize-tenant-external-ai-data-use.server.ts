@@ -205,6 +205,8 @@ export async function authorizeTenantExternalAiDataUse(
       const chosenRows = await tx.select().from(processorAttestations).where(eq(processorAttestations.id, attestationId)).limit(1);
       const chosenRow = chosenRows[0];
       if (!chosenRow) throw new Abort("attestation-unknown");
+      /* P5 BYOK B6 — another tenant's own-account attestation does not exist for this tenant. */
+      if (chosenRow.ownerTenantId !== null && chosenRow.ownerTenantId !== tenant.tenantId) throw new Abort("attestation-unknown");
       const chosen = toAttestationView(chosenRow);
       if (!chosen) throw new Abort("persistence-unavailable");
       const latestRows = await tx

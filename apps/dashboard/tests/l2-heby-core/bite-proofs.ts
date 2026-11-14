@@ -121,8 +121,9 @@ const MUTATIONS: readonly Mutation[] = [
      */
     label: "L5 the runtime selects a transport before reading the Director control",
     file: ANSWER,
-    find: `    const selection = (deps.selectTransport ?? selectModelTransport)(env);`,
-    replace: `    const selection = (deps.selectTransportEarly ?? selectModelTransport)(env);`,
+    /* P5 BYOK: re-anchored on the tenant-aware default selector. */
+    find: `      : await (deps.selectTenantTransport ?? selectTenantModelTransport)(tenant, env);`,
+    replace: `      : await (deps.selectTenantTransportEarly ?? selectTenantModelTransport)(tenant, env);`,
     expect: "the Director control is read BEFORE a transport is selected",
   },
 ];
