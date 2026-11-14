@@ -113,3 +113,24 @@ export async function selectTenantModelTransport(
     transportProvenance: "live",
   };
 }
+
+/** Whether this deployment sends to a real provider. Only then does whose key carries the call matter. */
+export const isLiveModelTransport = (env: Readonly<Record<string, string | undefined>> = process.env): boolean =>
+  env[MODEL_TRANSPORT_ENV_KEY]?.trim() === "live";
+
+/**
+ * P6 D4 — the tenant's OWN key or nothing. Research runs only on the tenant's own Anthropic key until
+ * GATE-D-PROVIDER-RECONCILIATION-1 closes: where `selectTenantModelTransport` would fall back to the
+ * platform key (the tenant holds no Anthropic connection), this refuses instead. Asked again at dispatch,
+ * so a key withdrawn after the seam's preflight never moves the call onto the platform account.
+ */
+export async function selectTenantOwnModelTransport(
+  tenant: TenantContext | null,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  deps: TenantModelCredentialDeps = {},
+): Promise<TenantModelTransportSelection> {
+  if (!isLiveModelTransport(env)) return selectModelTransport(env);
+  const credential = await resolveTenantModelCredential(tenant, deps);
+  if (credential.kind !== "tenant") return { byokRefusal: credential.kind === "refused" ? credential.reason : "byok-unavailable" };
+  return selectTenantModelTransport(tenant, env, deps);
+}

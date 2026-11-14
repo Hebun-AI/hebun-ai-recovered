@@ -11,6 +11,7 @@ import type { WorkStateSelection } from "@/features/heby-action-inlet/work-state
 import Link from "next/link";
 import { HebyWorkStateAffordance } from "./heby-work-state-affordance";
 import { HebyWorkDraftAffordance } from "./heby-work-draft-affordance";
+import { HebyResearchAffordance } from "./heby-research-affordance";
 
 export function HebyWorkStateSelection({ selection }: { readonly selection: WorkStateSelection }) {
   return (
@@ -37,6 +38,8 @@ export function HebyWorkStateSelection({ selection }: { readonly selection: Work
               <HebyWorkStateAffordance workItemId={selection.workItemId} declaredState={selection.declaredState} />
               {/* AGENT-EXECUTION-1 — assign a responsible agent one draft for this work, and follow it. */}
               <HebyWorkDraftAffordance workItemId={selection.workItemId} />
+              {/* P6-1 — ask a responsible agent for an unsourced research draft on this work. */}
+              <HebyResearchAffordance workItemId={selection.workItemId} />
             </>
           )}
         </>

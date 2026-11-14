@@ -4,6 +4,7 @@ import {
   Bot,
   CheckCircle2,
   CircleDashed,
+  FileSearch,
   History,
   Info,
   ListChecks,
@@ -33,8 +34,14 @@ export interface CustomerHomeProps {
   waiting: WaitingOnYouState;
   work: WorkInMotionState;
   activity: SecurityRecordedActObservation;
+  /** P6-1 — the organization's research drafts, newest first; read-only. */
+  research: ResearchReportsState;
   evaluatedAt: string;
 }
+
+export type ResearchReportsState =
+  | { readonly status: "unavailable" }
+  | { readonly status: "read"; readonly reports: readonly { readonly id: string; readonly title: string; readonly createdAt: string }[] };
 
 const SHOWN = 4;
 
@@ -199,7 +206,7 @@ function Stat({ value, label, href }: WorkspaceStat) {
   );
 }
 
-export function CustomerHome({ name, organization, waiting, work, activity, evaluatedAt }: CustomerHomeProps) {
+export function CustomerHome({ name, organization, waiting, work, activity, research, evaluatedAt }: CustomerHomeProps) {
   const orgName = organization.organization.status === "named" ? organization.organization.name : null;
   const modules = CUSTOMER_NAV.flatMap((group) => group.items).filter((item) => item.href !== "/home");
   const status = workspaceStatus({ waiting, work, organization });
@@ -363,6 +370,21 @@ export function CustomerHome({ name, organization, waiting, work, activity, eval
           )}
         </Panel>
       </div>
+
+      {/* ── P6-1 · Research reports — read-only; filed from a work item in Heby ── */}
+      <Panel title="Research reports" icon={FileSearch} href="/operations" hrefLabel="Review in Operations">
+        {research.status === "unavailable" ? (
+          <Quiet tone="unavailable" title={UNAVAILABLE_MESSAGE} />
+        ) : research.reports.length === 0 ? (
+          <Quiet tone="empty" title="No research reports yet" detail="Ask a responsible agent for research from a work item in Heby." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {research.reports.slice(0, SHOWN).map((report) => (
+              <Row key={report.id} dot="primary" title={report.title} meta={["Unsourced research draft", since(report.createdAt, evaluatedAt)].filter(Boolean).join(" · ")} />
+            ))}
+          </ul>
+        )}
+      </Panel>
 
       {/* ── E. Workspace overview ──────────────────────────────────── */}
       <section aria-labelledby="home-modules">

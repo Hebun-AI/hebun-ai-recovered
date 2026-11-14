@@ -8,6 +8,8 @@ import { summariseLiveMap } from "@/features/live-map/awareness";
 import { readSecurityRecordedActObservation } from "@/features/governance-activity/security-observation-source.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { resolveHumanNames } from "@/features/auth-runtime/human-label-read.server";
+import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
+import { RESEARCH_REPORT_ARTIFACT_TYPE } from "@/features/work-artifacts/contracts";
 
 export const metadata = { title: "Home — Hebun AI" };
 
@@ -23,13 +25,14 @@ export const metadata = { title: "Home — Hebun AI" };
  */
 export default async function CustomerHomePage() {
   const tenant = await resolveTenantContext();
-  const [pending, awaiting, liveMap, recordedActs, work, humanNames] = await Promise.all([
+  const [pending, awaiting, liveMap, recordedActs, work, humanNames, artifacts] = await Promise.all([
     readPendingActionRequests(tenant),
     readAwaitingDecisionAggregate(tenant),
     readLiveMapProjection(tenant),
     readSecurityRecordedActObservation(tenant),
     readWorkRegister(tenant),
     resolveHumanNames(tenant, tenant?.userId ? [tenant.userId] : []),
+    listWorkArtifacts(tenant),
   ]);
   /* One instant for every duration this page renders. */
   const evaluatedAt = new Date().toISOString();
@@ -41,6 +44,17 @@ export default async function CustomerHomePage() {
       waiting={toWaitingOnYou(pending, { evaluatedAt, aggregate: awaiting })}
       work={toWorkInMotion(work)}
       activity={recordedActs}
+      research={
+        artifacts.status === "read"
+          ? {
+              status: "read",
+              reports: artifacts.artifacts
+                .filter((a) => a.artifactType === RESEARCH_REPORT_ARTIFACT_TYPE)
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .map(({ id, title, createdAt }) => ({ id, title, createdAt })),
+            }
+          : { status: "unavailable" }
+      }
       evaluatedAt={evaluatedAt}
     />
   );

@@ -525,17 +525,32 @@ async function main(): Promise<void> {
     assert.equal(r9a.status === "not-prepared" ? r9a.reason : JSON.stringify(r9a), "governance-authority-changed-while-preparing", "R9a");
     const after9a = await world();
     assert.deepEqual([after9a.research, after9a.filed, after9a.fetches], [before9a.research, before9a.filed, before9a.fetches + 1], "R9a: dispatched once, filed nothing");
-    /* b) two simultaneous preparations under one revision: each its own dispatch, report and filing row, same revision. */
+    /*
+     * b) P6-1 — two simultaneous preparations for the same (work, agent): ONE dispatches and files, the
+     *    other is refused before the model (RA-PREP-1-CONCURRENT-DISPATCH-1, closed by the advisory lock).
+     *    Until P6-1 this asserted both filed; that was the recorded deferred defect, not a rule.
+     */
     const revNow = await effectiveMandate(researcher);
+    const before9b = await world();
     const pair = await Promise.all([ask(acme, work, researcher), ask(acme, work, researcher)]);
-    assert.deepEqual(pair.map((r) => r.status), ["prepared", "prepared"], JSON.stringify(pair));
-    const pairRows = await Promise.all(pair.map(async (r) => (await filedRow(r.status === "prepared" ? r.artifactId : ""))[0]!.metadata.mandateId));
-    assert.deepEqual(pairRows, [revNow.id, revNow.id], "R9b: both filings name the one revision they rested on");
-    /* c) the persistent dispatch cap holds under concurrency: with room for ONE more, two simultaneous requests dispatch once. */
+    const after9b = await world();
+    assert.deepEqual(
+      pair.map((r) => (r.status === "refused" ? `refused:${r.reason}` : r.status)).sort(),
+      ["prepared", "refused:research-in-progress"],
+      JSON.stringify(pair),
+    );
+    assert.deepEqual([after9b.fetches - before9b.fetches, after9b.research - before9b.research], [1, 1], "R9b: one dispatch, one report");
+    const filedOne = pair.find((r) => r.status === "prepared");
+    assert.equal((await filedRow(filedOne?.status === "prepared" ? filedOne.artifactId : ""))[0]!.metadata.mandateId, revNow.id, "R9b: the filing names the revision it rested on");
+    /*
+     * c) the persistent dispatch cap holds under concurrency: with room for ONE more, two simultaneous
+     *    requests on DIFFERENT work items (so the per-work lock does not decide it) dispatch once.
+     */
+    const work9c = await scopedWork(acme, { kind: "domain", workDomainId: research }, `${WORK_TITLE} (cap race)`);
     const spent = await n(`select count(*)::int n from audit_log where tenant_id = $1 and action = 'external-ai.disclosure.authorized'`, [acmeSeed.tenantId]);
     const capEnv = { ...ENV, HEBUN_AI_DISPATCH_CAP_MODEL_PER_TENANT_DAY: String(spent + 1) };
     const before9c = await world();
-    const raced = await Promise.all([ask(acme, work, researcher, {}, QUESTION, capEnv), ask(acme, work, researcher, {}, QUESTION, capEnv)]);
+    const raced = await Promise.all([ask(acme, work, researcher, {}, QUESTION, capEnv), ask(acme, work9c, researcher, {}, QUESTION, capEnv)]);
     const after9c = await world();
     assert.deepEqual(raced.map((r) => r.status).sort(), ["not-prepared", "prepared"], `R9c: ${JSON.stringify(raced)}`);
     assert.deepEqual([after9c.fetches - before9c.fetches, after9c.research - before9c.research], [1, 1], "R9c: the cap admits exactly one dispatch");
@@ -547,12 +562,42 @@ async function main(): Promise<void> {
     const r9d = await ask(acme, work, researcher);
     assert.equal(r9d.status, "prepared", "R9d: disclosure is decided at dispatch; withdrawal stops the NEXT request");
 
+    /* ── R10 · P6 D4 — a live deployment researches only on the tenant's own key ── */
+    const LIVE = { ...ENV, HEBUN_MODEL_TRANSPORT: "live" };
+    /* a) no Anthropic connection: the platform key is never used for research; refused before the model. */
+    await refusedBeforeModel("live, no own key", () => ask(acme, work, researcher, {}, QUESTION, LIVE), "research-requires-own-key");
+    /* b) a revoked or unverified own key is refused the same way. */
+    await refusedBeforeModel(
+      "live, own key revoked",
+      () => ask(acme, work, researcher, { resolveCredential: async () => ({ kind: "refused", reason: "byok-key-revoked" }) }, QUESTION, LIVE),
+      "research-requires-own-key",
+    );
+    /* c) a verified own key: the preflight asks about THAT account — the one the dispatch is judged against. */
+    const askedAccounts: (string | undefined)[] = [];
+    await refusedBeforeModel(
+      "live, own key, preflight account",
+      () =>
+        ask(
+          acme,
+          work,
+          researcher,
+          {
+            resolveCredential: async () => ({ kind: "tenant", integrationId: "00000000-0000-4000-8000-0000000000b5", credentialId: "c" }),
+            authorizeDisclosure: async (_d, _o, _m, accountRef) => (askedAccounts.push(accountRef), { disposition: "refused" } as never),
+          },
+          QUESTION,
+          LIVE,
+        ),
+      "research-data-use-not-authorized",
+    );
+    assert.deepEqual(askedAccounts, ["tenant-byok:00000000-0000-4000-8000-0000000000b5"], "R10c: the preflight judges the tenant's own account");
+
     /* ── R3 (last) · withdrawal ends it ── */
     await refusedBeforeModel("research scope withdrawn", () => ask(acme, work, researcher), "research-data-use-not-authorized");
 
     assert.equal(networkCalls, 0, "the real network was never reached");
     finished = true;
-    console.log("ra-prep-1/research-preparation-postgres: R1–R9 PASS");
+    console.log("ra-prep-1/research-preparation-postgres: R1–R10 PASS");
   } finally {
     await setup.end().catch(() => {});
     await (handle as { dispose?: () => Promise<void> }).dispose?.().catch?.(() => {});

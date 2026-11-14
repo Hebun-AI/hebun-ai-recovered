@@ -18,6 +18,7 @@ import { revokeByokKey, saveByokKey } from "../../src/features/provider-anthropi
 import {
   resolveTenantModelCredential,
   selectTenantModelTransport,
+  selectTenantOwnModelTransport,
   tenantAnthropicAccountRef,
 } from "../../src/features/provider-anthropic/model-credential.server";
 import { anthropicCredentialOf } from "../../src/features/heby-model-live/claude-http-transport.server";
@@ -158,6 +159,19 @@ async function main(): Promise<void> {
     assert.equal(await send(aSel.transport), "sent");
     assert.deepEqual(sent, [KEY_A], "the tenant's key, and only it, went out");
     ok("verified BYOK: the tenant's key carries the call");
+
+    /* ── P6 D4 · own key or nothing: research never falls back to the platform key ── */
+    const bOwn = await selectTenantOwnModelTransport(B, LIVE_ENV, deps);
+    assert.equal(bOwn.transport, undefined, "a tenant without its own key gets no transport");
+    assert.equal(bOwn.byokRefusal, "byok-unavailable");
+    assert.deepEqual(anthropicCredentialOf((await selectTenantOwnModelTransport(A, LIVE_ENV, deps)).transport), {
+      source: "tenant",
+      integrationId: aIntegration,
+      accountRef: tenantAnthropicAccountRef(aIntegration),
+    });
+    assert.equal((await selectTenantOwnModelTransport(C, LIVE_ENV, deps)).byokRefusal, "byok-not-verified");
+    assert.equal((await selectTenantOwnModelTransport(B, { HEBUN_MODEL_TRANSPORT: "fake" }, deps)).transportProvenance, "fake", "fake mode unchanged");
+    ok("own-key selector: tenant key or refusal, never the platform key");
 
     /* ── 1 · tenant isolation ── */
     sent.length = 0;

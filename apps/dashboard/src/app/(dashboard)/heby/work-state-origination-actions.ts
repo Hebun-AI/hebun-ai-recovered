@@ -28,6 +28,12 @@ import {
   type ReviseWorkDraftResult,
   type WorkDraftChoices,
 } from "@/features/agent-work/assign-work-draft.server";
+import {
+  assignResearchReport,
+  readResearchChoices,
+  type AssignResearchReportResult,
+  type ResearchChoices,
+} from "@/features/agent-work/assign-research-report.server";
 
 export async function proposeWorkStateChangeAction(input: {
   readonly workItemId: string;
@@ -87,6 +93,33 @@ export async function assignWorkDraftAction(input: {
 }
 
 /*
+ * P6-1 — the research door for the same work item (RA-PREP-1-NO-SURFACE-1). The tenant comes from the
+ * session; the client sends ids and words only. The seam asks every authority again before the model,
+ * refuses a second request for the same (work, agent) while one runs, and files an UNSOURCED RESEARCH
+ * DRAFT for review. Linking it as this work's evidence stays the person's own act on /director/work.
+ */
+export async function readResearchChoicesAction(input: { readonly workItemId: string }): Promise<ResearchChoices> {
+  return readResearchChoices(await resolveTenantContext(), input?.workItemId);
+}
+
+export async function assignResearchReportAction(input: {
+  readonly workItemId: string;
+  readonly agentId: string;
+  readonly question: string;
+  readonly title: string;
+}): Promise<AssignResearchReportResult> {
+  const result = await assignResearchReport(
+    { workItemId: input?.workItemId, agentId: input?.agentId, question: input?.question, title: input?.title },
+    { resolveTenant: resolveTenantContext },
+  );
+  if (result.status === "prepared") {
+    revalidatePath("/operations");
+    revalidatePath("/home");
+  }
+  return result;
+}
+
+/*
  * HEBY-WORKFLOW-1 — after Governance asked for changes on a draft linked to this work, the person asks a
  * responsible agent for the next revision. The revision and the change request the person read travel as
  * staleness keys only; the seam re-reads both, and the new revision waits for Governance review.
@@ -113,3 +146,4 @@ export async function reviseWorkDraftAction(input: {
   if (result.status === "prepared" || result.status === "prepared-stale") revalidatePath("/operations");
   return result;
 }
+
