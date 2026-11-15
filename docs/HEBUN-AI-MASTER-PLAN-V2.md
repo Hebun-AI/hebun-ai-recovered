@@ -216,6 +216,10 @@ calls for it.
    kill switch, migration 88) are on `main` (`cee23d2b`); P6-2 is DEPLOYED (§21). In production no standing
    authorization exists, the kill switch is off and no research has run; web search (P6-3) and the 08:00
    schedule (P6-4) are not built.
+   **Update 2026-11-15 (P6-3):** web-search research under its own data-use class `web-search` is on `main`
+   (`00c30bc5`, migration 89) and DEPLOYED (§21). No platform cell records research × web-search
+   (RA-EAI-1-WEB-SEARCH-1 stays DEFERRED), so no tenant can grant it and production research stays
+   unsourced; no real web search has run. The 08:00 schedule (P6-4) is not built.
 4. **Missing.** A reachable research entry point; an external research source; tenant research
    authorization; the daily schedule.
 5. **Dependencies.** P5; GATE-D; a data-use decision for any new source.
