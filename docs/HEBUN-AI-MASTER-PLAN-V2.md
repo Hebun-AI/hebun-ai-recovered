@@ -220,6 +220,11 @@ calls for it.
    (`00c30bc5`, migration 89) and DEPLOYED (§21). No platform cell records research × web-search
    (RA-EAI-1-WEB-SEARCH-1 stays DEFERRED), so no tenant can grant it and production research stays
    unsourced; no real web search has run. The 08:00 schedule (P6-4) is not built.
+   **Update 2026-11-16 (P6-4):** the 08:00 Europe/Istanbul scheduled research run is on `main` (`5e73b805`,
+   migration 90) and DEPLOYED (§21): a machine principal minted from the standing authorization, every
+   check re-asked before the model, one run per tenant per day. It is inert in production — the cron
+   secret is unset, `research-schedule` is off and no tenant holds a standing authorization — so P6's
+   "done" (a sourced 08:00 report observed in production) is not yet reached.
 4. **Missing.** A reachable research entry point; an external research source; tenant research
    authorization; the daily schedule.
 5. **Dependencies.** P5; GATE-D; a data-use decision for any new source.
