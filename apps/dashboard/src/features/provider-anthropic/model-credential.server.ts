@@ -20,6 +20,7 @@ import { listConnections } from "@/features/integration-authority/integration-re
 import { isTerminalConnectionState } from "@/features/integration-authority/contracts";
 import {
   listCredentialMetadata,
+  withConnectionScopedSecret,
   withDecryptedSecret,
 } from "@/features/integration-credentials/credential-repository.server";
 import { ModelConnectivityError } from "@/features/heby-model/model-error";
@@ -48,7 +49,7 @@ export const tenantAnthropicAccountRef = (integrationId: string): string =>
 
 /** B4, as a pure read of the tenant's own connection. Fails closed: unreadable is refused, not platform. */
 export async function resolveTenantModelCredential(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   deps: TenantModelCredentialDeps = {},
 ): Promise<TenantModelCredential> {
   if (!tenant?.tenantId) return { kind: "refused", reason: "byok-unavailable" };
@@ -133,4 +134,43 @@ export async function selectTenantOwnModelTransport(
   const credential = await resolveTenantModelCredential(tenant, deps);
   if (credential.kind !== "tenant") return { byokRefusal: credential.kind === "refused" ? credential.reason : "byok-unavailable" };
   return selectTenantModelTransport(tenant, env, deps);
+}
+
+/**
+ * P6-4 (D9) — the tenant's OWN key or nothing, for a SCHEDULED research run, which has no person.
+ *
+ * It cannot open a credential by id (`withDecryptedSecret` keeps requiring a person, on purpose). It
+ * names the tenant's live Anthropic connection and the `api_key` kind and spends that one key inside one
+ * callback frame (`withConnectionScopedSecret`, TRH-24), refusing when the connection holds two. No
+ * connection, a revoked or unverified key, or any read failure refuses: never the platform key.
+ */
+export async function selectScheduledResearchModelTransport(
+  tenantId: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+  deps: TenantModelCredentialDeps = {},
+): Promise<TenantModelTransportSelection> {
+  if (!isLiveModelTransport(env)) return selectModelTransport(env);
+  const tenant = { tenantId };
+  const credential = await resolveTenantModelCredential(tenant, deps);
+  if (credential.kind !== "tenant") return { byokRefusal: credential.kind === "refused" ? credential.reason : "byok-unavailable" };
+  const repo = { getDb: deps.getDb, env: deps.env ?? env };
+  const withApiKey = async <T>(run: (apiKey: string) => Promise<T>): Promise<T> => {
+    let sent = false;
+    const used = await withConnectionScopedSecret(tenant, credential.integrationId, "api_key", (key) => ((sent = true), run(key)), repo).catch(
+      (error: unknown) => {
+        if (sent) throw error;
+        return { status: "refused" } as const;
+      },
+    );
+    if (used.status !== "used") {
+      throw new ModelConnectivityError("missing-credential", "The organization's Anthropic key is not available.");
+    }
+    return used.value;
+  };
+  return {
+    transport: createLiveClaudeTransport({
+      tenantCredential: { withApiKey, integrationId: credential.integrationId, accountRef: tenantAnthropicAccountRef(credential.integrationId) },
+    }),
+    transportProvenance: "live",
+  };
 }

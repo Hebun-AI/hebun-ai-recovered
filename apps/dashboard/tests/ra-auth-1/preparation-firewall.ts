@@ -150,8 +150,9 @@ function sourceFiles(dir: string): string[] {
   });
 }
 const src = sourceFiles("src");
-/* RA-PREP-1 — exactly one server module performs it (was: none). */
-for (const file of src.filter((f) => f.endsWith(".server.ts") && f !== path.join("src", "features", "agent-work", "assign-research-report.server.ts"))) {
+/* RA-PREP-1 — exactly one server module performs it (was: none). P6-4 (D9) — and the scheduled run, the second performer. */
+const PERFORMERS = [path.join("src", "features", "agent-work", "assign-research-report.server.ts"), path.join("src", "features", "standing-research-authority", "scheduled-research.server.ts")];
+for (const file of src.filter((f) => f.endsWith(".server.ts") && !PERFORMERS.includes(f))) {
   assert.doesNotMatch(read(file), /prepare-research-report/, `P6: ${file} performs no research capability`);
 }
 for (const file of src.filter((f) =>

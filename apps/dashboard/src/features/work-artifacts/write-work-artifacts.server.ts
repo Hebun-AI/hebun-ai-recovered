@@ -144,9 +144,28 @@ export interface CreateResearchReportInput {
  * revision 1 exists, which every reader would then have to defend against forever. An artifact
  * exists because content was written into it.
  */
+/**
+ * P6-4 (D9) — who creates a SCHEDULED research report: no person. The scheduled research runner's
+ * run, attributed to `system`, in the tenant its standing authorization names. Made only by
+ * `createResearchReportFromScheduledResearch`; no human entry point accepts one.
+ */
+interface ScheduledResearchCreator {
+  readonly scheduled: true;
+  readonly tenantId: string;
+  readonly runId: string;
+}
+
 async function insertArtifactWithFirstRevision(
-  tenant: TenantContext | null,
-  input: CreateWorkArtifactInput | (CreateResearchReportInput & { readonly artifactType: typeof RESEARCH_REPORT_ARTIFACT_TYPE; readonly intendedDestination?: undefined }) | null,
+  tenant: TenantContext | ScheduledResearchCreator | null,
+  input:
+    | CreateWorkArtifactInput
+    /* P6-4 — a scheduled report has no source message; a requested one always does (its writer requires it). */
+    | (Omit<CreateResearchReportInput, "sourceMessageId"> & {
+        readonly sourceMessageId?: string;
+        readonly artifactType: typeof RESEARCH_REPORT_ARTIFACT_TYPE;
+        readonly intendedDestination?: undefined;
+      })
+    | null,
   ownerWorkspace: string,
   author: ArtifactAuthor,
   deps: WorkArtifactWriteDeps,
@@ -160,7 +179,8 @@ async function insertArtifactWithFirstRevision(
   filingCondition?: ResearchFilingCondition,
 ): Promise<CreateWorkArtifactResult> {
   assertServerOnly();
-  if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
+  const scheduled = tenant && "scheduled" in tenant ? tenant : null;
+  if (!tenant?.tenantId || (!scheduled && !(tenant as TenantContext).userId)) return refused("unauthenticated");
   if (!input) return refused("invalid-input");
   if (typeof ownerWorkspace !== "string" || ownerWorkspace.trim().length === 0) {
     return refused("invalid-input");
@@ -202,8 +222,8 @@ async function insertArtifactWithFirstRevision(
           currentRevision: 1,
           createdAt: now,
           updatedAt: now,
-          createdBy: tenant.userId,
-          createdByType: "human",
+          createdBy: scheduled ? scheduled.runId : (tenant as TenantContext).userId,
+          createdByType: scheduled ? "system" : "human",
         })
         .returning({ id: workArtifacts.id });
 
@@ -321,6 +341,36 @@ export function createResearchReportFromResearchPreparation(
   return insertArtifactWithFirstRevision(
     tenant,
     { title: input.title, content: input.content, sourceMessageId: input.sourceMessageId, artifactType: RESEARCH_REPORT_ARTIFACT_TYPE },
+    ownerWorkspace,
+    author,
+    deps,
+    validateResearchReportInput,
+    filingCondition,
+  );
+}
+
+/**
+ * P6-4 (D9) — the SCHEDULED research writer: the same research-report type, validator and filing
+ * condition as `createResearchReportFromResearchPreparation`, for a run with no person and no
+ * conversation. Created by `system` (the run), authored by the verified agent; there is no source
+ * message — the run ledger row and the filing audit row carry the provenance, joined to the model
+ * call's disclosure decision by correlation id. Only the scheduled research runner imports it.
+ */
+export function createResearchReportFromScheduledResearch(
+  run: { readonly tenantId: string; readonly runId: string },
+  input: { readonly title: string; readonly content: string } | null,
+  ownerWorkspace: string,
+  authorship: AgentAuthorship,
+  deps: WorkArtifactWriteDeps,
+  filingCondition: ResearchFilingCondition,
+): Promise<CreateWorkArtifactResult> {
+  const author = agentAuthorOrNull(authorship);
+  if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  if (!filingCondition || !run?.tenantId || !UUID_RE.test(run.runId ?? "")) return Promise.resolve(refused("invalid-input"));
+  if (!input) return Promise.resolve(refused("invalid-input"));
+  return insertArtifactWithFirstRevision(
+    { scheduled: true, tenantId: run.tenantId, runId: run.runId },
+    { title: input.title, content: input.content, artifactType: RESEARCH_REPORT_ARTIFACT_TYPE },
     ownerWorkspace,
     author,
     deps,

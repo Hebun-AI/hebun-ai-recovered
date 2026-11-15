@@ -238,6 +238,15 @@ export function claimsAnAction(text: string, claim: string, mode: ActionClaimMod
  * ═════════════════════════════════════════════════════════════════════════ */
 export type ActionClaimMode = "answer" | "internal-draft";
 
+/**
+ * P6-4 — the action claims an INTERNAL DRAFT may not make, found in `text`: the same lists and the same
+ * matcher `validateResponse` applies for `internal-draft`, for a preparation with no runtime response
+ * to validate (the scheduled research run). Empty means none was claimed.
+ */
+export function internalDraftActionClaims(text: string): readonly string[] {
+  return [...FORBIDDEN_ACTION_CLAIMS, ...DRAFT_ONLY_ACTION_CLAIMS].filter((claim) => claimsAnAction(text, claim, "internal-draft"));
+}
+
 const COMPLETED_AUX = new Set(["was", "were", "has", "have", "had", "got"]);
 const PENDING_AUX = new Set(["is", "are", "am", "be", "been", "being", "get", "gets", "getting"]);
 const AUX_ADVERBS = new Set(["already", "just", "successfully", "now", "yet", "still", "ever", "also", "then", "fully", "finally"]);

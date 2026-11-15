@@ -308,7 +308,7 @@ export type WorkStateTargetRead =
  * when the act is performed.
  */
 export async function readWorkStateTarget(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   workItemId: unknown,
   deps: WorkReadDeps = {},
 ): Promise<WorkStateTargetRead> {

@@ -102,7 +102,7 @@ function toRecord(row: Row): StandingResearchAuthorizationRecord {
 }
 
 /** The tenant's effective revision: the highest ordinal in its one lineage. Tenant-scoped by predicate. */
-async function readEffectiveWithin(reader: Pick<ControlPlaneDatabase, "select">, tenantId: string): Promise<StandingResearchAuthorizationRecord | null> {
+export async function readEffectiveWithin(reader: Pick<ControlPlaneDatabase, "select">, tenantId: string): Promise<StandingResearchAuthorizationRecord | null> {
   const rows = await reader
     .select()
     .from(standingResearchAuthorizations)

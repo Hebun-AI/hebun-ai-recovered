@@ -560,6 +560,8 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "origination-availability", "read-origination-availability.server.ts"),
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
+      /* P6-4 (D9). The scheduled research run re-reads the effective mandate through the runtime door, before the model and inside filing. */
+      path.join("src", "features", "standing-research-authority", "scheduled-research.server.ts"),
       /* AGENT-EXECUTION-1. The preparation seam asks the same ceiling of every agent named as a draft's author. */
       path.join("src", "features", "work-artifacts", "prepare-work-artifact.server.ts"),
     ],

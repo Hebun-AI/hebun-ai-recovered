@@ -116,7 +116,7 @@ export const RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
 
 /* One mint for both briefs: Hebun's own closed lines, never a runtime value. */
 const briefOf = (lines: readonly string[]) => ({ instruction: hebunInstruction(lines.join(" ")), material: [] as const });
-const RESEARCH_BRIEF = briefOf(RESEARCH_REPORT_PREPARATION_BRIEF);
+export const RESEARCH_BRIEF = briefOf(RESEARCH_REPORT_PREPARATION_BRIEF);
 
 /** P6-3 — what the model is told before a SOURCED run. Hebun's own words, as the unsourced brief. */
 export const SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
@@ -129,7 +129,7 @@ export const SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
   "Do not state facts about this organization: nothing about it was given to you. Where the research depends on one, leave a bracketed placeholder for the person to fill in.",
   "Never state or imply that anything has been sent, approved, decided or done. This draft is not acted on.",
 ] as const;
-const SOURCED_RESEARCH_BRIEF = briefOf(SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF);
+export const SOURCED_RESEARCH_BRIEF = briefOf(SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF);
 
 /**
  * P6 D5 — THE PER-RUN SEARCH CAP. `HEBUN_RESEARCH_WEB_SEARCH_MAX_USES`, default 3; a value that is not
@@ -143,7 +143,7 @@ export function researchWebSearchMaxUses(env: Readonly<Record<string, string | u
 }
 
 /* A reply that names a web address would read as sourced. Refused, never trimmed: no parser edits model text. */
-const LINK = /\bhttps?:\/\/|\bwww\.[a-z0-9-]+\.[a-z]/i;
+export const LINK = /\bhttps?:\/\/|\bwww\.[a-z0-9-]+\.[a-z]/i;
 
 export interface AssignResearchReportInput {
   readonly workItemId: unknown;

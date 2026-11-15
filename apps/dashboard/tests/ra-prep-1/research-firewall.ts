@@ -126,7 +126,8 @@ assert.equal(agentWorkCapability("prepare-research-report").dataUse.purpose, "re
   /* The seam asks; the gateway and the client only carry the request onward. */
   assert.deepEqual(
     naming(/webSearch: \{ maxUses/),
-    [SEAM, "src/features/heby-answer/model-answer.server.ts", "src/features/heby-model/claude-model-client.ts"].sort(),
+    /* P6-4 (D9) — the scheduled run asks under the same decision rule (F11). */
+    [SEAM, "src/features/heby-answer/model-answer.server.ts", "src/features/heby-model/claude-model-client.ts", "src/features/standing-research-authority/scheduled-research.server.ts"].sort(),
     "F10: no other caller asks for a search",
   );
 }
@@ -180,8 +181,9 @@ assert.ok(at("LINK.test(content)") < at("createResearchReportFromResearchPrepara
  * runner, which supplies the brief from the revision in force and re-reads it inside the filing transaction. */
 assert.deepEqual(
   SRC.filter((f) => /import \{[^}]*\} from "[^"]*assign-research-report[^"]*"/.test(read(f)) && !/import type \{[^}]*\} from "[^"]*assign-research-report/.test(read(f))).sort(),
-  ["src/app/(dashboard)/heby/work-state-origination-actions.ts", "src/features/standing-research-authority/standing-research.server.ts"],
-  "F6: the Heby actions (read only) and the standing-research runner are the only runtime importers of the research seam",
+  /* P6-4 — the scheduled run imports the seam's briefs, link rule and search cap (constants); it never calls the seam (below). */
+  ["src/app/(dashboard)/heby/work-state-origination-actions.ts", "src/features/standing-research-authority/scheduled-research.server.ts", "src/features/standing-research-authority/standing-research.server.ts"],
+  "F6: the Heby actions (read only), the standing-research runner and the scheduled run are the only runtime importers of the research seam",
 );
 assert.ok(
   !/\bassignResearchReport\b/.test(read("src/app/(dashboard)/heby/work-state-origination-actions.ts")),
@@ -237,4 +239,25 @@ assert.ok(capability.cannot.some((line) => /search the web unless your organizat
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
 
-console.log("ra-prep-1/research-firewall: F1–F10 PASS");
+/* ── F11 ── P6-4 (D9): the scheduled run acts as no person, re-checks before the model, and claims the day first. */
+{
+  const RUNNER = "src/features/standing-research-authority/scheduled-research.server.ts";
+  const runner = read(RUNNER);
+  /* Code only: the module's own comments explain that it is not a `TenantContext`. */
+  assert.doesNotMatch(runner.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""), /TenantContext|asHumanTenantContext|withDecryptedSecret|resolveTenant\b/, "F11: no person, no human context, no credential opened by id");
+  assert.deepEqual(naming(/createResearchReportFromScheduledResearch\(/), [RUNNER, "src/features/work-artifacts/write-work-artifacts.server.ts"].sort(), "F11: one caller of the scheduled writer");
+  assert.deepEqual(naming(/recordScheduledResearchReportFiled\(/), [RUNNER, "src/features/governance-audit/research-report-audit.server.ts"].sort(), "F11: one caller of its filing row");
+  const scan = runner.slice(runner.indexOf("export async function scanScheduledResearch"));
+  assert.ok(scan.indexOf("switchOn(deps)") < scan.indexOf("resolveDbOrNull(deps)"), "F11: the kill switch is read before anything else");
+  const run = runner.slice(runner.indexOf("async function runAsPrincipal"));
+  const model = run.indexOf("(deps.generate ?? generateHebyModelAnswer)(");
+  for (const step of ["switchOn(deps)", "readEffectiveWithin(db, tenantId)", 'eq(memberships.status, "active")', "resolveGovernanceAuthority({ tenantId, userId: principal.grantedByUserId }", "readTarget(tenant", "eligibleAgents(tenant", "readEffectiveAgentMandateForRuntime(tenantId", "resolveClaudeEnabled", "resolveCredential", "const sourcedDecision = await ask("]) {
+    const at = run.indexOf(step);
+    assert.ok(at > 0 && at < model, `F11: ${step} is asked before the model`);
+  }
+  assert.ok(runner.indexOf(".onConflictDoNothing()") < runner.indexOf("runAsPrincipal(principal"), "F11: the day is claimed before the run");
+  assert.match(run, /const sourced = sourcedDecision\?\.disposition === "authorized" && sourcedDecision\.authorizedDataClasses\.includes\(DATA_USE\.webSearchDataClass\);/, "F11: sourced only under its own decision");
+  assert.ok(run.lastIndexOf("readEffectiveWithin(tx, tenantId)") > model && run.lastIndexOf("readEffectiveAgentMandateForRuntime(tenantId, principal.agentId, { getDb: () => tx })") > model, "F11: authorization and mandate re-read inside filing");
+}
+
+console.log("ra-prep-1/research-firewall: F1–F11 PASS");

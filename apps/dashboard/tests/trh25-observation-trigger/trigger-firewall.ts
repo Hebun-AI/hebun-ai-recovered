@@ -183,7 +183,7 @@ function main(): void {
   assert.ok(exactList, "the machine ingress list exists");
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
-    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"'],
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) — the 08:00 standing research tick, its own secret. */ '"/api/standing-research/scan"'],
     /*
      * THREE, and the third is the RUNG 2 act path's. Listing it here is not a formality: deployed
      * WITHOUT this entry, that route answered a scheduler with `307 -> /login` — the sign-in page
@@ -259,6 +259,8 @@ function main(): void {
        * census is a route nobody decided to add.
        */
       "src/app/api/standing-issuance/scan/route.ts",
+      /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
+      "src/app/api/standing-research/scan/route.ts",
     ],
     "the machine ingresses are named one at a time, and nothing else is a route",
   );
@@ -292,6 +294,7 @@ function main(): void {
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
       { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
+      /* P6-4 (D7) — 05:00 UTC is 08:00 Europe/Istanbul. */ { path: "/api/standing-research/scan", schedule: "0 5 * * *" },
     ],
       "exactly three schedules exist: hourly, each aimed at its own machine ingress, and nothing else",
     );
