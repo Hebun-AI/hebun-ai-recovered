@@ -75,6 +75,8 @@ assert.deepEqual(
     "external-recipient",
     "media-generated",
     "media-supplied",
+    /* P6-3 (D3) appends web-search, with its CHECK migration (ledger 88 -> 89). */
+    "web-search",
   ],
 );
 for (const forbidden of ["public", "confidential", "secret", "pii", "personal"]) {

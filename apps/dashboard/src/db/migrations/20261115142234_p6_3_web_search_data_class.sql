@@ -1,0 +1,2 @@
+ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_data_class_chk";--> statement-breakpoint
+ALTER TABLE "tenant_ai_data_use_scopes" ADD CONSTRAINT "tenant_ai_data_use_scopes_data_class_chk" CHECK ("tenant_ai_data_use_scopes"."data_class" in ('conversation', 'knowledge', 'work-artifact', 'organization', 'governance-record', 'operational-record', 'provider-observation', 'external-recipient', 'media-generated', 'media-supplied', 'web-search'));

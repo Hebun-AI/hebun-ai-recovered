@@ -49,10 +49,10 @@ export function isWorkArtifactType(value: unknown): value is WorkArtifactType {
 export const RESEARCH_REPORT_ARTIFACT_TYPE = "research-report" as const;
 
 /**
- * RA-PREP-1 — what every research report is, today. No source transport exists (web search is
- * RA-EAI-1-WEB-SEARCH-1, undecided) and nothing verifies a citation, so a stored research report is
- * the model's own writing on the person's question and nothing more. The classification follows from
- * the type: there is no "sourced" research report to distinguish it from, so no column records it.
+ * RA-PREP-1 — what a research report is when no web search ran: the model's own writing on the
+ * person's question and nothing more. P6-3 adds a SOURCED report (`RESEARCH_REPORT_SOURCED`, composed
+ * by agent-work) under its own data-use decision; no column records which — the report's own SOURCING
+ * line and its filing audit row (`sourcing`) say so.
  */
 export const RESEARCH_REPORT_SOURCING = "UNSOURCED RESEARCH DRAFT" as const;
 

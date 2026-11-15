@@ -54,6 +54,7 @@ import {
   classifyProviderStopReason,
   type ExecutiveOverviewLike,
   type ProviderStopReason,
+  type WebResearchTrace,
   type HebyRuntimeContext,
   type HebyRuntimeOutcome,
   type HebyRuntimeResponse,
@@ -345,6 +346,13 @@ export interface HebyModelAnswerOptions {
    * authorization. Assistance authorization never stands in for it, and nothing here falls back to it.
    */
   readonly dataUsePurpose?: "research";
+  /*
+   * P6-3 — the provider's web-search tool, for a RESEARCH preparation only. Set by the research seam,
+   * never by a client. It adds `web-search` to this request's required data classes, so the generator
+   * sends it only under a decision that authorized research × web-search; for any other purpose or
+   * intent it is ignored and the request is byte-identical to before.
+   */
+  readonly webSearch?: { readonly maxUses: number };
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -551,6 +559,8 @@ export type HebyModelAnswerResult =
        * withheld). Absent when no model answered or the provider reported none. Server-side only.
        */
       readonly modelStopReason?: ProviderStopReason;
+      /** P6-3 — what a web-searching model call searched and cited; untrusted third-party data. */
+      readonly webResearch?: WebResearchTrace;
     };
 
 function assertServerRuntime(): void {
@@ -1451,6 +1461,7 @@ export async function answerHebyModelRequest(
      * capability's purpose (RA-PREP-1); nothing a client sends can relabel it.
      */
     const briefApplied = Boolean(options.preparationBrief) && HEBY_INTENT_DESCRIPTORS[intent].prepares;
+    const webSearch = briefApplied && options.dataUsePurpose === "research" ? options.webSearch : undefined;
     /*
      * HEBY-GROUNDED-CONVERSATION-1 (Director decision C) — through Command, Knowledge is OPTIONAL:
      * the request is built with it withheld, and the generator re-runs THIS projection with exactly
@@ -1471,6 +1482,7 @@ export async function answerHebyModelRequest(
                 "conversation",
                 ...modelDisclosedDataClasses(resolutions).filter((c) => !optionalClasses.includes(c)),
                 ...(briefApplied ? options.preparationBriefDataClasses! : []),
+                ...(webSearch ? (["web-search"] as const) : []),
               ]),
             ],
             ...(optionalClasses.length > 0 ? { optionalDataClasses: optionalClasses } : {}),
@@ -1491,6 +1503,7 @@ export async function answerHebyModelRequest(
       modelId: "",
       maxOutputTokens: 0,
       history: modelFacingHistory(history),
+      ...(webSearch ? { webSearch: { maxUses: webSearch.maxUses } } : {}),
     };
 
     // 6. Produce the answer: a validated model answer when everything succeeds, otherwise the
@@ -1582,6 +1595,7 @@ export async function answerHebyModelRequest(
     transportProvenance: answer.transportProvenance,
     persistence,
     ...(modelStopReason ? { modelStopReason } : {}),
+    ...(answer.modelResult?.webResearch ? { webResearch: answer.modelResult.webResearch } : {}),
   };
 }
 

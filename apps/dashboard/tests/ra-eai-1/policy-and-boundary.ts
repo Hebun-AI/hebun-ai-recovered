@@ -63,7 +63,8 @@ assert.equal(research[0]!.bounds, RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCel
 
 /* ── E8 · E9 · the capability declares the cell and is still performed by nothing ── */
 const capability = agentWorkCapability("prepare-research-report");
-assert.deepEqual(capability.dataUse, { purpose: "research", dataClasses: ["conversation"] });
+/* P6-3 (D3) — the sourced run's web-search class is declared separately and asked as its own required class. */
+assert.deepEqual(capability.dataUse, { purpose: "research", dataClasses: ["conversation"], webSearchDataClass: "web-search" });
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
 /* RA-PREP-1 moved this pin (was /^no seam yet/): its one seam now performs the capability. */
@@ -98,6 +99,15 @@ assert.deepEqual(
   ["db/schema/_enums.ts", "features/agent-mandate/contracts.ts", "features/agent-work/assign-research-report.server.ts", "features/agent-work/capabilities.ts", "features/work-artifacts/contracts.ts"],
   "only the research seam names the capability",
 );
-assert.deepEqual(naming(/web_search|web-search_|webSearch/), [], "no web-search transport exists");
+/*
+ * P6-3 (D3) — the web-search transport now exists, and is held to where it may live: the provider's tool is
+ * named only by the live transport that sends it and the parser that reads its results. That it is sent only
+ * under a decision authorizing research × web-search is pinned in ra-prep-1/research-firewall F10.
+ */
+assert.deepEqual(
+  naming(/web_search/),
+  ["features/heby-model-live/claude-http-transport.server.ts", "features/heby-model/web-research-trace.ts"],
+  "the web-search tool is named only by the live transport and its result parser",
+);
 
 console.log("PASS ra-eai-1 policy-and-boundary");

@@ -39,6 +39,12 @@ export interface ResearchReportFiledEvidence {
   readonly occurredAt: Date;
   /** P6-2 — the standing research authorization revision the report was run under. */
   readonly standingAuthorizationId?: string | null;
+  /**
+   * P6-3 — present for a SOURCED report: how many searches the provider reported for this one call
+   * (joined to its disclosure decision and dispatch-cap charge by `correlationId`) and how many returned
+   * results the report cites. Absent: the report is unsourced.
+   */
+  readonly webResearch?: { readonly searchCount: number; readonly sourceCount: number };
 }
 
 /** Appends one row on the transaction it is given. Throws on failure, so the report is not filed without it. */
@@ -62,7 +68,10 @@ export async function recordResearchReportFiled(db: ControlPlaneDatabase, eviden
       purpose: evidence.purpose,
       sourceMessageId: evidence.sourceMessageId,
       standingAuthorizationId: evidence.standingAuthorizationId ?? null,
-      sourcing: "unsourced",
+      sourcing: evidence.webResearch ? "web-search" : "unsourced",
+      ...(evidence.webResearch
+        ? { webSearchCount: evidence.webResearch.searchCount, webSourceCount: evidence.webResearch.sourceCount }
+        : {}),
     },
     result: "committed",
     simulation: false,

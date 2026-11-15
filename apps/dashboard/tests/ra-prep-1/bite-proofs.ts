@@ -20,6 +20,12 @@
  *   B16 P6-2 — the writer does not ask for Governance authority             (R11a)
  *   B17 P6-2 — the lineage read is not tenant-scoped                        (R11e)
  *   B18 P6-2 — the scheduled gate ignores the research-schedule kill switch (R11i)
+ *   B19 P6-3 — research is sourced without its own web-search decision       (R12b)
+ *   B20 P6-3 — the generator asks the authority about an undeclared search   (W3)
+ *   B21 P6-3 — the generator sends a search the decision did not authorize   (W3)
+ *   B22 P6-3 — the live transport sends any search cap                       (W2)
+ *   B23 P6-3 — a sourced report carrying a model-written link is composed    (W4)
+ *   B24 P6-3 — a paused searching turn is filed                              (R12e)
  *
  * SOURCE-MUTATING: run only in a disposable copy of the tree, never in a worktree someone works in, and
  * never in parallel with another suite. Each file is restored byte-identically after its proof.
@@ -41,6 +47,10 @@ const ANSWER = "src/features/heby-answer/model-answer.server.ts";
 const SEAM = "src/features/agent-work/assign-research-report.server.ts";
 const PG_SUITE = "tests/ra-prep-1/research-preparation-postgres.ts";
 const STANDING = "src/features/standing-research-authority/standing-research.server.ts";
+const GENERATOR = "src/features/heby-model/heby-model-generation.server.ts";
+const TRANSPORT = "src/features/heby-model-live/claude-http-transport.server.ts";
+const COMPOSER = "src/features/agent-work/sourced-research-report.ts";
+const WEB_SUITE = "tests/p6-3-web-research/web-research.ts";
 const CHILD_TIMEOUT_MS = 300_000;
 
 interface Run {
@@ -103,7 +113,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B4 the preflight asks the assistance purpose",
     file: SEAM,
     suite: PG_SUITE,
-    edits: [{ find: "purpose: DATA_USE.purpose, dataClasses: DATA_USE.dataClasses", replace: 'purpose: "assistance" as const, dataClasses: DATA_USE.dataClasses' }],
+    /* P6-3 — both preflight asks (sourced and unsourced) now go through one `ask`, which declares the purpose here. */
+    edits: [{ find: "purpose: DATA_USE.purpose, dataClasses }", replace: 'purpose: "assistance" as const, dataClasses }' }],
     because: "assistance-only tenant",
   },
   {
@@ -117,7 +128,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B6 a reply carrying a link is filed",
     file: SEAM,
     suite: PG_SUITE,
-    edits: [{ find: '  if (LINK.test(content)) return notPrepared("unsourced-link-in-output");\n', replace: "" }],
+    /* P6-3 — the unsourced link guard is now the `else` branch after the sourced composition. */
+    edits: [{ find: "    } else if (LINK.test(content)) {", replace: "    } else if (false && LINK.test(content)) {" }],
     because: "R5: a reply carrying a link is not filed",
   },
   {
@@ -196,6 +208,52 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [{ find: '  if (on !== true) return { status: "refused", reason: "research-schedule-disabled" };', replace: "" }],
     because: "R11i",
+  },
+  {
+    label: "B19 P6-3 — research is sourced without its own web-search decision",
+    file: SEAM,
+    suite: PG_SUITE,
+    /* The seam stops asking web-search: the dispatch then declares a class no decision covered, and the generator refuses it. */
+    edits: [
+      { find: "  const sourcedDecision = await ask([...DATA_USE.dataClasses, DATA_USE.webSearchDataClass]);", replace: "  const sourcedDecision = await ask(DATA_USE.dataClasses);" },
+      { find: " && sourcedDecision.authorizedDataClasses.includes(DATA_USE.webSearchDataClass);", replace: ";" },
+    ],
+    because: '"state":"DATA_USE_NOT_AUTHORIZED"',
+  },
+  {
+    label: "B20 P6-3 — the generator asks the authority about an undeclared search",
+    file: GENERATOR,
+    suite: WEB_SUITE,
+    edits: [{ find: "      request.webSearch &&\n      (!declaration?.dataClasses.includes(\"web-search\")", replace: "      false &&\n      (!declaration?.dataClasses.includes(\"web-search\")" }],
+    because: "W3: refused before the data-use authority is asked",
+  },
+  {
+    label: "B21 P6-3 — the generator sends a search the decision did not authorize",
+    file: GENERATOR,
+    suite: WEB_SUITE,
+    edits: [{ find: "    if (request.webSearch && !decision.authorizedDataClasses.includes(\"web-search\")) {", replace: "    if (false) {" }],
+    because: "W3: a decision that did not authorize web-search",
+  },
+  {
+    label: "B22 P6-3 — the live transport sends any search cap",
+    file: TRANSPORT,
+    suite: WEB_SUITE,
+    edits: [{ find: "        webSearch !== undefined &&\n        !(Number.isInteger(webSearch.maxUses)", replace: "        false &&\n        !(Number.isInteger(webSearch.maxUses)" }],
+    because: "W2: cap 0 refused",
+  },
+  {
+    label: "B23 P6-3 — a sourced report carrying a model-written link is composed",
+    file: COMPOSER,
+    suite: WEB_SUITE,
+    edits: [{ find: "  if (LINK.test(modelText)) return { status: \"refused\", reason: \"link-in-output\" };", replace: "" }],
+    because: "W4: a model-written link refuses",
+  },
+  {
+    label: "B24 P6-3 — a paused searching turn is filed",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: "    if (answer.modelStopReason === \"pause_turn\") return notPrepared(\"research-incomplete\");", replace: "" }],
+    because: "R12e",
   },
   {
     label: "B8 the general validator admits research-report",

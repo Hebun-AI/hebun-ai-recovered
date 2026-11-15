@@ -55,13 +55,20 @@ const WRITE_REFUSAL_WORDING: Partial<Record<StandingResearchRefusal, string>> = 
 
 const NOT_PREPARED_WORDING: Partial<Record<NotPrepared, string>> = {
   "unsourced-link-in-output": "The agent's reply contained a web address, so it was not filed: an unsourced draft must not read as sourced.",
+  "sourced-link-in-output": "The agent wrote a web address itself instead of citing a search result, so nothing was filed.",
+  "sourced-answer-mismatch": "The search citations could not be matched to the agent's reply, so nothing was filed.",
+  "research-incomplete": "The web search did not finish in one request. It was not continued, and nothing was filed.",
   "output-truncated": "The agent's reply was cut off, so nothing was filed.",
   "model-refused": "The model declined to write this report. Nothing was filed.",
   "standing-authorization-changed-while-preparing": "The research authorization was withdrawn or replaced while the agent wrote. Nothing was filed.",
 };
 
 function describeRun(result: RunStandingResearchResult): string {
-  if (result.status === "prepared") return `${result.agentName} filed an unsourced research draft. Review it in Operations.`;
+  if (result.status === "prepared") {
+    return result.sourcing === "web-search"
+      ? `${result.agentName} filed a sourced research draft from web search. Its sources are unverified third-party pages. Review it in Operations.`
+      : `${result.agentName} filed an unsourced research draft. Review it in Operations.`;
+  }
   if (result.status === "refused") return RESEARCH_REFUSAL_WORDING[result.reason] ?? `Not asked (${result.reason}). Nothing was sent.`;
   return NOT_PREPARED_WORDING[result.reason] ?? `No report was filed (${result.reason}).`;
 }
@@ -155,8 +162,9 @@ export function HebyResearchAffordance({ workItemId }: { readonly workItemId: st
     <section aria-label="Research report" className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
       <p className="text-fg">Research report</p>
       <p className="text-fg-muted">
-        Research runs only on a brief your Governance authority has authorized. An agent writes an unsourced research
-        draft from it; no source is searched yet, and the draft waits for review in Operations.
+        Research runs only on a brief your Governance authority has authorized. An agent writes a research draft from
+        it. The web is searched only if your organization authorized web search for research; otherwise the draft is
+        unsourced. Either way it waits for review in Operations.
       </p>
 
       {here ? (

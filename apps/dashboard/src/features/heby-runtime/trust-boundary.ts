@@ -104,6 +104,11 @@ export const MODEL_REQUEST_TRUST: Readonly<Record<keyof ModelGenerationRequest, 
     /* SCI-1 — preparation material: data, in its own section, never grounding and never instruction. */
     material: "untrusted-content",
     history: "conversation-data",
+    /*
+     * P6-3 — a search cap, a bound and nothing else. The search RESULTS it brings back are provider-side
+     * third-party content the model reads; they never enter this request and are untrusted on return.
+     */
+    webSearch: "control-metadata",
   });
 
 /** The single class that may direct model behaviour. Everything else informs at most. */
