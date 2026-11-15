@@ -5829,6 +5829,7 @@ re-graded here.
 | V1-STAGE-3 | VERIFIED | `docs/product-vision/runtime/hebun-v1-stage-3-notifications-closure.md` |
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
 | BR-2 | VERIFIED | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` |
+| P6-2-STANDING-RESEARCH-AUTHORIZATION | DEPLOYED | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` |
 
 ---
 
@@ -6069,3 +6070,6 @@ before §16.1 are not yet indexed (Phase B).
 | BR2-MEDIA-VPS-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Operational gap | DEFERRED | Director-approved VPS deployment of hebun_media_backup.py and a first verified snapshot |
 | BR2-KEY-ESCROW-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Data durability | DEFERRED | Director decision where the second vault-key copy lives, recorded by key id only |
 | BR2-SEAL-READBACK-PIN-1 | BR-2 | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` | Verification gap | DEFERRED | A fault-injection seam for the post-seal read-back, if worth its cost |
+| P6-2-LIVE-WRITE-UNEXERCISED-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Acceptance gap | DEFERRED | Director grants a research mandate and authorizes one brief; revision, decision and audit read back |
+| P6-2-GRANTER-RECHECK-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Authority gap | DEFERRED | P6-4 machine principal |
+| PRODMIG-PROMPT-IDLE-DISCONNECT-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Operational reliability | DEFERRED | Director-selected ceremony fix (error listener, reconnect before apply) proven by a bite-proof |
