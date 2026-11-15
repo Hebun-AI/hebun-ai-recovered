@@ -84,7 +84,7 @@ function resolveDbOrNull(deps: AgentIdentityReadDeps): ControlPlaneDatabase | nu
 
 /** Read this tenant's durable agent identity state. Tenant-scoped; no caller can widen the scope. */
 export async function readDurableAgentIdentityState(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   deps: AgentIdentityReadDeps = {},
 ): Promise<DurableAgentIdentityState> {
   if (!tenant?.tenantId) return { status: "unavailable" };

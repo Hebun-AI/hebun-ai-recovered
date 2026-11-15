@@ -74,6 +74,8 @@ export const standingResearchAuthorizations = pgTable(
   },
   (t) => [
     uniqueIndex("standing_research_authorizations_lineage_revision_uq").on(t.tenantId, t.authorizationRevision),
+    /* P6-4 — the target of the run ledger's tenant-bound foreign key. */
+    uniqueIndex("standing_research_authorizations_tenant_id_uq").on(t.tenantId, t.id),
     uniqueIndex("standing_research_authorizations_decision_uq").on(t.governanceDecisionId),
     uniqueIndex("standing_research_authorizations_supersedes_uq")
       .on(t.supersedesAuthorizationId)

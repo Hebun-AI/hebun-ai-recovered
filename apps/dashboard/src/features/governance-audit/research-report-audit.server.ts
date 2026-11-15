@@ -79,3 +79,63 @@ export async function recordResearchReportFiled(db: ControlPlaneDatabase, eviden
     authoritySource: "membership",
   });
 }
+
+/** P6-4 (D9) — the filing row of a SCHEDULED research report. */
+export const SCHEDULED_RESEARCH_REPORT_FILED = "work-artifact.research-report.scheduled-filed";
+export const SCHEDULED_RESEARCH_AUDIT_SOURCE = "scheduled-research";
+
+export interface ScheduledResearchReportFiledEvidence {
+  readonly tenantId: string;
+  /** The run ledger row: the `system` actor of this act. */
+  readonly runId: string;
+  readonly artifactId: string;
+  readonly agentId: string;
+  readonly mandateId: string;
+  readonly mandateRevision: number;
+  readonly capability: AgentWorkCapabilityId;
+  readonly purpose: AgentWorkCapability["dataUse"]["purpose"];
+  readonly standingAuthorizationId: string;
+  readonly standingAuthorizationRevision: number;
+  /** The person whose standing authorization this run rests on, re-checked before the model. Never the actor. */
+  readonly grantedByUserId: string;
+  readonly localDate: string;
+  readonly correlationId: string;
+  readonly occurredAt: Date;
+  readonly webResearch?: { readonly searchCount: number; readonly sourceCount: number };
+}
+
+/** Appends one row on the filing transaction. Throws on failure, so the report is not filed without it. */
+export async function recordScheduledResearchReportFiled(db: ControlPlaneDatabase, evidence: ScheduledResearchReportFiledEvidence): Promise<void> {
+  if (typeof window !== "undefined") throw new Error("Research report audit is server-only.");
+  await db.insert(auditLog).values({
+    tenantId: evidence.tenantId,
+    actorType: "system",
+    actorId: evidence.runId,
+    action: SCHEDULED_RESEARCH_REPORT_FILED,
+    entityType: RESEARCH_REPORT_ENTITY_TYPE,
+    entityId: evidence.artifactId,
+    correlationId: evidence.correlationId,
+    occurredAt: evidence.occurredAt,
+    metadata: {
+      revisionNo: 1,
+      agentId: evidence.agentId,
+      mandateId: evidence.mandateId,
+      mandateRevision: evidence.mandateRevision,
+      capability: evidence.capability,
+      purpose: evidence.purpose,
+      trigger: "schedule",
+      standingAuthorizationId: evidence.standingAuthorizationId,
+      standingAuthorizationRevision: evidence.standingAuthorizationRevision,
+      grantedByUserId: evidence.grantedByUserId,
+      localDate: evidence.localDate,
+      sourcing: evidence.webResearch ? "web-search" : "unsourced",
+      ...(evidence.webResearch
+        ? { webSearchCount: evidence.webResearch.searchCount, webSourceCount: evidence.webResearch.sourceCount }
+        : {}),
+    },
+    result: "committed",
+    simulation: false,
+    source: SCHEDULED_RESEARCH_AUDIT_SOURCE,
+    authoritySource: "system",
+  });
+}

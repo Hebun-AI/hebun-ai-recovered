@@ -438,8 +438,10 @@ function onlyTheAdmittedMachineIngressTriggersIt(): void {
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
       { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
+      /* P6-4 (D7) — one daily schedule: 05:00 UTC is 08:00 Europe/Istanbul. */
+      { path: "/api/standing-research/scan", schedule: "0 5 * * *" },
     ],
-    "exactly three schedules exist, all hourly, each aimed at its own machine ingress",
+    "exactly four schedules exist, three hourly and one daily, each aimed at its own machine ingress",
   );
 
   const exec = codeOf(read(EXECUTOR));

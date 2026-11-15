@@ -260,7 +260,7 @@ async function main(): Promise<void> {
     const vercel = JSON.parse(read("vercel.json")) as { crons?: { path: string }[] };
     assert.deepEqual(
       (vercel.crons ?? []).map((c) => c.path),
-      ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan"],
+      /* P6-4 (D7) adds the 08:00 standing research tick. */ ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan", "/api/standing-research/scan"],
       "the tenant AUTHORITY adds no cron; the three are observation, delivery and standing issuance",
     );
 
@@ -281,8 +281,8 @@ async function main(): Promise<void> {
     assert.ok(ingressList, "the machine ingress allowlist exists");
     assert.deepEqual(
       ingressList![1]!.split(",").map((entry) => entry.trim()).filter(Boolean),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"'],
-      "the machine ingress allowlist holds exactly the four pinned ingresses",
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) */ '"/api/standing-research/scan"'],
+      "the machine ingress allowlist holds exactly the five pinned ingresses",
     );
 
     /* The new authority contains no scanner, timer or schedule of any kind. */

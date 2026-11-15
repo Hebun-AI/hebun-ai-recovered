@@ -52,7 +52,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { agentWorkCapability, agentWorkRole, refuseOutsideAgentWorkCapability, type AgentWorkCapability, type AgentWorkRole } from "./capabilities";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
-import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
+import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { readWorkStateTarget } from "@/features/organizational-work/read-work.server";
 import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
@@ -112,7 +112,7 @@ export type TargetRead =
   | { readonly status: "refused"; readonly reason: "persistence-unavailable" | "work-unresolved" | "work-retired" | "work-not-scoped" };
 
 /** The work item as the Work Authority holds it. Shared with the research seam (RA-PREP-1). */
-export async function readTarget(tenant: TenantContext, workItemId: unknown, deps: AgentWorkDeps): Promise<TargetRead> {
+export async function readTarget(tenant: Pick<TenantContext, "tenantId">, workItemId: unknown, deps: AgentWorkDeps): Promise<TargetRead> {
   const read = await readWorkStateTarget(tenant, workItemId, { getDb: deps.getDb });
   if (read.status === "unavailable") return { status: "refused", reason: "persistence-unavailable" };
   if (read.status === "unresolved") return { status: "refused", reason: "work-unresolved" };
@@ -137,7 +137,7 @@ export type EligibleAgent = { readonly agentId: string; readonly name: string; r
  * RA-PREP-1: asked for whichever capability the seam performs; the draft seams pass none (work drafting).
  */
 export async function eligibleAgents(
-  tenant: TenantContext,
+  tenant: Pick<TenantContext, "tenantId">,
   workScope: WorkScope,
   deps: AgentWorkDeps,
   capability: AgentWorkCapability = CAPABILITY,
@@ -147,7 +147,8 @@ export async function eligibleAgents(
   const agents: EligibleAgent[] = [];
   for (const candidate of identity.identities) {
     if (!candidate.inService) continue;
-    const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, { getDb: deps.getDb });
+    /* P6-4 — the runtime door into the same read: this takes a tenant id, so a scheduled run with no person can ask it. */
+    const mandate = await readEffectiveAgentMandateForRuntime(tenant.tenantId, candidate.agentId, { getDb: deps.getDb });
     if (mandate.status !== "known") return { status: "unavailable" };
     if (!refuseOutsideAgentWorkCapability(capability, mandate, workScope)) {
       agents.push({ agentId: candidate.agentId, name: candidate.name, role: agentWorkRole(mandate, workScope) });

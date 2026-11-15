@@ -180,7 +180,7 @@ export async function readGovernanceAuthority(
 }
 
 export async function resolveGovernanceAuthority(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId" | "userId"> | null,
   deps: GovernanceDeps = {},
 ): Promise<GovernanceAuthorityResolution> {
   if (!tenant?.tenantId || !tenant.userId) return NO_AUTHORITY;

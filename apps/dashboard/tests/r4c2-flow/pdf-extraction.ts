@@ -461,6 +461,8 @@ async function main(): Promise<void> {
       "src/app/api/observation/scan/route.ts",
       /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
       "src/app/api/standing-issuance/scan/route.ts",
+      /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
+      "src/app/api/standing-research/scan/route.ts",
       ].sort(),
       "R4C.2 introduces no route handler; the only ones are INT-3's OAuth pair",
     );

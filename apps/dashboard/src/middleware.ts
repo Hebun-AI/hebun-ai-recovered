@@ -89,6 +89,7 @@ const MACHINE_INGRESS_PATHS = [
   "/api/machine-delivery/scan",
   "/api/standing-issuance/scan",
   "/api/media-storage/acceptance",
+  "/api/standing-research/scan",
 ];
 
 /*

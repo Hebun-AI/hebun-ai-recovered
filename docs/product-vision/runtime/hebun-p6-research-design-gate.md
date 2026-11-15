@@ -136,3 +136,23 @@ step are separate Director gates.
 | D6 | One scheduled report per (tenant, authorization revision, local date), enforced by a unique key. |
 | D7 | 08:00 Europe/Istanbul (05:00 UTC), one cron. |
 | D8 | Reports on the work item and a read-only `/home` list, with a "run now" under the same caps. |
+
+## D9 — Who acts at 08:00 (Director, 2026-11-15)
+
+Recorded at P6-4 start, because D1 decided the authority (a standing research authorization, the
+granting person re-checked at every run) but not the actor of an unattended run.
+
+**Decided: design A.** A scheduled run acts as an ephemeral **research schedule principal**, minted
+only from the effective, active standing research authorization row; it is not a `TenantContext` and
+inherits no user's authority. Immediately before the model, every run re-checks: the
+`research-schedule` kill switch, that the authorization revision is still the one in force and
+active, that the granting person is still an active member holding this organization's Governance
+authority, the agent's mandate and responsibility, the tenant's own verified Anthropic key and the
+research data-use decision. Rows the scheduled path writes itself (the report, its filing audit row,
+the run ledger) are attributed to `system` with the authorization and run ids; the released
+data-use evidence and dispatch-cap records, which are keyed to a human, name the granting person as
+the accountable authorizer. One run per (tenant, authorization revision, Istanbul date) is enforced
+by a unique run ledger (migration 90), claimed before the model; a failed run is recorded and not
+retried that day. The cron route is inert until its secret is configured and the kill switch is on,
+each a separate Director gate. Rejected: design B (rebuild the granting person's context each run),
+because the run would be recorded as a human act.

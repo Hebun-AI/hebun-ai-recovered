@@ -136,7 +136,7 @@ export function isAgentAuthorship(value: unknown): value is AgentAuthorship {
  * verified against the same read, not a new runtime.
  */
 export async function resolveAgentAuthorship(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   deps: AgentIdentityReadDeps = {},
   /* AP-1 — an explicit, verified lookup key. Omitted: the single in-service identity, as before. */
   selection: AgentSelection = {},

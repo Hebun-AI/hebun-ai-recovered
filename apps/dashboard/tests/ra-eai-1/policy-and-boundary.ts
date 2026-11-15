@@ -95,8 +95,8 @@ assert.deepEqual(naming(/purpose: "research"|"work-planning", "research"\]/), [
 /* The contracts that name it in prose (P1's enum, mandate and artifact-type comments) are not seams. */
 assert.deepEqual(
   naming(/prepare-research-report/),
-  /* RA-PREP-1 — plus exactly its one performing seam. */
-  ["db/schema/_enums.ts", "features/agent-mandate/contracts.ts", "features/agent-work/assign-research-report.server.ts", "features/agent-work/capabilities.ts", "features/work-artifacts/contracts.ts"],
+  /* RA-PREP-1 — plus exactly its performing seams: the requested run and, since P6-4, the scheduled run (D9). */
+  ["db/schema/_enums.ts", "features/agent-mandate/contracts.ts", "features/agent-work/assign-research-report.server.ts", "features/agent-work/capabilities.ts", "features/standing-research-authority/scheduled-research.server.ts", "features/work-artifacts/contracts.ts"],
   "only the research seam names the capability",
 );
 /*

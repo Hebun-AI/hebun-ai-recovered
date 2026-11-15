@@ -124,7 +124,7 @@ function byokSelectorEntersForReadsOnly(): void {
       .flatMap((m) => m[1]!.split(",").map((s) => s.trim()).filter(Boolean))
       .sort();
   assert.deepEqual(named("@/features/integration-authority/integration-repository.server"), ["listConnections"], "the selector takes only a connection READ from the integration authority");
-  assert.deepEqual(named("@/features/integration-credentials/credential-repository.server"), ["listCredentialMetadata", "withDecryptedSecret"], "the selector takes only credential READS from the credential authority");
+  assert.deepEqual(named("@/features/integration-credentials/credential-repository.server"), /* P6-4 (D9) — plus the connection-scoped spend the scheduled research selector uses: it names no credential and cannot open one by id. */ ["listCredentialMetadata", "withConnectionScopedSecret", "withDecryptedSecret"], "the selector takes only credential READS from the credential authority");
 }
 
 function reachableFrom(entry: string, stopAt: readonly string[] = []): Set<string> {
