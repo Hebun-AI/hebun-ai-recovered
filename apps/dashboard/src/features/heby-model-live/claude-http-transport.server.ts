@@ -29,6 +29,7 @@
  * reach the generator's disclosure-evidence writer through it.
  */
 import { ModelConnectivityError } from "@/features/heby-model/model-error";
+import { WEB_SEARCH_MAX_USES_CEILING, parseWebResearchTrace } from "@/features/heby-model/web-research-trace";
 import type {
   ClaudeTransport,
   ClaudeTransportContentBlock,
@@ -87,6 +88,15 @@ export const MAX_LIVE_CALLS = 1;
  */
 export const MAX_LIVE_OUTPUT_TOKENS = MODEL_OUTPUT_TOKEN_CEILING;
 export const LIVE_REQUEST_TIMEOUT_MS = 30_000;
+/*
+ * P6-3 — A WEB-SEARCHING REQUEST. The provider runs the searches inside the one request, so it takes
+ * longer; it still makes exactly one HTTP call, and the per-request search cap is a hard ceiling here,
+ * the last place before the wire: a request asking for more searches, or for a non-integer count, is
+ * refused before any budget unit is spent. The basic tool version is used on purpose: the dynamic-
+ * filtering versions run provider-side code execution, a further data flow no decision covers.
+ */
+export const LIVE_WEB_SEARCH_TIMEOUT_MS = 90_000;
+export const WEB_SEARCH_TOOL_VERSION = "web_search_20250305";
 
 /** Minimal fetch shape — injectable so request/error handling is provable with NO real call. */
 export type FetchLike = (
@@ -196,7 +206,7 @@ function asContentBlocks(value: unknown): readonly ClaudeTransportContentBlock[]
 }
 
 /** Project the Anthropic payload into the neutral transport response. Unknown fields stay undefined. */
-function toTransportResponse(payload: unknown, requestedModel: string): ClaudeTransportResponse {
+function toTransportResponse(payload: unknown, requestedModel: string, webSearch: boolean): ClaudeTransportResponse {
   const p = (payload ?? {}) as {
     id?: unknown; model?: unknown; content?: unknown; stop_reason?: unknown;
     usage?: { input_tokens?: unknown; output_tokens?: unknown };
@@ -212,6 +222,7 @@ function toTransportResponse(payload: unknown, requestedModel: string): ClaudeTr
       inputTokens: typeof input === "number" ? input : undefined,
       outputTokens: typeof output === "number" ? output : undefined,
     },
+    ...(webSearch ? { webResearch: parseWebResearchTrace(p.content, p.usage) } : {}),
   };
 }
 
@@ -316,6 +327,16 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
           "Structured output is not available on the live transport pending provider acceptance.",
         );
       }
+      const webSearch = request.webSearch;
+      if (
+        webSearch !== undefined &&
+        !(Number.isInteger(webSearch.maxUses) && webSearch.maxUses >= 1 && webSearch.maxUses <= WEB_SEARCH_MAX_USES_CEILING)
+      ) {
+        throw new ModelConnectivityError(
+          "output-bound-exceeded",
+          `A web-search request may make 1 to ${WEB_SEARCH_MAX_USES_CEILING} searches.`,
+        );
+      }
       if (request.maxTokens > MAX_LIVE_OUTPUT_TOKENS) {
         throw new ModelConnectivityError(
           "output-bound-exceeded",
@@ -334,7 +355,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       calls += 1;
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setTimeout(() => controller.abort(), webSearch && config.timeoutMs === undefined ? LIVE_WEB_SEARCH_TIMEOUT_MS : timeoutMs);
       let response: { ok: boolean; status: number; json(): Promise<unknown> };
       const dispatch = (key: string) =>
         doFetch(ANTHROPIC_MESSAGES_URL, {
@@ -349,6 +370,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
             system: request.system,
             max_tokens: request.maxTokens,
             messages: request.messages.map((message) => ({ role: message.role, content: message.content })),
+            ...(webSearch ? { tools: [{ type: WEB_SEARCH_TOOL_VERSION, name: "web_search", max_uses: webSearch.maxUses }] } : {}),
           }),
           signal: controller.signal,
         });
@@ -373,7 +395,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       } catch {
         throw new ModelConnectivityError("malformed-response", "Provider returned a non-JSON body.");
       }
-      return toTransportResponse(payload, request.model);
+      return toTransportResponse(payload, request.model, webSearch !== undefined);
     },
     /* AP-3 — see `prepayLiveDispatch`: takes this instance's one unit now, or refuses. */
     [PREPAY_LIVE_DISPATCH](): boolean {

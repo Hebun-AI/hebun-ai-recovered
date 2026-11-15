@@ -129,7 +129,8 @@ assert.deepEqual([...research.mandateKindsAnyOf], [KIND], "P5: research needs pr
 assert.equal(research.sideEffect, "PREPARATION_ONLY");
 assert.equal(research.authorizationRequired, false);
 /* RA-EAI-1 — it now declares its one disclosure, and is still performed by nothing. */
-assert.deepEqual(research.dataUse, { purpose: "research", dataClasses: ["conversation"] }, "P5: research × conversation, nothing else");
+/* P6-3 (D3) — plus the sourced run's web-search class, asked only as its own required class of a separate decision. */
+assert.deepEqual(research.dataUse, { purpose: "research", dataClasses: ["conversation"], webSearchDataClass: "web-search" }, "P5: research × conversation, and web-search only under its own decision");
 /* RA-PREP-1 — now performed by its one seam (was: /^no seam yet/). Pin moved by RA-PREP-1, see its closure. */
 assert.match(research.performedBy, /assignResearchReport/, "P5: performed by the research seam alone");
 assert.ok(research.cannot.some((line) => /send|publish/.test(line)) && research.cannot.some((line) => /state/.test(line)), "P5: says it cannot send, publish or change state");

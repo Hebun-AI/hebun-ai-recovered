@@ -380,7 +380,7 @@ export function CustomerHome({ name, organization, waiting, work, activity, rese
         ) : (
           <ul className="divide-y divide-border">
             {research.reports.slice(0, SHOWN).map((report) => (
-              <Row key={report.id} dot="primary" title={report.title} meta={["Unsourced research draft", since(report.createdAt, evaluatedAt)].filter(Boolean).join(" · ")} />
+              <Row key={report.id} dot="primary" title={report.title} meta={["Research draft", since(report.createdAt, evaluatedAt)].filter(Boolean).join(" · ")} />
             ))}
           </ul>
         )}

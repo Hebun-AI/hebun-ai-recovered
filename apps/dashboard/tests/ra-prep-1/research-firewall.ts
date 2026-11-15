@@ -6,7 +6,9 @@
  *      its input has no type field — the type is the writer's constant
  *   F2 every reviser refuses a research report, from the type read under the artifact lock
  *   F3 the seam reaches only these authorities; it reaches no proposal, permit, decision, execution,
- *      evidence-link, provider-transport or web-search module
+ *      evidence-link or provider-transport module, and calls no web-search tool itself
+ *   F10 P6-3: the web-search tool is requested only under its own data-use decision (research × web-search),
+ *      asked before the model, and the generator refuses a search no decision authorized
  *   F4 the purpose: the seam's input names none; it is the capability's declaration; only this seam sets
  *      the gateway's purpose option, which admits research alone and grounds research on nothing
  *   F5 order: every authority is asked before the model
@@ -15,7 +17,8 @@
  *      called without one; the provenance row is never best-effort
  *   F9 P6-2: the standing research authorization is append-only with one writer; its kill switch is read
  *      first by the scheduled gate and is not production-reachable through the generic ceremony
- *   F7 unsourced: the brief forbids citations and links; the label and the classification say so;
+ *   F7 unsourced: the unsourced brief forbids citations and links; the classification says so; the label
+ *      is neutral since P6-3 (the report's own SOURCING line says which);
  *      the capability declares only the question as input
  */
 import assert from "node:assert/strict";
@@ -60,6 +63,8 @@ assert.deepEqual(
   [
     "./assign-work-draft.server",
     "./capabilities",
+    /* P6-3 — the pure sourced-report composition over what the provider returned. */
+    "./sourced-research-report",
     /* P6-1 — the advisory lock for one research per (work, agent) at a time, as the work-draft seam takes it. */
     "@/db/client.server",
     "@/features/agent-identity/read-durable-agent-identity.server",
@@ -70,6 +75,8 @@ assert.deepEqual(
     "@/features/governance-decision/authority-read.server",
     "@/features/heby-answer/model-answer.server",
     "@/features/heby-model/model-connectivity-environment.server",
+    /* P6-3 — the per-request search ceiling (a constant; the transport refuses more). */
+    "@/features/heby-model/web-research-trace",
     "@/features/heby-provider-ops/provider-connectivity-control.server",
     "@/features/heby-runtime/contracts",
     "@/features/heby-runtime/instruction-channel",
@@ -84,15 +91,53 @@ assert.deepEqual(
 );
 assert.doesNotMatch(
   seam,
-  /heby-action-inlet|action-authorization\/decide|governed-machine-execution|standing-mutation|organizational-work\/write-work|declareWorkEvidenceReference|heby-model-live|claude-http-transport|web_search|webSearch|fetch\(/,
-  "F3: no proposal, decision, execution, evidence link, transport or web search",
+  /heby-action-inlet|action-authorization\/decide|governed-machine-execution|standing-mutation|organizational-work\/write-work|declareWorkEvidenceReference|heby-model-live|claude-http-transport|web_search|fetch\(/,
+  "F3: no proposal, decision, execution, evidence link, transport or web-search tool of its own",
 );
+
+/* ── F10 ── P6-3: the seam asks for the gateway's web search in exactly ONE place, under its own decision. */
+assert.equal(seam.split("webSearch:").length - 1, 1, "F10: one request for web search");
+assert.match(
+  seam,
+  /\.\.\.\(sourced \? \{ webSearch: \{ maxUses: researchWebSearchMaxUses\(env\) \} \} : \{\}\)/,
+  "F10: and only when the run is sourced",
+);
+assert.match(
+  seam,
+  /const sourcedDecision = await ask\(\[\.\.\.DATA_USE\.dataClasses, DATA_USE\.webSearchDataClass\]\);\s*const sourced = sourcedDecision\?\.disposition === "authorized" && sourcedDecision\.authorizedDataClasses\.includes\(DATA_USE\.webSearchDataClass\);/,
+  "F10: sourced means the data-use authority authorized research × web-search as a required class",
+);
+assert.equal(agentWorkCapability("prepare-research-report").dataUse.purpose, "research");
+{
+  const generator = read("src/features/heby-model/heby-model-generation.server.ts");
+  assert.match(
+    generator,
+    /request\.webSearch &&\s*\(!declaration\?\.dataClasses\.includes\("web-search"\) \|\| declaration\.optionalDataClasses\?\.includes\("web-search"\)\)\s*\) \{\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/,
+    "F10: the generator refuses a search that is not a REQUIRED declared class, before any decision",
+  );
+  assert.match(
+    generator,
+    /if \(request\.webSearch && !decision\.authorizedDataClasses\.includes\("web-search"\)\) \{\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/,
+    "F10: and a decision that did not authorize it",
+  );
+  const gateway = read("src/features/heby-answer/model-answer.server.ts");
+  assert.match(gateway, /const webSearch = briefApplied && options\.dataUsePurpose === "research" \? options\.webSearch : undefined;/, "F10: the gateway honours it for a research preparation only");
+  assert.match(gateway, /\.\.\.\(webSearch \? \(\["web-search"\] as const\) : \[\]\),/, "F10: and declares web-search for it");
+  /* The seam asks; the gateway and the client only carry the request onward. */
+  assert.deepEqual(
+    naming(/webSearch: \{ maxUses/),
+    [SEAM, "src/features/heby-answer/model-answer.server.ts", "src/features/heby-model/claude-model-client.ts"].sort(),
+    "F10: no other caller asks for a search",
+  );
+}
 
 /* ── F4 ── */
 const inputShape = seam.match(/export interface AssignResearchReportInput \{([\s\S]*?)\}/)?.[1] ?? "";
 assert.deepEqual([...inputShape.matchAll(/readonly (\w+)/g)].map((m) => m[1]), ["workItemId", "agentId", "question", "title"], "F4: ids and words only — no purpose, tenant or class");
 assert.match(seam, /const declared = CAPABILITY\.dataUse;\s*if \(declared\.purpose !== "research"\) throw/, "F4: the purpose is the capability's, and a non-research declaration is a broken contract");
-assert.match(seam, /purpose: DATA_USE\.purpose, dataClasses: DATA_USE\.dataClasses/, "F4: the preflight declares exactly the capability's purpose and classes");
+assert.match(seam, /purpose: DATA_USE\.purpose, dataClasses \}/, "F4: the preflight declares the capability's purpose");
+/* P6-3 — and exactly the capability's classes: the question, plus web-search only for the sourced decision. */
+assert.match(seam, /: await ask\(DATA_USE\.dataClasses\);/, "F4: the unsourced preflight asks exactly the capability's classes");
 assert.match(seam, /dataUsePurpose: DATA_USE\.purpose,/, "F4: and so does the model request");
 assert.deepEqual(naming(/dataUsePurpose:/), [SEAM], "F4: only the research seam sets the gateway's purpose option");
 const answer = read("src/features/heby-answer/model-answer.server.ts");
@@ -179,7 +224,8 @@ assert.deepEqual(
 
 /* ── F7 ── */
 assert.equal(RESEARCH_REPORT_SOURCING, "UNSOURCED RESEARCH DRAFT");
-assert.equal(ARTIFACT_TYPE_LABELS["research-report"], "Unsourced research draft", "F7: the label says what it is");
+/* P6-3 — a research report may now be sourced; the label is neutral and the report's SOURCING line says which. */
+assert.equal(ARTIFACT_TYPE_LABELS["research-report"], "Research draft", "F7: the label claims neither");
 const brief = RESEARCH_REPORT_PREPARATION_BRIEF.join(" ");
 assert.match(brief, /UNSOURCED RESEARCH DRAFT/);
 assert.match(brief, /Do not cite sources/);
@@ -187,8 +233,8 @@ assert.match(brief, /any link or web address/);
 assert.match(brief, /no source was searched or read/);
 const capability = agentWorkCapability("prepare-research-report");
 assert.deepEqual([...capability.input], ["your research question, in your words"], "F7: the question is the only input");
-assert.ok(capability.cannot.some((line) => /search the web/.test(line) && /unsourced/.test(line)), "F7: says it cannot search or cite");
+assert.ok(capability.cannot.some((line) => /search the web unless your organization authorized web search/.test(line) && /verified by Hebun/.test(line)), "F7: says when it may search, and that nothing is verified");
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
 
-console.log("ra-prep-1/research-firewall: F1–F9 PASS");
+console.log("ra-prep-1/research-firewall: F1–F10 PASS");

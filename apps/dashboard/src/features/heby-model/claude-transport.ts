@@ -12,6 +12,7 @@
  */
 
 import { ModelConnectivityError } from "./model-error";
+import type { WebResearchTrace } from "@/features/heby-runtime/contracts";
 
 export interface ClaudeTransportMessage {
   readonly role: "user" | "assistant";
@@ -45,6 +46,8 @@ export interface ClaudeTransportRequest {
   readonly maxTokens: number;
   /** RELEVANCE-2A — absent for every text request. See `ClaudeTransportStructuredOutput`. */
   readonly structuredOutput?: ClaudeTransportStructuredOutput;
+  /** P6-3 — attach the provider's web-search tool with this per-request search cap. Absent: no tool. */
+  readonly webSearch?: { readonly maxUses: number };
 }
 
 export interface ClaudeTransportUsage {
@@ -69,6 +72,8 @@ export interface ClaudeTransportResponse {
    * vouches for its shape. Text responses never carry it.
    */
   readonly structured?: unknown;
+  /** P6-3 — present only when the request carried `webSearch`; parsed by the transport, untrusted. */
+  readonly webResearch?: WebResearchTrace;
 }
 
 export interface ClaudeTransport {

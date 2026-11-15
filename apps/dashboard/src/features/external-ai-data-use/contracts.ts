@@ -87,6 +87,12 @@ export const DATA_CLASSES = [
   "external-recipient",
   "media-generated",
   "media-supplied",
+  /*
+   * P6-3 (D3) — what Anthropic's web-search tool sends and returns: search queries the model derives
+   * from the research question, run against a third-party search index, and the third-party results.
+   * Its own class so that no earlier research grant (research × conversation, RA-EAI-1) covers it.
+   */
+  "web-search",
 ] as const;
 export type DataClass = (typeof DATA_CLASSES)[number];
 

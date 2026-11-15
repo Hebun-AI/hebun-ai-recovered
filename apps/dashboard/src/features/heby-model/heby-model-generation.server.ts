@@ -150,6 +150,18 @@ export async function generateHebyModelAnswer(
       return unavailable("INSTRUCTION_CHANNEL_REFUSED");
     }
     const declaration = deps.disclosure ?? null;
+    /*
+     * P6-3 — A WEB SEARCH IS ITS OWN DISCLOSURE. The tool sends model-derived queries to a third-party
+     * search index, so a request carrying it must declare `web-search` as a REQUIRED class: the composer
+     * then authorizes it only if this tenant granted research × web-search and a platform cell allows
+     * it. Undeclared, or declared only as optional, the request is refused before any decision is asked.
+     */
+    if (
+      request.webSearch &&
+      (!declaration?.dataClasses.includes("web-search") || declaration.optionalDataClasses?.includes("web-search"))
+    ) {
+      return unavailable("DATA_USE_NOT_AUTHORIZED");
+    }
     const tenantMismatch =
       declaration !== null && request.tenantId !== undefined && request.tenantId !== declaration.tenantId;
     /*
@@ -181,6 +193,10 @@ export async function generateHebyModelAnswer(
       decision && declaration ? externalAiDisclosureEvidence(declaration, decision, modelId, request.correlationId, accountRef) : null;
     if (decision?.disposition !== "authorized" || !evidence) {
       if (evidence) await record(evidence).catch(() => false);
+      return unavailable("DATA_USE_NOT_AUTHORIZED");
+    }
+    /* P6-3 — defence in depth: a decision that did not authorize `web-search` never carries the tool. */
+    if (request.webSearch && !decision.authorizedDataClasses.includes("web-search")) {
       return unavailable("DATA_USE_NOT_AUTHORIZED");
     }
     /*

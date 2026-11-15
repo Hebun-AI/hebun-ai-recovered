@@ -92,6 +92,7 @@ function translate(request: ModelGenerationRequest, fenceId: string): ClaudeTran
     system,
     messages,
     maxTokens: request.maxOutputTokens,
+    ...(request.webSearch ? { webSearch: { maxUses: request.webSearch.maxUses } } : {}),
   };
 }
 

@@ -477,6 +477,34 @@ export interface ModelGenerationRequest {
    * Absent for a fresh conversation.
    */
   readonly history?: readonly ConversationTurn[];
+  /**
+   * P6-3 — the provider's web-search tool, at most `maxUses` searches for this one request. Set only by
+   * the research seam, and sent only when this request's data-use decision authorized `web-search`
+   * (the generator refuses otherwise). Absent for every other request, which is byte-identical to before.
+   */
+  readonly webSearch?: { readonly maxUses: number };
+}
+
+/**
+ * P6-3 — what a web-searching model call actually searched and cited, as the provider returned it.
+ * Every string here is THIRD-PARTY, UNTRUSTED data: a title, a URL or a cited passage is shown and
+ * stored as text, and nothing reads it as an instruction, a link to follow, or a fact Hebun verified.
+ * The provider's encrypted result payloads are not kept.
+ */
+export interface WebResearchTrace {
+  /** The queries the model sent to the search tool, in order. */
+  readonly queries: readonly string[];
+  /** Results the search tool returned, de-duplicated by URL, in first-seen order. */
+  readonly results: readonly { readonly url: string; readonly title: string; readonly pageAge?: string }[];
+  /** The answer's text blocks in order, each with the search results it cites (possibly none). */
+  readonly segments: readonly {
+    readonly text: string;
+    readonly citations: readonly { readonly url: string; readonly title: string; readonly citedText: string }[];
+  }[];
+  /** Searches the provider reports it ran (its usage report's search-request count), when reported. */
+  readonly searchRequests?: number;
+  /** Error codes the search tool returned in place of results, in order. */
+  readonly searchErrors: readonly string[];
 }
 
 /**
@@ -500,4 +528,6 @@ export interface ModelGenerationResult {
   readonly stopReason?: string;
   /** Measured wall-clock latency in ms — only when actually measured. */
   readonly latencyMs?: number;
+  /** P6-3 — present only for a request that carried `webSearch`. */
+  readonly webResearch?: WebResearchTrace;
 }

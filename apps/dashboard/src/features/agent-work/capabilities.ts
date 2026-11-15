@@ -55,7 +55,16 @@ export interface AgentWorkCapability {
    */
   readonly dataUse:
     | { readonly purpose: "assistance"; readonly dataClasses: readonly ("conversation" | "work-artifact")[] }
-    | { readonly purpose: "research"; readonly dataClasses: readonly "conversation"[] };
+    | {
+        readonly purpose: "research";
+        readonly dataClasses: readonly "conversation"[];
+        /**
+         * P6-3 (D3) — the class a SOURCED run adds: Anthropic's web-search tool. Asked as a separate,
+         * required class of its own decision; a tenant that granted only research × conversation gets
+         * the unsourced draft, never a search.
+         */
+        readonly webSearchDataClass: "web-search";
+      };
   /** What the agent is given. Nothing else reaches the model. */
   readonly input: readonly string[];
   readonly output: string;
@@ -104,20 +113,24 @@ export const AGENT_WORK_CAPABILITIES: readonly AgentWorkCapability[] = Object.fr
     performedBy: "agent-work (assignResearchReport) through work-artifacts (createResearchReportFromResearchPreparation); the person links the result through organizational-work's own action",
     label: "Prepare a research report for this work",
     objective:
-      "Write one unsourced research draft — market, customer or opportunity research from the model's own knowledge — for a work item the agent is responsible for.",
+      "Write one research draft — market, customer or opportunity research — for a work item the agent is responsible for: sourced from web search when your organization authorized it, otherwise unsourced, from the model's own knowledge.",
     sideEffect: "PREPARATION_ONLY" as const,
     mandateKindsAnyOf: Object.freeze(["prepare-research"] as const),
-    dataUse: Object.freeze({ purpose: "research" as const, dataClasses: Object.freeze(["conversation"] as const) }),
-    /* RA-PREP-1 — only what the one research cell discloses. Web sources and Knowledge are not sent. */
+    dataUse: Object.freeze({
+      purpose: "research" as const,
+      dataClasses: Object.freeze(["conversation"] as const),
+      webSearchDataClass: "web-search" as const,
+    }),
+    /* RA-PREP-1 — only the question is sent. P6-3 — under its own decision, the web-search tool may also run. */
     input: Object.freeze(["your research question, in your words"]),
-    output: "One unsourced research draft authored by the agent, which you then link to this work item as its evidence.",
+    output: "One research draft authored by the agent, labelled sourced or unsourced, which you then link to this work item as its evidence.",
     completion: "Done when a person with Governance authority accepts the report in Operations.",
     cannot: Object.freeze([
       "contact anyone, send, publish or change anything outside Hebun — a report is text for review",
       "propose actions, receive permits or start machine execution",
       "propose or change the work item's state",
       "prepare any draft other than a research report",
-      "search the web, read your organization's records, or cite verified sources — the report is an unsourced draft",
+      "search the web unless your organization authorized web search for research; read your organization's records; or present a source as verified by Hebun",
       "approve its own report or widen its own mandate",
     ]),
     authorizationRequired: false as const,

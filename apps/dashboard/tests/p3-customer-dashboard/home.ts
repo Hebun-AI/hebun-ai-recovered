@@ -160,7 +160,7 @@ test("real data still renders as before", () => {
     work: { status: "empty", detail: "none" },
     research: { status: "read", reports: [{ id: "a1", title: "Nordic rug market", createdAt: NOW }] },
   });
-  for (const shown of ["Welcome back, Ada", "Acme", "instagram.publish", "Autumn post", "No work recorded yet", ">3<", ">1<", "Nordic rug market", "Unsourced research draft"]) {
+  for (const shown of ["Welcome back, Ada", "Acme", "instagram.publish", "Autumn post", "No work recorded yet", ">3<", ">1<", "Nordic rug market", "Research draft"]) {
     assert.ok(html.includes(shown), `${shown} is rendered`);
   }
   assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 1, "only the still-unread activity panel says unavailable");

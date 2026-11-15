@@ -90,5 +90,6 @@ export function validateClaudeResponse(
       typeof response.stopReason === "string" && response.stopReason.length > 0
         ? response.stopReason
         : undefined,
+    ...(response.webResearch ? { webResearch: response.webResearch } : {}),
   });
 }

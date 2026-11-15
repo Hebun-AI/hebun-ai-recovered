@@ -50,8 +50,8 @@ export const ARTIFACT_TYPE_LABELS: Readonly<Record<StoredWorkArtifactType, strin
   "operational-plan": "Plan",
   "message-draft": "Message",
   "content-draft": "Content",
-  /* RA-PREP-1 — every research report is unsourced today (`RESEARCH_REPORT_SOURCING`); the label says so. */
-  "research-report": "Unsourced research draft",
+  /* P6-3 — sourced or unsourced; the report's own SOURCING line says which. */
+  "research-report": "Research draft",
 };
 
 export const ASSIGN_REFUSAL_WORDING: Readonly<Record<AssignWorkDraftRefusal, string>> = {
