@@ -66,7 +66,7 @@ assert.match(GENERATOR, /if \(admission\.reason === "process-budget-exhausted"\)
 const callers = SRC.filter((f) => /\(deps\.generate \?\? generateHebyModelAnswer\)|generate: deps\.generate \?\? generateHebyModelAnswer/.test(read(f))).sort();
 /* CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime is a third caller, under its own purpose. */
 /* WORK-UPDATE V1 — a fourth caller: the declared-state origination, under agent-origination, conversation only. */
-assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/agent-origination/originate-work-state.server.ts", "src/features/heby-answer/model-answer.server.ts", "src/features/heby-commands/ai-operational-plan.server.ts"]);
+assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/agent-origination/originate-work-state.server.ts", "src/features/heby-answer/model-answer.server.ts", "src/features/heby-commands/ai-operational-plan.server.ts", /* P6-4 (D9) — the scheduled research run, a fifth caller, under research, declaring its classes (below). */ "src/features/standing-research-authority/scheduled-research.server.ts"]);
 const workStateOrigination = codeOf(read("src/features/agent-origination/originate-work-state.server.ts"));
 assert.match(workStateOrigination, /disclosure: \{\s*tenantId: tenant\.tenantId,\s*actorUserId: tenant\.userId,\s*purpose: "agent-origination",\s*dataClasses: WORK_STATE_ORIGINATION_DATA_CLASSES,/, "the work-state origination declares agent-origination with its fixed classes");
 const aiPlan = codeOf(read("src/features/heby-commands/ai-operational-plan.server.ts"));
@@ -223,6 +223,11 @@ async function main(): Promise<void> {
     );
   }
 
+  /* P6-4 — the scheduled run declares the research purpose and the capability's classes, web-search only when sourced. */
+  {
+    const scheduled = codeOf(read("src/features/standing-research-authority/scheduled-research.server.ts"));
+    assert.match(scheduled, /disclosure: \{\s*tenantId,\s*actorUserId: principal\.grantedByUserId,\s*purpose: DATA_USE\.purpose,\s*dataClasses: sourced \? \[\.\.\.DATA_USE\.dataClasses, DATA_USE\.webSearchDataClass\] : \[\.\.\.DATA_USE\.dataClasses\],/, "the scheduled run declares research and its classes");
+  }
   console.log("PASS external-ai-data-use-b2 boundary");
 }
 

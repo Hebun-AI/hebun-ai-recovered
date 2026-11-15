@@ -132,7 +132,8 @@ const MUTATIONS: readonly Mutation[] = [
      * THE CENSUS GREW TO TWO WITH INSTAGRAM, so the declared reason follows it. The property is
      * unchanged and still bites: a THIRD, unnamed caller of the narrow opener fails the census.
      */
-    because: "exactly two modules spend a connection-scoped secret",
+    /* P6-4 moved the census to three spenders; the assertion still names them all. */
+    because: "modules spend a connection-scoped secret",
   },
 
   /* ── THE PROVENANCE INVARIANTS, IN THE ARTEFACT THAT IS APPLIED ──────────── */
