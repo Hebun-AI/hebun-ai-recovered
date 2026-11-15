@@ -5830,6 +5830,7 @@ re-graded here.
 | BR-1 | VERIFIED | `docs/product-vision/runtime/hebun-br-1-restore-drill-closure.md` |
 | BR-2 | VERIFIED | `docs/product-vision/runtime/hebun-br-2-backup-vault-closure.md` |
 | P6-2-STANDING-RESEARCH-AUTHORIZATION | DEPLOYED | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` |
+| P6-3-WEB-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` |
 
 ---
 
@@ -6073,3 +6074,5 @@ before §16.1 are not yet indexed (Phase B).
 | P6-2-LIVE-WRITE-UNEXERCISED-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Acceptance gap | DEFERRED | Director grants a research mandate and authorizes one brief; revision, decision and audit read back |
 | P6-2-GRANTER-RECHECK-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Authority gap | DEFERRED | P6-4 machine principal |
 | PRODMIG-PROMPT-IDLE-DISCONNECT-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Operational reliability | DEFERRED | Director-selected ceremony fix (error listener, reconnect before apply) proven by a bite-proof |
+| P6-3-LIVE-SEARCH-UNEXERCISED-1 | P6-3-WEB-RESEARCH | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` | Acceptance gap | DEFERRED | RA-EAI-1-WEB-SEARCH-1 decided; a tenant own key and grant; one authorized run read back (report, disclosure decision, audit row) |
+| P6-3-SEARCH-DURATION-1 | P6-3-WEB-RESEARCH | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` | Operational reliability | DEFERRED | First authorized run within the function duration, or a recorded duration setting covering 90 s |
