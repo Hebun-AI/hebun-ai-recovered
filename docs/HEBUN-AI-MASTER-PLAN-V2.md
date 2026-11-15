@@ -212,6 +212,10 @@ calls for it.
    Per its closure, no route, server action or component calls the research seam, no tenant holds a
    research authorization, and no web search exists. The only crons in `vercel.json` are three hourly
    scans (observation, machine delivery, standing issuance); none is research.
+   **Update 2026-11-15:** P6-1 (run-now surface) and P6-2 (standing research authorization, `research-schedule`
+   kill switch, migration 88) are on `main` (`cee23d2b`); P6-2 is DEPLOYED (§21). In production no standing
+   authorization exists, the kill switch is off and no research has run; web search (P6-3) and the 08:00
+   schedule (P6-4) are not built.
 4. **Missing.** A reachable research entry point; an external research source; tenant research
    authorization; the daily schedule.
 5. **Dependencies.** P5; GATE-D; a data-use decision for any new source.
