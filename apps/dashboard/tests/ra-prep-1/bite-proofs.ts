@@ -13,6 +13,8 @@
  *   B10 Governance authority is not asked again before filing           (R9a)
  *   B11 the writer ignores the filing condition                         (R1 provenance)
  *   B8 the general validator admits research-report                     (R2)
+ *   B12 P6 D4 — a live deployment without an own key is not refused        (R10a)
+ *   B13 P6-1 — the per-(work, agent) research lock is not honoured         (R9b)
  *
  * SOURCE-MUTATING: run only in a disposable copy of the tree, never in a worktree someone works in, and
  * never in parallel with another suite. Each file is restored byte-identically after its proof.
@@ -139,6 +141,20 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [{ find: "      if (filingCondition && !(await filingCondition(", replace: "      if (filingCondition && false && !(await filingCondition(" }],
     because: "R1: exactly one filing row",
+  },
+  {
+    label: "B12 P6 D4 — a live deployment without an own key is not refused",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: '    if (credential.kind !== "tenant") return { status: "refused", reason: "research-requires-own-key" };', replace: '    if (credential.kind === "refused") return { status: "refused", reason: "research-requires-own-key" };' }],
+    because: "live, no own key",
+  },
+  {
+    label: "B13 P6-1 — the per-(work, agent) research lock is not honoured",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: "    if ((locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {", replace: "    if (false && (locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {" }],
+    because: "research-in-progress",
   },
   {
     label: "B8 the general validator admits research-report",

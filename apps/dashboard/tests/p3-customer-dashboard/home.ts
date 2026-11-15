@@ -68,6 +68,9 @@ test("the route reads only released, tenant-scoped seams, server-side", () => {
     "@/features/live-map/awareness",
     "@/features/live-map/read-live-map.server",
     "@/features/organizational-work/read-work.server",
+    /* P6-1 — the research reports panel: the released, tenant-scoped artifact list and the type constant. */
+    "@/features/work-artifacts/contracts",
+    "@/features/work-artifacts/read-work-artifacts.server",
   ]);
   assert.ok(!/\b(insert|update|delete|write|create|approve|reject|execute)[A-Z(]/.test(page), "no writer is called");
 });
@@ -134,6 +137,8 @@ const UNREAD: CustomerHomeProps = {
   waiting: { status: "unavailable", reason: "no-authorized-tenant-context" },
   work: { status: "unavailable", detail: "SQL error 42P01 on work_items" },
   activity: { sourceClass: "audit", state: "unavailable", authoritative: false, provenance: "", limits: "", generatedAt: null, acts: [], totalRecordedActs: null, truncated: false, unavailableReason: "connect ECONNREFUSED 127.0.0.1:5432" },
+  /* P6-1 — the research reports panel. */
+  research: { status: "unavailable" },
 };
 
 test("unreadable panels show one plain sentence, never the reader's reason", () => {
@@ -141,7 +146,7 @@ test("unreadable panels show one plain sentence, never the reader's reason", () 
   for (const internal of ["no-authorized-tenant-context", "42P01", "ECONNREFUSED", "relation live_map", "could not be read"]) {
     assert.ok(!html.includes(internal), `"${internal}" is not shown to the customer`);
   }
-  assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 4, "each of the four panels says it once");
+  assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 5, "each of the five panels says it once"); /* P6-1 adds Research reports. */
   assert.ok(html.includes("Workspace information is unavailable in this session."));
   assert.ok(!/>0</.test(html), "no zero stands in for an unread source");
 });
@@ -153,8 +158,9 @@ test("real data still renders as before", () => {
     organization: { organization: { status: "named", name: "Acme" }, agents: { status: "counted", count: 3 }, intelligence: { status: "unavailable" }, freshness: "" },
     waiting: { status: "waiting", items: [{ requestId: "r1", actionKind: "instagram.publish", targetLabel: "Autumn post", expectedEffect: "Publishes", proposedAt: NOW, waitingFor: null }], boundReached: false, awaitingCount: 1, oldestWaiting: null },
     work: { status: "empty", detail: "none" },
+    research: { status: "read", reports: [{ id: "a1", title: "Nordic rug market", createdAt: NOW }] },
   });
-  for (const shown of ["Welcome back, Ada", "Acme", "instagram.publish", "Autumn post", "No work recorded yet", ">3<", ">1<"]) {
+  for (const shown of ["Welcome back, Ada", "Acme", "instagram.publish", "Autumn post", "No work recorded yet", ">3<", ">1<", "Nordic rug market", "Unsourced research draft"]) {
     assert.ok(html.includes(shown), `${shown} is rendered`);
   }
   assert.equal(html.split(UNAVAILABLE_MESSAGE).length - 1, 1, "only the still-unread activity panel says unavailable");

@@ -52,6 +52,8 @@
  *
  * Server-only.
  */
+import { sql } from "drizzle-orm";
+import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { agentWorkCapability, refuseOutsideAgentWorkCapability } from "./capabilities";
 import { eligibleAgents, readTarget, type AgentWorkDeps, type TargetRead } from "./assign-work-draft.server";
@@ -71,6 +73,12 @@ import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durab
 import { WORK_ARTIFACT_OWNER_WORKSPACE, WORK_ARTIFACT_PREPARATION_INTENT } from "@/features/work-artifacts/prepare-work-artifact.server";
 import { createResearchReportFromResearchPreparation, type WorkArtifactWriteDeps } from "@/features/work-artifacts/write-work-artifacts.server";
 import { recordResearchReportFiled } from "@/features/governance-audit/research-report-audit.server";
+import {
+  isLiveModelTransport,
+  resolveTenantModelCredential,
+  selectTenantOwnModelTransport,
+  tenantAnthropicAccountRef,
+} from "@/features/provider-anthropic/model-credential.server";
 
 const CAPABILITY = agentWorkCapability("prepare-research-report");
 
@@ -114,6 +122,8 @@ export interface AssignResearchReportDeps extends AgentWorkDeps, Omit<HebyModelA
   readonly write?: WorkArtifactWriteDeps;
   /** The released data-use authority; injected only so a test can hand it its database. */
   readonly authorizeDisclosure?: AuthorizeExternalAiDisclosure;
+  /** P6 D4 — the tenant's own-key read; injected only so a test can name a tenant key without one. */
+  readonly resolveCredential?: typeof resolveTenantModelCredential;
 }
 
 type TargetRefusal = Extract<TargetRead, { status: "refused" }>["reason"];
@@ -132,6 +142,11 @@ export type AssignResearchReportRefusal =
   | "model-connectivity-disabled"
   /** External-AI Data Use did not authorize research × conversation for this tenant and model. */
   | "research-data-use-not-authorized"
+  /** P6 D4 — a live deployment runs research only on this organization's own, verified Anthropic key. */
+  | "research-requires-own-key"
+  /** P6-1 — the same agent is already researching this work for another request; nothing was asked twice. */
+  | "research-in-progress"
+  | "persistence-unavailable"
   | "invalid-input";
 
 export type AssignResearchReportResult =
@@ -205,90 +220,176 @@ export async function assignResearchReport(
    * assistance authorization does not answer it: the composer matches purpose and class exactly.
    */
   const env = deps.env ?? process.env;
-  const decision = await (deps.authorizeDisclosure ?? ((d, o, m) => authorizeExternalAiDisclosure(d, o, m)))(
+  /*
+   * P6 D4 — WHOSE ACCOUNT. On a live deployment research runs only on the tenant's own verified key, and
+   * the preflight asks the data-use authority about THAT account — the one the dispatch will be judged
+   * against (`tenant-byok:<integration>`), never the platform's. The key itself is not read here.
+   */
+  let accountRef: string | undefined;
+  if (isLiveModelTransport(env)) {
+    const credential = await (deps.resolveCredential ?? resolveTenantModelCredential)(tenant, { getDb: deps.getDb });
+    if (credential.kind !== "tenant") return { status: "refused", reason: "research-requires-own-key" };
+    accountRef = tenantAnthropicAccountRef(credential.integrationId);
+  }
+  const decision = await (deps.authorizeDisclosure ?? ((d, o, m, a) => authorizeExternalAiDisclosure(d, o, m, {}, a)))(
     { tenantId: tenant.tenantId, actorUserId: tenant.userId, purpose: DATA_USE.purpose, dataClasses: DATA_USE.dataClasses },
     directorEnabled,
     resolveModelConnectivityConfig(env).modelId ?? "",
+    accountRef,
   ).catch(() => null);
   if (decision?.disposition !== "authorized") return { status: "refused", reason: "research-data-use-not-authorized" };
 
-  const answer = await (deps.answer ?? answerHebyModelRequest)(
-    /* No conversation id: a research request carries no earlier turn, so only this question is sent. */
-    { prompt: question, route: `/${WORK_ARTIFACT_OWNER_WORKSPACE}` },
-    { ...deps, resolveTenant: deps.resolveTenant },
-    {
-      intent: WORK_ARTIFACT_PREPARATION_INTENT,
-      preparationBrief: RESEARCH_BRIEF,
-      /* The brief is instruction only; it carries no data class beyond the conversation. */
-      preparationBriefDataClasses: [],
-      actionClaimMode: "internal-draft",
-      dataUsePurpose: DATA_USE.purpose,
-    },
-  );
-  if (answer.status === "unauthorized") return { status: "refused", reason: "unauthenticated" };
-  if (answer.status === "rejected") return { status: "not-prepared", reason: "prompt-rejected" };
-  const fallback = answer.outcome.response.modelFallback;
-  const notPrepared = (reason: Extract<AssignResearchReportResult, { status: "not-prepared" }>["reason"]): AssignResearchReportResult => ({
-    status: "not-prepared",
-    reason,
-    ...(fallback ? { modelFallback: fallback } : {}),
-  });
   /*
-   * The same four filing rules `prepareWorkArtifact` applies, by the same reason codes: only served model
-   * text (`origin` is the answer flow's fact), durably recorded, complete (OUTPUT-INTEGRITY-1) and not the
-   * provider's own refusal (B2-REFUSAL-GUARD-1) becomes a report. Restated rather than shared so the work
-   * preparation seam stays byte-identical.
+   * P6-1 — ONE RESEARCH PER (WORK, AGENT) AT A TIME (RA-PREP-1-CONCURRENT-DISPATCH-1). The same
+   * transaction-scoped advisory lock the work-draft seam uses, on its own namespace: a second request that
+   * cannot take it is refused before the model. Released by COMMIT/ROLLBACK, so a crash cannot leave it held.
+   *
+   * ponytail: holds one pooled connection (idle in transaction, no row locks) for the model call's
+   * duration per in-flight research; a separate lock pool if concurrent research approaches the pool.
    */
-  if (answer.outcome.response.origin !== "model") return notPrepared("no-model-answer");
-  if (!answer.persistence.durable) return notPrepared("not-durable");
-  if (answer.modelStopReason === "max_tokens") return notPrepared("output-truncated");
-  if (answer.modelStopReason === "refusal") return notPrepared("model-refused");
-
-  const content = answer.outcome.response.body.join("\n");
-  if (LINK.test(content)) return notPrepared("unsourced-link-in-output");
-
-  /*
-   * DISPATCH IS NOT FILING AUTHORITY. The person's Governance authority is asked again: one revoked while
-   * the model was writing files nothing (the message and disclosure records of the call stay, as they
-   * must — the call happened).
-   */
-  if (!(await (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant)).authorized) {
-    return notPrepared("governance-authority-changed-while-preparing");
-  }
-
-  const sourceMessageId = answer.persistence.assistantMessageId;
-  const written = await createResearchReportFromResearchPreparation(
-    tenant,
-    { title, content, sourceMessageId },
-    WORK_ARTIFACT_OWNER_WORKSPACE,
-    authorship.authorship,
-    deps.write ?? { getDb: deps.getDb },
+  const db = deps.getDb ? deps.getDb() : resolveDbOrNull();
+  if (!db) return { status: "refused", reason: "persistence-unavailable" };
+  const lockKey = `${tenant.tenantId}:${target.target.workItemId}:${agent.agentId}`;
+  const researchUnderLock = async (): Promise<AssignResearchReportResult> => {
+    const answer = await (deps.answer ?? answerHebyModelRequest)(
+      /* No conversation id: a research request carries no earlier turn, so only this question is sent. */
+      { prompt: question, route: `/${WORK_ARTIFACT_OWNER_WORKSPACE}` },
+      /* P6 D4 — and at dispatch: the tenant's own key or no call, never the platform key. */
+      { selectTenantTransport: selectTenantOwnModelTransport, ...deps, resolveTenant: deps.resolveTenant },
+      {
+        intent: WORK_ARTIFACT_PREPARATION_INTENT,
+        preparationBrief: RESEARCH_BRIEF,
+        /* The brief is instruction only; it carries no data class beyond the conversation. */
+        preparationBriefDataClasses: [],
+        actionClaimMode: "internal-draft",
+        dataUsePurpose: DATA_USE.purpose,
+      },
+    );
+    if (answer.status === "unauthorized") return { status: "refused", reason: "unauthenticated" };
+    if (answer.status === "rejected") return { status: "not-prepared", reason: "prompt-rejected" };
+    const fallback = answer.outcome.response.modelFallback;
+    const notPrepared = (reason: Extract<AssignResearchReportResult, { status: "not-prepared" }>["reason"]): AssignResearchReportResult => ({
+      status: "not-prepared",
+      reason,
+      ...(fallback ? { modelFallback: fallback } : {}),
+    });
     /*
-     * INSIDE THE FILING TRANSACTION: the effective mandate is still the revision the dispatch rested on,
-     * and its ceiling still admits this work; then the provenance row is appended on the same
-     * transaction. Anything else rolls the report back.
+     * The same four filing rules `prepareWorkArtifact` applies, by the same reason codes: only served model
+     * text (`origin` is the answer flow's fact), durably recorded, complete (OUTPUT-INTEGRITY-1) and not the
+     * provider's own refusal (B2-REFUSAL-GUARD-1) becomes a report. Restated rather than shared so the work
+     * preparation seam stays byte-identical.
      */
-    async (tx, created) => {
-      const now = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx });
-      if (now.status !== "known" || now.mandate?.mandateId !== mandateRevision.mandateId) return false;
-      if (refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)) return false;
-      await recordResearchReportFiled(tx, {
-        tenantId: tenant.tenantId,
-        actorUserId: tenant.userId,
-        artifactId: created.artifactId,
-        revisionNo: created.revisionNo,
-        agentId: agent.agentId,
-        ...mandateRevision,
-        capability: CAPABILITY.id,
-        purpose: DATA_USE.purpose,
-        sourceMessageId,
-        correlationId: answer.outcome.response.modelAttribution?.correlationId ?? null,
-        occurredAt: new Date(),
-      });
-      return true;
-    },
-  );
-  if (written.status === "refused" && written.reason === "filing-condition-failed") return notPrepared("agent-mandate-changed-while-preparing");
-  if (written.status !== "created") return notPrepared("write-refused");
-  return { status: "prepared", workItemId: target.target.workItemId, artifactId: written.artifactId, revisionNo: written.revisionNo, agentName: agent.name };
+    if (answer.outcome.response.origin !== "model") return notPrepared("no-model-answer");
+    if (!answer.persistence.durable) return notPrepared("not-durable");
+    if (answer.modelStopReason === "max_tokens") return notPrepared("output-truncated");
+    if (answer.modelStopReason === "refusal") return notPrepared("model-refused");
+
+    const content = answer.outcome.response.body.join("\n");
+    if (LINK.test(content)) return notPrepared("unsourced-link-in-output");
+
+    /*
+     * DISPATCH IS NOT FILING AUTHORITY. The person's Governance authority is asked again: one revoked while
+     * the model was writing files nothing (the message and disclosure records of the call stay, as they
+     * must — the call happened).
+     */
+    if (!(await (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant)).authorized) {
+      return notPrepared("governance-authority-changed-while-preparing");
+    }
+
+    const sourceMessageId = answer.persistence.assistantMessageId;
+    const written = await createResearchReportFromResearchPreparation(
+      tenant,
+      { title, content, sourceMessageId },
+      WORK_ARTIFACT_OWNER_WORKSPACE,
+      authorship.authorship,
+      deps.write ?? { getDb: deps.getDb },
+      /*
+       * INSIDE THE FILING TRANSACTION: the effective mandate is still the revision the dispatch rested on,
+       * and its ceiling still admits this work; then the provenance row is appended on the same
+       * transaction. Anything else rolls the report back.
+       */
+      async (tx, created) => {
+        const now = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx });
+        if (now.status !== "known" || now.mandate?.mandateId !== mandateRevision.mandateId) return false;
+        if (refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)) return false;
+        await recordResearchReportFiled(tx, {
+          tenantId: tenant.tenantId,
+          actorUserId: tenant.userId,
+          artifactId: created.artifactId,
+          revisionNo: created.revisionNo,
+          agentId: agent.agentId,
+          ...mandateRevision,
+          capability: CAPABILITY.id,
+          purpose: DATA_USE.purpose,
+          sourceMessageId,
+          correlationId: answer.outcome.response.modelAttribution?.correlationId ?? null,
+          occurredAt: new Date(),
+        });
+        return true;
+      },
+    );
+    if (written.status === "refused" && written.reason === "filing-condition-failed") return notPrepared("agent-mandate-changed-while-preparing");
+    if (written.status !== "created") return notPrepared("write-refused");
+    return { status: "prepared", workItemId: target.target.workItemId, artifactId: written.artifactId, revisionNo: written.revisionNo, agentName: agent.name };
+  };
+
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute(
+      sql`select pg_try_advisory_xact_lock(hashtext('hebun.agent-work.research'), hashtext(${lockKey})) as locked`,
+    );
+    if ((locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {
+      return { status: "refused", reason: "research-in-progress" } as const;
+    }
+    return researchUnderLock();
+  });
+}
+
+function resolveDbOrNull(): ControlPlaneDatabase | null {
+  try {
+    return getControlPlaneDb();
+  } catch {
+    return null;
+  }
+}
+
+/* ═══ P6-1 — WHAT THE PERSON MAY ASK, for the work item they are looking at ═══════════════════════ */
+
+export type ResearchChoices =
+  | {
+      readonly status: "read";
+      readonly workItemId: string;
+      /** The person holds this organization's Governance authority, which filing research needs. */
+      readonly mayAsk: boolean;
+      /** In-service agents holding `prepare-research` and responsible for this work's scope. */
+      readonly agents: readonly { readonly agentId: string; readonly name: string }[];
+      /** P6 D4 — `false` on a live deployment whose tenant holds no verified own key; `null` when no real provider is used. */
+      readonly ownKeyReady: boolean | null;
+    }
+  | { readonly status: "refused"; readonly reason: "unauthenticated" | TargetRefusal }
+  | { readonly status: "unavailable" };
+
+/** A read: it decides nothing. `assignResearchReport` re-asks every one of these before the model. */
+export async function readResearchChoices(
+  tenant: TenantContext | null,
+  workItemId: unknown,
+  deps: AgentWorkDeps & { readonly env?: Readonly<Record<string, string | undefined>> } = {},
+): Promise<ResearchChoices> {
+  if (typeof window !== "undefined") throw new Error("Research reads are server-only.");
+  if (!tenant?.tenantId || !tenant.userId) return { status: "refused", reason: "unauthenticated" };
+  const target = await readTarget(tenant, workItemId, deps);
+  if (target.status === "refused") return target;
+  const env = deps.env ?? process.env;
+  const [eligible, authority, credential] = await Promise.all([
+    eligibleAgents(tenant, target.target.workScope, deps, CAPABILITY),
+    (deps.resolveAuthority ?? resolveGovernanceAuthority)(tenant),
+    isLiveModelTransport(env) ? resolveTenantModelCredential(tenant, { getDb: deps.getDb }) : Promise.resolve(null),
+  ]);
+  if (eligible.status !== "read") return { status: "unavailable" };
+  return {
+    status: "read",
+    workItemId: target.target.workItemId,
+    mayAsk: authority.authorized,
+    agents: eligible.agents.map(({ agentId, name }) => ({ agentId, name })),
+    ownKeyReady: credential === null ? null : credential.kind === "tenant",
+  };
 }

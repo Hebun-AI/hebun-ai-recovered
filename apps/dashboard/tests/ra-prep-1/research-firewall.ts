@@ -58,6 +58,8 @@ assert.deepEqual(
   [
     "./assign-work-draft.server",
     "./capabilities",
+    /* P6-1 — the advisory lock for one research per (work, agent) at a time, as the work-draft seam takes it. */
+    "@/db/client.server",
     "@/features/agent-identity/read-durable-agent-identity.server",
     "@/features/agent-mandate/read-agent-mandate.server",
     "@/features/auth/tenant/tenant-context",
@@ -69,9 +71,12 @@ assert.deepEqual(
     "@/features/heby-provider-ops/provider-connectivity-control.server",
     "@/features/heby-runtime/contracts",
     "@/features/heby-runtime/instruction-channel",
+    /* P6 D4 — the tenant's own-key read (no secret) and the own-key-only dispatch selector. */
+    "@/features/provider-anthropic/model-credential.server",
     "@/features/work-artifacts/agent-authorship.server",
     "@/features/work-artifacts/prepare-work-artifact.server",
     "@/features/work-artifacts/write-work-artifacts.server",
+    "drizzle-orm",
   ],
   "F3: the seam reaches only these authorities (a new reach is a deliberate edit here)",
 );
@@ -100,7 +105,7 @@ const at = (needle: string) => {
   return i;
 };
 const model = at("(deps.answer ?? answerHebyModelRequest)(");
-for (const step of ["readTarget(tenant", "resolveGovernanceAuthority)(tenant)", "eligibleAgents(tenant, workScope, deps, CAPABILITY)", "resolveAgentAuthorship(tenant", "resolveClaudeDirectorEnabled)()", "authorizeExternalAiDisclosure(d, o, m)"]) {
+for (const step of ["readTarget(tenant", "resolveGovernanceAuthority)(tenant)", "eligibleAgents(tenant, workScope, deps, CAPABILITY)", "resolveAgentAuthorship(tenant", "resolveClaudeDirectorEnabled)()", "authorizeExternalAiDisclosure(d, o, m, {}, a)", "resolveTenantModelCredential)(tenant"]) {
   assert.ok(at(step) < model, `F5: ${step} is asked before the model`);
 }
 assert.ok(at("readEffectiveAgentMandate(tenant, agent.agentId, { getDb: deps.getDb })") < model, "F5: the authorizing mandate revision is read before the model");
@@ -111,6 +116,11 @@ assert.ok(at("readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx
 assert.match(seam, /now\.mandate\?\.mandateId !== mandateRevision\.mandateId\) return false;/, "F5: only under the revision the dispatch rested on");
 assert.ok(at("refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)") > filing, "F5: and the ceiling is asked of it there");
 assert.ok(at("recordResearchReportFiled(tx,") > filing, "F5: the provenance row is appended on the filing transaction");
+/* P6-1 — the model call lives inside the locked body, which is entered only after the lock is taken. */
+assert.ok(at("const researchUnderLock = async") < model, "F5: the model call is inside the locked body");
+assert.equal(seam.split("researchUnderLock()").length - 1, 1, "F5: the locked body has one entry");
+assert.ok(at("pg_try_advisory_xact_lock(") < at("return researchUnderLock();"), "F5: entered only after the lock is taken");
+assert.match(seam, /locked !== true\) \{\s*return \{ status: "refused", reason: "research-in-progress" \} as const;/, "F5: a held lock refuses before the model");
 /* F8 — the writer runs the condition inside its transaction, and the research writer cannot be called without one. */
 assert.match(writer, /filingCondition && !\(await filingCondition\(tx as unknown as ControlPlaneDatabase, \{ artifactId, revisionNo: 1 \}\)\)\)/, "F8: asked on the creating transaction, inside it");
 assert.match(writer, /deps: WorkArtifactWriteDeps,\s*\/\*[^*]*\*\/\s*filingCondition: ResearchFilingCondition,/, "F8: the research writer requires a filing condition");
@@ -118,11 +128,16 @@ const audit = read("src/features/governance-audit/research-report-audit.server.t
 assert.doesNotMatch(audit, /catch/, "F8: the provenance row is not best-effort — a failure rolls the report back");
 assert.ok(at("LINK.test(content)") < at("createResearchReportFromResearchPreparation("), "F5: a linked reply is refused before filing");
 
-/* ── F6 ── */
+/* ── F6 ── P6-1 (D8) opened ONE door: the Heby work-item server actions. Components import types only. */
 assert.deepEqual(
-  SRC.filter((f) => /from "[^"]*assign-research-report[^"]*"/.test(read(f))),
-  [],
-  "F6: no route, server action or component reaches the research seam",
+  SRC.filter((f) => /import \{[^}]*\} from "[^"]*assign-research-report[^"]*"/.test(read(f)) && !/import type \{[^}]*\} from "[^"]*assign-research-report/.test(read(f))),
+  ["src/app/(dashboard)/heby/work-state-origination-actions.ts"],
+  "F6: the work-item server actions are the only runtime importer of the research seam",
+);
+assert.deepEqual(
+  SRC.filter((f) => /(?<!function )\bassignResearchReport\(/.test(read(f))).sort(),
+  ["src/app/(dashboard)/heby/work-state-origination-actions.ts"],
+  "F6: and the only caller",
 );
 
 /* ── F7 ── */
