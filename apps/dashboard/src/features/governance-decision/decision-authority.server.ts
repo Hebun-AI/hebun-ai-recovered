@@ -58,6 +58,13 @@ import {
   STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE,
 } from "@/features/standing-observation-authority/contracts";
 import {
+  STANDING_RESEARCH_AUTHORIZED_OUTCOME,
+  STANDING_RESEARCH_DOMAIN,
+  STANDING_RESEARCH_SUBJECT_TYPE,
+  STANDING_RESEARCH_WITHDRAWN_OUTCOME,
+  STANDING_RESEARCH_WITHDRAW_DECISION_TYPE,
+} from "@/features/standing-research-authority/contracts";
+import {
   ORGANIZATIONAL_ROLE_DOMAIN,
   ORGANIZATIONAL_ROLE_OUTCOME,
   ORGANIZATIONAL_ROLE_SUBJECT_TYPE,
@@ -237,6 +244,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof AGENT_LIFECYCLE_SUBJECT_TYPE
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
+      /* P6-2 — the standing research revision a decision authorizes or withdraws. */
+      | typeof STANDING_RESEARCH_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
       /* TENANT-ARM-1 — the external-send arming revision a decision arms or disarms. */
       | typeof TENANT_EXTERNAL_SEND_SUBJECT_TYPE
@@ -397,6 +406,8 @@ export async function writeGovernanceDecisionWithin(
                 ? EXTERNAL_AI_DATA_USE_DOMAIN
                 : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
                 ? STANDING_OBSERVATION_DOMAIN
+                : input.subjectType === STANDING_RESEARCH_SUBJECT_TYPE
+                ? STANDING_RESEARCH_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
                 ? AGENT_MANDATE_DOMAIN
                 : /*
@@ -482,6 +493,11 @@ export async function writeGovernanceDecisionWithin(
       ? input.decisionType === STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
         ? STANDING_OBSERVATION_WITHDRAWN_OUTCOME
         : STANDING_OBSERVATION_AUTHORIZED_OUTCOME
+      /* P6-2 — THE SAME TRAP, AND THE SAME DEFENCE: never `membership-authorized`, never "authority revoked". */
+      : input.subjectType === STANDING_RESEARCH_SUBJECT_TYPE
+      ? input.decisionType === STANDING_RESEARCH_WITHDRAW_DECISION_TYPE
+        ? STANDING_RESEARCH_WITHDRAWN_OUTCOME
+        : STANDING_RESEARCH_AUTHORIZED_OUTCOME
       : /*
      * TRH-10 IS CHECKED FIRST, FOR THE SHARPEST FORM OF THE REASON SIA-3 AND AMA-1 BOTH GIVE.
      *

@@ -25,6 +25,10 @@
  *       transaction; a later revision or withdrawal rewrites nothing; the row joins to one immutable
  *       revision and its Governance decision; a revision landing mid-call (even one that still admits
  *       research) files nothing; withdrawn before preparation refuses before the model
+ *   R11 P6-2 standing research authorization: only Governance authorizes or withdraws; a responsible
+ *       research agent, this tenant's work, a bounded brief; research runs only on the revision in force and
+ *       its brief; withdrawal mid-call files nothing; tenant isolation; refusals filed; the scheduled gate
+ *       reads the `research-schedule` kill switch first and fails closed
  *   R9  time of check / time of use: Governance lost mid-call files nothing; two simultaneous requests
  *       under one revision each file under it; the persistent cap admits one of two racing requests; a
  *       research scope withdrawn mid-call stops the next request, not the one already authorized
@@ -58,6 +62,15 @@ import { acceptArtifactRevision } from "../../src/features/work-artifact-review/
 import { listWorkArtifacts, readWorkArtifactHistory } from "../../src/features/work-artifacts/read-work-artifacts.server";
 import { createWorkArtifact, createWorkArtifactFromHebyPreparation, reviseWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { prepareWorkArtifact } from "../../src/features/work-artifacts/prepare-work-artifact.server";
+import {
+  admitScheduledResearch,
+  authorizeStandingResearch,
+  readStandingResearch,
+  runStandingResearchNow,
+  withdrawStandingResearch,
+} from "../../src/features/standing-research-authority/standing-research.server";
+import { RESEARCH_SCHEDULE_CONTROL_KEY } from "../../src/features/standing-research-authority/contracts";
+import { createProviderConnectivityControlRepository, resolveDirectorEnabled } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { assignWorkDraft } from "../../src/features/agent-work/assign-work-draft.server";
 import { assignResearchReport, type AssignResearchReportDeps } from "../../src/features/agent-work/assign-research-report.server";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -365,7 +378,9 @@ async function main(): Promise<void> {
       [r1Filed!.tenant_id, r1Filed!.actor_id, r1Filed!.correlation_id, r1Filed!.metadata],
       [acmeSeed.tenantId, acmeSeed.userId, message.correlation_id, {
         revisionNo: 1, agentId: researcher, mandateId: r1Mandate.id, mandateRevision: r1Mandate.mandate_revision,
-        capability: "prepare-research-report", purpose: "research", sourceMessageId: revision!.sourceMessageId, sourcing: "unsourced",
+        capability: "prepare-research-report", purpose: "research", sourceMessageId: revision!.sourceMessageId,
+        /* P6-2: the standing authorization the run rested on; null when the seam is called directly. */
+        standingAuthorizationId: null, sourcing: "unsourced",
       }],
       "R1: tenant, person, agent, mandate revision id and number, capability, purpose, source message and the dispatch's correlation",
     );
@@ -554,6 +569,107 @@ async function main(): Promise<void> {
     const after9c = await world();
     assert.deepEqual(raced.map((r) => r.status).sort(), ["not-prepared", "prepared"], `R9c: ${JSON.stringify(raced)}`);
     assert.deepEqual([after9c.fetches - before9c.fetches, after9c.research - before9c.research], [1, 1], "R9c: the cap admits exactly one dispatch");
+    /* ── R11 · P6-2 — research runs ONLY under the tenant's standing research authorization ── */
+    {
+      const BRIEF = "Summarize seasonal demand for handwoven rugs in northern Europe for the coming quarter.";
+      const REASON = "Authorizing a standing research brief for the P6-2 proof.";
+      const sDeps = { getDb: () => handle.db };
+      const rows = () => n("select count(*)::int n from standing_research_authorizations");
+      const refusedAudits = () => n(`select count(*)::int n from audit_log where action = 'standing-research.refused'`);
+      const authorizeAs = (ctx: TenantContext | null, over: Record<string, unknown> = {}) =>
+        authorizeStandingResearch(ctx, { workItemId: work, agentId: researcher, title: "Nordic demand", brief: BRIEF, justification: REASON, observedAuthorizationRevision: null, ...over } as never, sDeps);
+      const runAs = (ctx: TenantContext | null, observed: unknown, extra: Partial<AssignResearchReportDeps> = {}) =>
+        runStandingResearchNow({ observedAuthorizationRevision: observed }, depsFor(ctx, extra));
+
+      /* a) who may authorize: no session, a member without Governance authority — refused, nothing written, refusal filed. */
+      assert.deepEqual(await authorizeAs(null), { status: "refused", reason: "unauthenticated" }, "R11a: no session");
+      const audits0 = await refusedAudits();
+      assert.deepEqual(await authorizeAs(member), { status: "refused", reason: "not-the-governance-authority" }, "R11a: a member is refused");
+      assert.equal(await refusedAudits(), audits0 + 1, "R11a: the refused attempt is filed");
+      const refusalRow = (await q<{ actor_id: string; result: string; metadata: Record<string, unknown> }>(
+        `select actor_id, result, metadata from audit_log where action = 'standing-research.refused' order by occurred_at desc, id desc limit 1`,
+      ))[0]!;
+      assert.deepEqual([refusalRow.actor_id, refusalRow.result, refusalRow.metadata], [memberSeed.userId, "rejected", { attempt: "authorize", reason: "not-the-governance-authority" }], "R11a: who, and why");
+      /* b) what may be authorized: a responsible research agent, this tenant's work, a bounded brief, a reason. */
+      assert.equal((await authorizeAs(acme, { agentId: unmandated })).status === "refused" && "agent-not-eligible", "agent-not-eligible", "R11b: no mandate");
+      assert.equal((await authorizeAs(acme, { agentId: financier }) as { reason?: string }).reason, "agent-not-eligible", "R11b: not responsible for this scope");
+      assert.equal((await authorizeAs(acme, { workItemId: gWork }) as { reason?: string }).reason, "work-unavailable", "R11b: another tenant's work");
+      assert.equal((await authorizeAs(acme, { agentId: gResearcher }) as { reason?: string }).reason, "agent-not-eligible", "R11b: another tenant's agent");
+      assert.equal((await authorizeAs(acme, { brief: "x".repeat(4001) }) as { reason?: string }).reason, "invalid-brief", "R11b: brief ceiling");
+      assert.equal((await authorizeAs(acme, { justification: "too short" }) as { reason?: string }).reason, "justification-required", "R11b: a reason");
+      assert.equal(await rows(), 0, "R11a–b: nothing written");
+
+      /* c) no authorization → research does not run: refused before the model, refusal filed. */
+      await refusedBeforeModel("R11c no authorization", () => runAs(acme, null), "no-active-authorization");
+
+      /* d) Governance authorizes: revision 1, one decision in the `standing-research` domain, one audit row. */
+      const decisions0 = await n("select count(*)::int n from decision_records");
+      const a1 = await authorizeAs(acme);
+      assert.equal(a1.status, "authorized", JSON.stringify(a1));
+      if (a1.status !== "authorized") throw new Error("unreachable");
+      assert.deepEqual([a1.authorization.authorizationRevision, a1.authorization.state, a1.authorization.workItemId, a1.authorization.agentId], [1, "active", work, researcher], "R11d");
+      assert.equal(await n("select count(*)::int n from decision_records"), decisions0 + 1, "R11d: one Governance decision");
+      const d1 = (await q<{ governance_domain: string; outcome: string; subject_id: string }>(`select s.governance_domain, d.outcome, d.subject_id from decision_records d join governance_sessions s on s.id = d.session_id where d.id = $1`, [a1.authorization.governanceDecisionId]))[0]!;
+      assert.deepEqual([d1.governance_domain, d1.outcome, d1.subject_id], ["standing-research", "standing-research-authorized", a1.authorization.authorizationId], "R11d: its own domain and outcome, never membership");
+      assert.equal(await n(`select count(*)::int n from audit_log where action = 'standing-research.authorized' and entity_id = $1`, [a1.authorization.authorizationId]), 1, "R11d: audited");
+      assert.equal((await authorizeAs(acme, { observedAuthorizationRevision: 1 }) as { reason?: string }).reason, "already-authorized", "R11d: the same brief twice is refused");
+      assert.equal((await authorizeAs(acme) as { reason?: string }).reason, "stale-authorization-revision", "R11d: a writer looking at no revision is stale");
+
+      /* e) tenant isolation: Globex reads nothing, runs nothing, withdraws nothing of Acme's. */
+      assert.deepEqual(await readStandingResearch(globex, sDeps), { status: "read", authorization: null }, "R11e: Globex sees no authorization");
+      await refusedBeforeModel("R11e Globex run", () => runAs(globex, 1), "no-active-authorization");
+      assert.equal((await withdrawStandingResearch(globex, { justification: REASON, observedAuthorizationRevision: null }, sDeps) as { reason?: string }).reason, "no-active-authorization", "R11e: Globex cannot withdraw Acme's");
+      assert.equal((await readStandingResearch(acme, sDeps) as { authorization: { state: string } }).authorization.state, "active", "R11e: Acme's still stands");
+
+      /* f) run now: a stale revision is refused; the revision in force runs ITS brief and the filing names it. */
+      await refusedBeforeModel("R11f stale run", () => runAs(acme, 2), "stale-authorization-revision");
+      await refusedBeforeModel("R11f member run", () => runAs(member, 1), "not-authorized");
+      const before11 = await world();
+      const run1 = await runAs(acme, 1);
+      assert.equal(run1.status, "prepared", JSON.stringify(run1));
+      assert.ok(wire.at(-1)!.includes(BRIEF), "R11f: the authorized brief is what reaches the model");
+      assert.equal((await world()).fetches, before11.fetches + 1, "R11f: one dispatch");
+      assert.equal((await filedRow(run1.status === "prepared" ? run1.artifactId : ""))[0]!.metadata.standingAuthorizationId, a1.authorization.authorizationId, "R11f: the filing names the authorization revision");
+
+      /* g) withdrawn while the model writes: the call happened, nothing is filed. */
+      duringSend = async () => {
+        const w = await withdrawStandingResearch(acme, { justification: REASON, observedAuthorizationRevision: 1 }, sDeps);
+        assert.equal(w.status, "authorized", JSON.stringify(w));
+      };
+      const before11g = await world();
+      const run2 = await runAs(acme, 1);
+      assert.equal(run2.status === "not-prepared" ? run2.reason : JSON.stringify(run2), "standing-authorization-changed-while-preparing", "R11g");
+      const after11g = await world();
+      assert.deepEqual([after11g.fetches - before11g.fetches, after11g.research - before11g.research, after11g.filed - before11g.filed], [1, 0, 0], "R11g: dispatched once, filed nothing");
+      const w2 = (await q<{ state: string; supersedes_authorization_id: string; brief: string }>(`select state, supersedes_authorization_id, brief from standing_research_authorizations where authorization_revision = 2`))[0]!;
+      assert.deepEqual([w2.state, w2.supersedes_authorization_id, w2.brief], ["withdrawn", a1.authorization.authorizationId, BRIEF], "R11g: withdrawal is a new revision carrying the brief forward");
+      assert.equal((await q<{ outcome: string }>(`select d.outcome from decision_records d join standing_research_authorizations s on s.governance_decision_id = d.id where s.authorization_revision = 2`))[0]!.outcome, "standing-research-withdrawn", "R11g: never 'authority revoked'");
+      assert.equal((await q<{ state: string }>(`select state from standing_research_authorizations where authorization_revision = 1`))[0]!.state, "active", "R11g: revision 1 is left as it was");
+
+      /* h) after withdrawal: no run, no second withdrawal. */
+      await refusedBeforeModel("R11h withdrawn run", () => runAs(acme, 2), "no-active-authorization");
+      assert.equal((await withdrawStandingResearch(acme, { justification: REASON, observedAuthorizationRevision: 2 }, sDeps) as { reason?: string }).reason, "no-active-authorization", "R11h");
+
+      /* i) the scheduled gate: the kill switch first, fail closed; then the authorization. */
+      const repo = createProviderConnectivityControlRepository(handle.db);
+      const realSwitch = () => resolveDirectorEnabled(RESEARCH_SCHEDULE_CONTROL_KEY, { repo });
+      const a3 = await authorizeAs(acme, { observedAuthorizationRevision: 2 });
+      assert.equal(a3.status, "authorized", "R11i: re-authorized as revision 3");
+      assert.deepEqual(await admitScheduledResearch(acmeSeed.tenantId, { ...sDeps, readSwitch: realSwitch }), { status: "refused", reason: "research-schedule-disabled" }, "R11i: no row = OFF, even with an active authorization");
+      assert.deepEqual(await admitScheduledResearch(acmeSeed.tenantId, { ...sDeps, readSwitch: async () => { throw new Error("db down"); } }), { status: "refused", reason: "research-schedule-disabled" }, "R11i: a read error = OFF");
+      await setup.query(`insert into provider_connectivity_controls (provider_key, director_enabled) values ($1, false)`, [RESEARCH_SCHEDULE_CONTROL_KEY]);
+      assert.equal((await admitScheduledResearch(acmeSeed.tenantId, { ...sDeps, readSwitch: realSwitch }) as { reason?: string }).reason, "research-schedule-disabled", "R11i: an explicit OFF");
+      await setup.query(`update provider_connectivity_controls set director_enabled = true where provider_key = $1`, [RESEARCH_SCHEDULE_CONTROL_KEY]);
+      const admitted = await admitScheduledResearch(acmeSeed.tenantId, { ...sDeps, readSwitch: realSwitch });
+      assert.equal(admitted.status === "admitted" && admitted.authorization.authorizationRevision, 3, "R11i: ON + active → admitted under revision 3");
+      assert.equal((await admitScheduledResearch(globexSeed.tenantId, { ...sDeps, readSwitch: realSwitch }) as { reason?: string }).reason, "no-active-authorization", "R11i: Globex has none");
+      const a4 = await withdrawStandingResearch(acme, { justification: REASON, observedAuthorizationRevision: 3 }, sDeps);
+      assert.equal(a4.status, "authorized");
+      assert.equal((await admitScheduledResearch(acmeSeed.tenantId, { ...sDeps, readSwitch: realSwitch }) as { reason?: string }).reason, "no-active-authorization", "R11i: withdrawn → not admitted, switch or no switch");
+      await setup.query(`delete from provider_connectivity_controls where provider_key = $1`, [RESEARCH_SCHEDULE_CONTROL_KEY]);
+      duringSend = null;
+    }
+
     /* d) the tenant's research scope is withdrawn while the model writes: the disclosure was decided before the call, so the report is filed. */
     duringSend = async () => {
       const w = await withdrawTenantExternalAiDataUse(acme, { serviceScope: "anthropic/messages", accountRef: RECORD.accountRef, justification: WITHDRAW, observedRevision: 1 }, dbDeps);
@@ -597,7 +713,7 @@ async function main(): Promise<void> {
 
     assert.equal(networkCalls, 0, "the real network was never reached");
     finished = true;
-    console.log("ra-prep-1/research-preparation-postgres: R1–R10 PASS");
+    console.log("ra-prep-1/research-preparation-postgres: R1–R11 PASS");
   } finally {
     await setup.end().catch(() => {});
     await (handle as { dispose?: () => Promise<void> }).dispose?.().catch?.(() => {});

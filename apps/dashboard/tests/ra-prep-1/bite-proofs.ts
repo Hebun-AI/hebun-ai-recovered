@@ -15,6 +15,11 @@
  *   B8 the general validator admits research-report                     (R2)
  *   B12 P6 D4 — a live deployment without an own key is not refused        (R10a)
  *   B13 P6-1 — the per-(work, agent) research lock is not honoured         (R9b)
+ *   B14 P6-2 — research runs with no standing authorization in force        (R11c)
+ *   B15 P6-2 — the filing transaction does not re-read the authorization    (R11g)
+ *   B16 P6-2 — the writer does not ask for Governance authority             (R11a)
+ *   B17 P6-2 — the lineage read is not tenant-scoped                        (R11e)
+ *   B18 P6-2 — the scheduled gate ignores the research-schedule kill switch (R11i)
  *
  * SOURCE-MUTATING: run only in a disposable copy of the tree, never in a worktree someone works in, and
  * never in parallel with another suite. Each file is restored byte-identically after its proof.
@@ -35,6 +40,7 @@ const VALIDATION = "src/features/work-artifacts/validation.ts";
 const ANSWER = "src/features/heby-answer/model-answer.server.ts";
 const SEAM = "src/features/agent-work/assign-research-report.server.ts";
 const PG_SUITE = "tests/ra-prep-1/research-preparation-postgres.ts";
+const STANDING = "src/features/standing-research-authority/standing-research.server.ts";
 const CHILD_TIMEOUT_MS = 300_000;
 
 interface Run {
@@ -155,6 +161,41 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [{ find: "    if ((locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {", replace: "    if (false && (locked.rows[0] as { locked?: unknown } | undefined)?.locked !== true) {" }],
     because: "research-in-progress",
+  },
+  {
+    label: "B14 P6-2 — research runs with no standing authorization in force",
+    file: STANDING,
+    suite: PG_SUITE,
+    edits: [{ find: '  if (!effective || effective.state !== "active") {\n    return refuse({ status: "refused", reason: "no-active-authorization" }', replace: '  if (!effective) {\n    return refuse({ status: "refused", reason: "no-active-authorization" }' }],
+    because: "R11h withdrawn run",
+  },
+  {
+    label: "B15 P6-2 — the filing transaction does not re-read the authorization",
+    file: SEAM,
+    suite: PG_SUITE,
+    edits: [{ find: "        if (deps.standingAuthorizationHolds && !(await deps.standingAuthorizationHolds(tx))) {", replace: "        if (false && deps.standingAuthorizationHolds && !(await deps.standingAuthorizationHolds(tx))) {" }],
+    because: "R11g",
+  },
+  {
+    label: "B16 P6-2 — the writer does not ask for Governance authority",
+    file: STANDING,
+    suite: PG_SUITE,
+    edits: [{ find: '  if (!authority.authorized) return refuse("not-the-governance-authority");', replace: "" }],
+    because: "R11a",
+  },
+  {
+    label: "B17 P6-2 — the lineage read is not tenant-scoped",
+    file: STANDING,
+    suite: PG_SUITE,
+    edits: [{ find: "    .where(eq(standingResearchAuthorizations.tenantId, tenantId))\n", replace: "    .where(undefined)\n" }],
+    because: "R11e",
+  },
+  {
+    label: "B18 P6-2 — the scheduled gate ignores the research-schedule kill switch",
+    file: STANDING,
+    suite: PG_SUITE,
+    edits: [{ find: '  if (on !== true) return { status: "refused", reason: "research-schedule-disabled" };', replace: "" }],
+    because: "R11i",
   },
   {
     label: "B8 the general validator admits research-report",

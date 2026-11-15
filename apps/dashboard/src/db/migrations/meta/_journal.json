@@ -610,6 +610,13 @@
       "when": 1794406101729,
       "tag": "20261111140821_p5_byok_attribution_and_attestation",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1794724839743,
+      "tag": "20261115064039_p6_2_standing_research_authorization",
+      "breakpoints": true
     }
   ]
 }

@@ -270,6 +270,8 @@ function main(): void {
        * not observing.
        */
       "src/features/governance-audit/standing-observation-audit.server.ts",
+      /* P6-2 — the Standing Research Authority's audit sibling: authorized, withdrawn, and a person's refused attempt. Appends to the SHARED sink. The census GREW; nothing in it was widened. */
+      "src/features/governance-audit/standing-research-audit.server.ts",
       /* V1-STAGE-5 — the support ticket audit sibling: creation and status changes, status and version only. Appends to the SHARED sink. */
       "src/features/governance-audit/support-ticket-audit.server.ts",
       /* P5 BYOK B6 — the tenant own-account attestation audit sibling: one row per attestation revision, treatment only, never a key. */

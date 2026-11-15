@@ -35,6 +35,7 @@ import {
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 } from "../../src/features/media-generation-live/higgsfield-video-control";
+import { RESEARCH_SCHEDULE_CONTROL_KEY } from "../../src/features/standing-research-authority/contracts";
 
 /** Complete external-send configuration. Never a real credential. */
 const FULL = Object.freeze({
@@ -72,8 +73,10 @@ async function closedVocabulary(client: Client): Promise<void> {
       HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
       /* IMAGE → VIDEO: a SEPARATE key, so arming text-to-video never arms image-to-video. */
       HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+      /* P6-2: the stop for scheduled research; expressible for local arming, refused in production until P6-4. */
+      RESEARCH_SCHEDULE_CONTROL_KEY,
     ].sort(),
-    "exactly the seven control keys the repository defines",
+    "exactly the eight control keys the repository defines",
   );
 
   for (const bogus of ["", "  ", "openai", "resend", "CLAUDE", "Claude", "*", "external_send", "claude;"]) {
