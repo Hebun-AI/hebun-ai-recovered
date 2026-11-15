@@ -37,6 +37,8 @@ export interface ResearchReportFiledEvidence {
   /** The model invocation's correlation id: joins the disclosure decision and the message row. */
   readonly correlationId: string | null;
   readonly occurredAt: Date;
+  /** P6-2 — the standing research authorization revision the report was run under. */
+  readonly standingAuthorizationId?: string | null;
 }
 
 /** Appends one row on the transaction it is given. Throws on failure, so the report is not filed without it. */
@@ -59,6 +61,7 @@ export async function recordResearchReportFiled(db: ControlPlaneDatabase, eviden
       capability: evidence.capability,
       purpose: evidence.purpose,
       sourceMessageId: evidence.sourceMessageId,
+      standingAuthorizationId: evidence.standingAuthorizationId ?? null,
       sourcing: "unsourced",
     },
     result: "committed",

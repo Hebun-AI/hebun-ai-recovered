@@ -58,6 +58,7 @@ import { isExternalSendConfigured } from "../../src/features/action-execution/ex
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { MACHINE_INTERNAL_EXECUTION_CONTROL_KEY } from "../../src/features/governed-machine-execution/machine-execution-control.server";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
+import { RESEARCH_SCHEDULE_CONTROL_KEY } from "../../src/features/standing-research-authority/contracts";
 import {
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
@@ -120,6 +121,12 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
    * provider). A SEPARATE key so arming text-to-video never arms it. With no row it reads as OFF.
    */
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+  /*
+   * P6-2: the stop for SCHEDULED research (D5). With no row it reads as OFF. Deliberately NOT in
+   * `GENERIC_PRODUCTION_REACHABLE_KEYS`: its production reach is a Director decision P6-4 takes,
+   * so until then this ceremony refuses it in production in both directions.
+   */
+  RESEARCH_SCHEDULE_CONTROL_KEY,
 ]);
 
 /*

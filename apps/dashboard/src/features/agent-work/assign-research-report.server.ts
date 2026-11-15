@@ -124,6 +124,12 @@ export interface AssignResearchReportDeps extends AgentWorkDeps, Omit<HebyModelA
   readonly authorizeDisclosure?: AuthorizeExternalAiDisclosure;
   /** P6 D4 — the tenant's own-key read; injected only so a test can name a tenant key without one. */
   readonly resolveCredential?: typeof resolveTenantModelCredential;
+  /**
+   * P6-2 — read INSIDE the filing transaction: the standing research authorization the run rests on is
+   * still the revision in force. False files nothing. Supplied by `runStandingResearchNow`, the only caller.
+   */
+  readonly standingAuthorizationHolds?: (tx: ControlPlaneDatabase) => Promise<boolean>;
+  readonly standingAuthorizationId?: string;
 }
 
 type TargetRefusal = Extract<TargetRead, { status: "refused" }>["reason"];
@@ -166,6 +172,8 @@ export type AssignResearchReportResult =
         | "agent-mandate-changed-while-preparing"
         /** The requesting person lost this organization's Governance authority while the model was writing. */
         | "governance-authority-changed-while-preparing"
+        /** P6-2 — the standing research authorization was withdrawn or replaced while the model was writing. */
+        | "standing-authorization-changed-while-preparing"
         | "write-refused";
       readonly modelFallback?: HebyModelFallback;
     }
@@ -297,6 +305,7 @@ export async function assignResearchReport(
     }
 
     const sourceMessageId = answer.persistence.assistantMessageId;
+    let authorizationChanged = false;
     const written = await createResearchReportFromResearchPreparation(
       tenant,
       { title, content, sourceMessageId },
@@ -309,6 +318,10 @@ export async function assignResearchReport(
        * transaction. Anything else rolls the report back.
        */
       async (tx, created) => {
+        if (deps.standingAuthorizationHolds && !(await deps.standingAuthorizationHolds(tx))) {
+          authorizationChanged = true;
+          return false;
+        }
         const now = await readEffectiveAgentMandate(tenant, agent.agentId, { getDb: () => tx });
         if (now.status !== "known" || now.mandate?.mandateId !== mandateRevision.mandateId) return false;
         if (refuseOutsideAgentWorkCapability(CAPABILITY, now, workScope)) return false;
@@ -324,11 +337,14 @@ export async function assignResearchReport(
           sourceMessageId,
           correlationId: answer.outcome.response.modelAttribution?.correlationId ?? null,
           occurredAt: new Date(),
+          standingAuthorizationId: deps.standingAuthorizationId ?? null,
         });
         return true;
       },
     );
-    if (written.status === "refused" && written.reason === "filing-condition-failed") return notPrepared("agent-mandate-changed-while-preparing");
+    if (written.status === "refused" && written.reason === "filing-condition-failed") {
+      return notPrepared(authorizationChanged ? "standing-authorization-changed-while-preparing" : "agent-mandate-changed-while-preparing");
+    }
     if (written.status !== "created") return notPrepared("write-refused");
     return { status: "prepared", workItemId: target.target.workItemId, artifactId: written.artifactId, revisionNo: written.revisionNo, agentName: agent.name };
   };

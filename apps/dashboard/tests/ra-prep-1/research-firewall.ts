@@ -10,9 +10,11 @@
  *   F4 the purpose: the seam's input names none; it is the capability's declaration; only this seam sets
  *      the gateway's purpose option, which admits research alone and grounds research on nothing
  *   F5 order: every authority is asked before the model
- *   F6 no route, action or component reaches the seam — nothing in production can call it yet
+ *   F6 research runs only through the standing research authorization runner (P6-2)
  *   F8 provenance: the writer asks the filing condition on its own transaction; the research writer cannot be
  *      called without one; the provenance row is never best-effort
+ *   F9 P6-2: the standing research authorization is append-only with one writer; its kill switch is read
+ *      first by the scheduled gate and is not production-reachable through the generic ceremony
  *   F7 unsourced: the brief forbids citations and links; the label and the classification say so;
  *      the capability declares only the question as input
  */
@@ -128,17 +130,52 @@ const audit = read("src/features/governance-audit/research-report-audit.server.t
 assert.doesNotMatch(audit, /catch/, "F8: the provenance row is not best-effort — a failure rolls the report back");
 assert.ok(at("LINK.test(content)") < at("createResearchReportFromResearchPreparation("), "F5: a linked reply is refused before filing");
 
-/* ── F6 ── P6-1 (D8) opened ONE door: the Heby work-item server actions. Components import types only. */
+/* ── F6 ── P6-1 (D8) opened ONE door; P6-2 put it behind the standing research authorization. The Heby
+ * actions import only the read (`readResearchChoices`); the ONE caller of the seam is the standing-research
+ * runner, which supplies the brief from the revision in force and re-reads it inside the filing transaction. */
 assert.deepEqual(
-  SRC.filter((f) => /import \{[^}]*\} from "[^"]*assign-research-report[^"]*"/.test(read(f)) && !/import type \{[^}]*\} from "[^"]*assign-research-report/.test(read(f))),
-  ["src/app/(dashboard)/heby/work-state-origination-actions.ts"],
-  "F6: the work-item server actions are the only runtime importer of the research seam",
+  SRC.filter((f) => /import \{[^}]*\} from "[^"]*assign-research-report[^"]*"/.test(read(f)) && !/import type \{[^}]*\} from "[^"]*assign-research-report/.test(read(f))).sort(),
+  ["src/app/(dashboard)/heby/work-state-origination-actions.ts", "src/features/standing-research-authority/standing-research.server.ts"],
+  "F6: the Heby actions (read only) and the standing-research runner are the only runtime importers of the research seam",
+);
+assert.ok(
+  !/\bassignResearchReport\b/.test(read("src/app/(dashboard)/heby/work-state-origination-actions.ts")),
+  "F6: the Heby actions cannot run research except through the standing authorization",
 );
 assert.deepEqual(
-  SRC.filter((f) => /(?<!function )\bassignResearchReport\(/.test(read(f))).sort(),
-  ["src/app/(dashboard)/heby/work-state-origination-actions.ts"],
-  "F6: and the only caller",
+  SRC.filter((f) => /(?<!function )\bassignResearchReport\)?\(/.test(read(f))).sort(),
+  ["src/features/standing-research-authority/standing-research.server.ts"],
+  "F6: and the standing-research runner is the only caller",
 );
+{
+  const runner = read("src/features/standing-research-authority/standing-research.server.ts");
+  assert.match(runner, /question: inForce\.brief, title: inForce\.title/, "F6: the question is the authorized brief, never caller text");
+  assert.match(runner, /standingAuthorizationHolds: async \(tx\)/, "F6: the runner re-reads the authorization inside the filing transaction");
+}
+
+/* ── F9 ── P6-2: the standing research authorization is append-only, has ONE writer, and its kill switch
+ * is local-only until P6-4's Director decision. */
+assert.deepEqual(
+  naming(/\b(update|delete)\(standingResearchAuthorizations\)|onConflictDo\w*\(/).filter((f) => read(f).includes("standingResearchAuthorizations")),
+  [],
+  "F9: no update, delete or upsert against standing_research_authorizations anywhere in src",
+);
+assert.deepEqual(
+  naming(/\.insert\(standingResearchAuthorizations\)/),
+  ["src/features/standing-research-authority/standing-research.server.ts"],
+  "F9: one writer",
+);
+{
+  const contracts = read("src/features/standing-research-authority/contracts.ts");
+  assert.ok(!/^import /m.test(contracts), "F9: the contracts module is client-safe — it imports nothing");
+  const lib = read("scripts/lib/provider-connectivity.ts");
+  const generic = lib.slice(lib.indexOf("export const GENERIC_PRODUCTION_REACHABLE_KEYS"));
+  assert.ok(lib.slice(0, lib.indexOf("export const GENERIC_PRODUCTION_REACHABLE_KEYS")).includes("  RESEARCH_SCHEDULE_CONTROL_KEY,"), "F9: the research-schedule switch is in the local vocabulary");
+  assert.ok(!generic.slice(0, generic.indexOf("]);")).includes("RESEARCH_SCHEDULE_CONTROL_KEY"), "F9: and NOT production-reachable through the generic ceremony");
+  const runner = read("src/features/standing-research-authority/standing-research.server.ts");
+  const gate = runner.slice(runner.indexOf("export async function admitScheduledResearch"));
+  assert.ok(gate.indexOf("research-schedule-disabled") < gate.indexOf("readEffectiveWithin"), "F9: the scheduled gate reads the kill switch before the lineage");
+}
 
 /* ── F7 ── */
 assert.equal(RESEARCH_REPORT_SOURCING, "UNSOURCED RESEARCH DRAFT");
@@ -154,4 +191,4 @@ assert.ok(capability.cannot.some((line) => /search the web/.test(line) && /unsou
 assert.equal(capability.sideEffect, "PREPARATION_ONLY");
 assert.equal(capability.authorizationRequired, false);
 
-console.log("ra-prep-1/research-firewall: F1–F8 PASS");
+console.log("ra-prep-1/research-firewall: F1–F9 PASS");

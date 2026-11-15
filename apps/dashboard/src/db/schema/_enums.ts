@@ -1064,6 +1064,17 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * Additive: no existing row changes meaning.
    */
   "agent-lifecycle",
+  /**
+   * P6-2 — Governance's standing permission for ONE TENANT to have research run on its own brief,
+   * on a schedule, until a later revision withdraws it.
+   *
+   * Its own domain. `standing-observation` is the neighbour that matters: that authorizes repeated
+   * READS of an outside provider scope. This authorizes repeated model PREPARATION of an unsourced
+   * draft from a brief the organization wrote; it reads no provider scope and acts on nothing.
+   * `agent-mandate` bounds what an agent may prepare and is not changed by this. Additive: no
+   * existing row changes meaning.
+   */
+  "standing-research",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1402,6 +1413,9 @@ export const standingObservationStateEnum = pgEnum("standing_observation_state",
   "active",
   "withdrawn",
 ]);
+
+/** P6-2 — what one standing research authorization revision says. Never a summary of the lineage. */
+export const standingResearchStateEnum = pgEnum("standing_research_state", ["active", "withdrawn"]);
 
 /**
  * The lifecycle of one TENANT MACHINE-EXECUTION AUTHORIZATION revision.

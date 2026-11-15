@@ -43,6 +43,7 @@ import {
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 } from "../../src/features/media-generation-live/higgsfield-video-control";
+import { RESEARCH_SCHEDULE_CONTROL_KEY } from "../../src/features/standing-research-authority/contracts";
 
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
@@ -145,6 +146,8 @@ const GENERIC = "scripts/provider-connectivity.ts";
     "R2H's model decision, TRH-25's read decision, MEDIA-2B's image, MV-7's video and IMAGE → VIDEO's generation decisions, enumerated",
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
+  /* P6-2 — the scheduled-research stop is NOT production-reachable here until P6-4's Director decision. */
+  assert.deepEqual(resolveGenericProductionReach(RESEARCH_SCHEDULE_CONTROL_KEY), { status: "refused", dedicatedCommand: null });
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");
   /*
    * MEDIA-2B took the production decision for paid image generation, so the generic ceremony now
@@ -215,8 +218,10 @@ const GENERIC = "scripts/provider-connectivity.ts";
       HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
       /* IMAGE → VIDEO: a SEPARATE key, so arming text-to-video never arms image-to-video. */
       HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+      /* P6-2: the stop for scheduled research; expressible for local arming, refused in production until P6-4. */
+      RESEARCH_SCHEDULE_CONTROL_KEY,
     ].sort(),
-    "exactly the seven control keys the repository defines",
+    "exactly the eight control keys the repository defines",
   );
   assert.ok(Object.isFrozen(PROVIDER_KEYS) && Object.isFrozen(GENERIC_PRODUCTION_REACHABLE_KEYS));
   assert.ok(Object.isFrozen(DEDICATED_PRODUCTION_CEREMONIES));

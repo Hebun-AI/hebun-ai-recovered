@@ -28,12 +28,15 @@ import {
   type ReviseWorkDraftResult,
   type WorkDraftChoices,
 } from "@/features/agent-work/assign-work-draft.server";
+import { readResearchChoices, type ResearchChoices } from "@/features/agent-work/assign-research-report.server";
 import {
-  assignResearchReport,
-  readResearchChoices,
-  type AssignResearchReportResult,
-  type ResearchChoices,
-} from "@/features/agent-work/assign-research-report.server";
+  authorizeStandingResearch,
+  readStandingResearch,
+  runStandingResearchNow,
+  withdrawStandingResearch,
+  type RunStandingResearchResult,
+} from "@/features/standing-research-authority/standing-research.server";
+import type { StandingResearchAuthorizationRecord, StandingResearchWriteResult } from "@/features/standing-research-authority/contracts";
 
 export async function proposeWorkStateChangeAction(input: {
   readonly workItemId: string;
@@ -93,23 +96,52 @@ export async function assignWorkDraftAction(input: {
 }
 
 /*
- * P6-1 — the research door for the same work item (RA-PREP-1-NO-SURFACE-1). The tenant comes from the
- * session; the client sends ids and words only. The seam asks every authority again before the model,
- * refuses a second request for the same (work, agent) while one runs, and files an UNSOURCED RESEARCH
- * DRAFT for review. Linking it as this work's evidence stays the person's own act on /director/work.
+ * P6-1 / P6-2 — the research door for the same work item. The tenant comes from the session; the client
+ * sends ids, words and the revision number it was looking at. Research runs ONLY under the tenant's
+ * standing research authorization (P6-2): Governance writes the brief, agent and work item, and "run now"
+ * runs exactly that brief. The seam asks every other authority again before the model and files an
+ * UNSOURCED RESEARCH DRAFT for review.
  */
-export async function readResearchChoicesAction(input: { readonly workItemId: string }): Promise<ResearchChoices> {
-  return readResearchChoices(await resolveTenantContext(), input?.workItemId);
+export async function readResearchChoicesAction(input: { readonly workItemId: string }): Promise<{
+  readonly choices: ResearchChoices;
+  readonly standing: StandingResearchAuthorizationRecord | null | "unavailable";
+}> {
+  const tenant = await resolveTenantContext();
+  const [choices, standing] = await Promise.all([readResearchChoices(tenant, input?.workItemId), readStandingResearch(tenant)]);
+  return { choices, standing: standing.status === "read" ? standing.authorization : "unavailable" };
 }
 
-export async function assignResearchReportAction(input: {
+export async function authorizeStandingResearchAction(input: {
   readonly workItemId: string;
   readonly agentId: string;
-  readonly question: string;
   readonly title: string;
-}): Promise<AssignResearchReportResult> {
-  const result = await assignResearchReport(
-    { workItemId: input?.workItemId, agentId: input?.agentId, question: input?.question, title: input?.title },
+  readonly brief: string;
+  readonly justification: string;
+  readonly observedAuthorizationRevision: number | null;
+}): Promise<StandingResearchWriteResult> {
+  return authorizeStandingResearch(await resolveTenantContext(), {
+    workItemId: input?.workItemId,
+    agentId: input?.agentId,
+    title: input?.title,
+    brief: input?.brief,
+    justification: input?.justification,
+    observedAuthorizationRevision: typeof input?.observedAuthorizationRevision === "number" ? input.observedAuthorizationRevision : null,
+  });
+}
+
+export async function withdrawStandingResearchAction(input: {
+  readonly justification: string;
+  readonly observedAuthorizationRevision: number | null;
+}): Promise<StandingResearchWriteResult> {
+  return withdrawStandingResearch(await resolveTenantContext(), {
+    justification: input?.justification,
+    observedAuthorizationRevision: typeof input?.observedAuthorizationRevision === "number" ? input.observedAuthorizationRevision : null,
+  });
+}
+
+export async function runStandingResearchNowAction(input: { readonly observedAuthorizationRevision: number }): Promise<RunStandingResearchResult> {
+  const result = await runStandingResearchNow(
+    { observedAuthorizationRevision: input?.observedAuthorizationRevision },
     { resolveTenant: resolveTenantContext },
   );
   if (result.status === "prepared") {

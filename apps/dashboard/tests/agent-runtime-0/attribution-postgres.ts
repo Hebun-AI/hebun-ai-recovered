@@ -630,6 +630,7 @@ async function main(): Promise<void> {
           /* RUNG 2 — an agent may never authorize its own standing envelope. A DATABASE fact. */
           "standing_mutation_authorizations_human_authorizer_chk",
           "standing_observation_authorizations_human_authorizer_chk",
+          /* P6-2 — standing research is authorized by a human, CHECK-enforced. */ "standing_research_authorizations_human_authorizer_chk",
           /*
        * RUNG 2 PREREQUISITE. The census GREW AGAIN, in the same strict direction.
        * `tenant_machine_execution_authorizations` constrains its own AUTHORIZER to `human`, so an
