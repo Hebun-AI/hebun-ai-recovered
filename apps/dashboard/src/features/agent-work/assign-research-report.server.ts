@@ -32,8 +32,8 @@
  *
  * P6-3 (D3). Web search is its own data-use class (`web-search`), asked of the External-AI Data Use
  * authority as a REQUIRED class of a separate decision. Only when that decision authorizes it — this
- * tenant granted research × web-search AND a platform cell allows it (RA-EAI-1-WEB-SEARCH-1; none is
- * recorded today, so it refuses) — does the call carry Anthropic's web-search tool, capped at a few
+ * tenant granted research × web-search AND a platform cell allows it (RA-EAI-1-WEB-SEARCH-1, recorded
+ * by the Director on 2026-11-16) — does the call carry Anthropic's web-search tool, capped at a few
  * searches. The generator asks the same class again at dispatch and refuses a search it does not cover.
  *
  * Otherwise nothing changes: no source transport, the model is told so, a reply carrying a link is

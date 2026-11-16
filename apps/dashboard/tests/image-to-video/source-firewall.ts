@@ -122,7 +122,8 @@ const BITES: { readonly rule: number; readonly file: string; readonly from: stri
   { rule: 2, file: TRANSPORT, from: "if (!tags.includes(\"retention=temporary\")) return null;", to: "" },
   { rule: 3, file: LIFECYCLE, from: "return { status: \"registered-not-sent\", invocationId: registered.invocationId, reason };", to: "void reason;" },
   { rule: 4, file: DOOR, from: "sourceAssetId: sourceAssetId || null,", to: "sourceAssetId: sourceAssetId || null, image_url: promptText," },
-  { rule: 5, file: CEREMONY, from: "  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,\n]);", to: "]);" },
+  /* P6 production acceptance re-anchored this bite: RESEARCH_SCHEDULE_CONTROL_KEY now follows the image-to-video key in the reachable list. Same proof. */
+  { rule: 5, file: CEREMONY, from: "  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,\n  /*\n   * P6 production acceptance", to: "  /*\n   * P6 production acceptance" },
 ];
 for (const bite of BITES) {
   const original = files[bite.file]!;

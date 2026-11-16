@@ -27,15 +27,19 @@ const SCOPE = "anthropic/messages" as const;
 assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning", "research"]);
 assert.deepEqual([...EXTERNAL_AI_PURPOSES_SQL], [...PURPOSES], "the SQL mirror is the vocabulary");
 
-/* ── E2 · exactly one research cell ── */
+/* ── E2 · exactly two research cells: conversation (RA-EAI-1) and web-search (RA-EAI-1-WEB-SEARCH-1, 2026-11-16) ── */
 const research = RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.filter((c) => c.purpose === "research");
-assert.equal(research.length, 1, "one research cell");
+assert.equal(research.length, 2, "two research cells");
 assert.deepEqual([research[0]!.serviceScope, research[0]!.purpose, research[0]!.dataClass], [SCOPE, "research", "conversation"]);
 assert.match(research[0]!.evidence, /web-search tool is NOT covered/, "the evidence says web search is not authorized");
 assert.equal(decidePlatformDisclosure({ serviceScope: SCOPE, purpose: "research", dataClass: "conversation" }).decision, "allowed");
+assert.deepEqual([research[1]!.serviceScope, research[1]!.purpose, research[1]!.dataClass], [SCOPE, "research", "web-search"]);
+assert.match(research[1]!.evidence, /RA-EAI-1-WEB-SEARCH-1 \(Director, 2026-11-16/, "the web-search cell names its decision");
+assert.deepEqual(research[1]!.bounds, research[0]!.bounds, "web search sits inside the same treatment bounds");
+assert.equal(decidePlatformDisclosure({ serviceScope: SCOPE, purpose: "research", dataClass: "web-search" }).decision, "allowed");
 
 /* ── E3 · every other research pair is unknown, on every scope; a denied scope stays denied ── */
-for (const dataClass of DATA_CLASSES.filter((c) => c !== "conversation")) {
+for (const dataClass of DATA_CLASSES.filter((c) => c !== "conversation" && c !== "web-search")) {
   assert.equal(decidePlatformDisclosure({ serviceScope: SCOPE, purpose: "research", dataClass }).decision, "unknown", `research × ${dataClass}`);
 }
 for (const serviceScope of ["openai/images.generations", "openai/images.edits"] as const) {

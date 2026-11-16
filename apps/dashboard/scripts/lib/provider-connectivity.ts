@@ -122,9 +122,8 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
    */
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
   /*
-   * P6-2: the stop for SCHEDULED research (D5). With no row it reads as OFF. Deliberately NOT in
-   * `GENERIC_PRODUCTION_REACHABLE_KEYS`: its production reach is a Director decision P6-4 takes,
-   * so until then this ceremony refuses it in production in both directions.
+   * P6-2: the stop for SCHEDULED research (D5). With no row it reads as OFF. Production-reachable
+   * through the generic ceremony since the P6 production acceptance decision (Director, 2026-11-16).
    */
   RESEARCH_SCHEDULE_CONTROL_KEY,
 ]);
@@ -226,6 +225,21 @@ export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freez
    * Terms allow inputs to be used for training absent an Enterprise Agreement.
    */
   HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+  /*
+   * P6 production acceptance (Director, 2026-11-16). Written here in a diff, as MEDIA-2B was.
+   *
+   * WHY THE GENERIC GATE IS ENOUGH. The switch is the platform-wide STOP for the 08:00 run, a single
+   * boolean with no precondition this ceremony could check. Everything a run needs beyond it is
+   * re-checked by the run itself before the model, fail-closed: the cron secret, a standing research
+   * authorization in force, the granter's Governance authority, the agent's mandate, the tenant's own
+   * verified Anthropic key and the research data-use decision.
+   *
+   * WHAT ARMING THIS PERMITS. At most one research run per (tenant, authorization revision, Istanbul
+   * date), only for a tenant whose Governance authorized one brief, on that tenant's own key, inside
+   * the dispatch cap and live budget. It authorizes no tenant, no agent and no send. Disarming stops
+   * the next tick before any row is read.
+   */
+  RESEARCH_SCHEDULE_CONTROL_KEY,
 ]);
 
 /**

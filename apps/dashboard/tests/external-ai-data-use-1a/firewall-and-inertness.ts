@@ -210,7 +210,10 @@ for (const call of actionCalls) assert.ok(!/policy|getDb|scopes|purpose/.test(ca
 const composer = stripComments(read(`${FEATURE}/assistance-data-use.server.ts`));
 const byokComposer = stripComments(read("src/features/provider-anthropic/byok-account-terms.server.ts"));
 assert.ok(!/policy\s*:/.test(byokComposer), "the own-key composer never hands the writer a policy");
-assert.match(byokComposer, /scopes: assistanceScopePairs\(\)/, "its pairs are the recorded policy's assistance pairs");
+assert.match(byokComposer, /scopes: nextRevisionScopes\(assistanceScopePairs\(\), researchInForce\)/, "its pairs are the recorded policy's assistance pairs, plus research already in force (P6, 2026-11-16)");
+/* P6 production acceptance: own-account research pairs are read off the recorded policy, never typed. */
+assert.match(byokComposer, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells\s*\.filter\(\(c\) => c\.serviceScope === ANTHROPIC_MESSAGES_SCOPE && c\.purpose === RESEARCH/, "research pairs come from the recorded policy");
+assert.ok(!/dataClass: "(conversation|web-search)"/.test(byokComposer), "no research pair is typed by hand");
 assert.ok(!/policy\s*:/.test(composer), "the composer never hands the writer a policy");
 assert.match(composer, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells/, "its pairs are read off the recorded policy");
 assert.match(composer, /cell\.purpose === PURPOSE/);

@@ -218,7 +218,7 @@ assert.deepEqual(
   const lib = read("scripts/lib/provider-connectivity.ts");
   const generic = lib.slice(lib.indexOf("export const GENERIC_PRODUCTION_REACHABLE_KEYS"));
   assert.ok(lib.slice(0, lib.indexOf("export const GENERIC_PRODUCTION_REACHABLE_KEYS")).includes("  RESEARCH_SCHEDULE_CONTROL_KEY,"), "F9: the research-schedule switch is in the local vocabulary");
-  assert.ok(!generic.slice(0, generic.indexOf("]);")).includes("RESEARCH_SCHEDULE_CONTROL_KEY"), "F9: and NOT production-reachable through the generic ceremony");
+  assert.ok(generic.slice(0, generic.indexOf("]);")).includes("  RESEARCH_SCHEDULE_CONTROL_KEY,"), "F9: and production-reachable through the generic ceremony (Director, 2026-11-16) — reachable is not armed");
   const runner = read("src/features/standing-research-authority/standing-research.server.ts");
   const gate = runner.slice(runner.indexOf("export async function admitScheduledResearch"));
   assert.ok(gate.indexOf("research-schedule-disabled") < gate.indexOf("readEffectiveWithin"), "F9: the scheduled gate reads the kill switch before the lineage");

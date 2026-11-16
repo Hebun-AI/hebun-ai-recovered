@@ -14,8 +14,15 @@ import { INTEGRATION_ENCRYPTION_ENV_KEYS } from "../../src/features/secret-encry
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import { saveByokKey } from "../../src/features/provider-anthropic/byok-key.server";
-import { readByokDataUse, recordByokDataUse, stopUsingOwnKey } from "../../src/features/provider-anthropic/byok-account-terms.server";
-import { resolveTenantModelCredential } from "../../src/features/provider-anthropic/model-credential.server";
+import {
+  readByokDataUse,
+  recordByokDataUse,
+  recordOwnAccountResearch,
+  stopUsingOwnKey,
+  withdrawOwnAccountResearch,
+} from "../../src/features/provider-anthropic/byok-account-terms.server";
+import { resolveTenantModelCredential, tenantAnthropicAccountRef } from "../../src/features/provider-anthropic/model-credential.server";
+import { authorizeExternalAiDisclosure } from "../../src/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import { authorizeTenantExternalAiDataUse } from "../../src/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server";
 import { appendProcessorAttestation, parseAttestationRecord } from "../../scripts/lib/processor-attestation";
 
@@ -108,6 +115,47 @@ async function main(): Promise<void> {
     const audits = (await setup.query(`select action from audit_log where tenant_id=$1 and action in ('external-ai.tenant-attestation.recorded','governance.decision.recorded')`, [A.tenantId])).rows.map((r) => r.action);
     assert.ok(audits.includes("external-ai.tenant-attestation.recorded") && audits.includes("governance.decision.recorded"));
     ok("data-use screen: terms recorded, assistance authorized by a Governance decision, both audited");
+
+    /* ── P6 production acceptance: research on the own account, a separate Governance decision ── */
+    const RESEARCH_WHY = { justification: "This organization authorizes research on its own Anthropic account." };
+    const scopesOf = async (tenantId: string) =>
+      (await setup.query<{ pair: string }>(
+        `select s.purpose || '|' || s.data_class as pair from tenant_ai_data_use_scopes s
+           where s.authorization_id = (select id from tenant_ai_data_use_authorizations where tenant_id=$1 order by authorization_revision desc limit 1)`, [tenantId],
+      )).rows.map((r) => r.pair).sort();
+    const researchOf = async (t: TenantContext) => { const v = await readByokDataUse(t, deps); return v.status === "read" ? v.research : v.status; };
+    assert.equal(await recordOwnAccountResearch(B, { webSearch: true, ...RESEARCH_WHY }, deps), "assistance-not-authorized", "no terms, no research");
+    assert.equal(await recordOwnAccountResearch(A, { webSearch: true, justification: "" }, deps), "data-use-invalid");
+    assert.equal(await withdrawOwnAccountResearch(A, RESEARCH_WHY, deps), "research-not-authorized");
+    assert.equal(await researchOf(A), "none");
+    ok("research: refused without terms and assistance, without a reason; nothing to withdraw");
+
+    assert.equal(await recordOwnAccountResearch(A, { webSearch: false, ...RESEARCH_WHY }, deps), "research-authorized");
+    assert.equal(await researchOf(A), "unsourced");
+    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|conversation", "assistance|knowledge", "assistance|work-artifact", "research|conversation"], "assistance kept, research added, no web search");
+    assert.equal(await recordOwnAccountResearch(A, { webSearch: false, ...RESEARCH_WHY }, deps), "data-use-unchanged");
+    assert.equal(await recordOwnAccountResearch(A, { webSearch: true, ...RESEARCH_WHY }, deps), "research-authorized");
+    assert.equal(await researchOf(A), "web-search");
+    assert.ok((await scopesOf(A.tenantId)).includes("research|web-search"));
+    ok("research: the question only, then with web search, each a Governance revision; assistance stays");
+
+    const integrationId = (await setup.query(`select id from integrations where tenant_id=$1 and provider_key='anthropic'`, [A.tenantId])).rows[0].id as string;
+    const decision = await authorizeExternalAiDisclosure(
+      { tenantId: A.tenantId, actorUserId: A.userId!, purpose: "research", dataClasses: ["conversation", "web-search"] },
+      true, ENV.HEBUN_MODEL_ID, { getDb }, tenantAnthropicAccountRef(integrationId),
+    );
+    assert.equal(decision.disposition, "authorized", JSON.stringify(decision));
+    assert.ok(decision.disposition === "authorized" && decision.authorizedDataClasses.includes("web-search"), "the real resolver authorizes a sourced research call on the own account");
+    ok("research: the disclosure resolver authorizes research × {conversation, web-search} on the own account");
+
+    assert.equal(await recordByokDataUse(A, TERMS, deps), "data-use-recorded");
+    assert.equal(await researchOf(A), "web-search", "restating the terms does not withdraw research");
+    assert.equal(await withdrawOwnAccountResearch(A, RESEARCH_WHY, deps), "research-withdrawn");
+    assert.equal(await researchOf(A), "none");
+    const afterWithdraw = await readByokDataUse(A, deps);
+    assert.ok(afterWithdraw.status === "read" && afterWithdraw.authorized, "assistance is still authorized");
+    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|conversation", "assistance|knowledge", "assistance|work-artifact"]);
+    ok("research: kept when terms are restated; withdrawn on its own, assistance unchanged");
 
     /* ── stop using the own key: only onto an authorized platform account ── */
     assert.equal(await stopUsingOwnKey(A, deps), "platform-not-authorized");

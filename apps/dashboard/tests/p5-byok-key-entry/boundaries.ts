@@ -33,7 +33,8 @@ const FILES = [ACTION, PAGE, MODULE, "src/features/provider-anthropic/contracts.
 test("the action reads one field and takes the tenant from the session", () => {
   const code = codeOf(read(ACTION));
   /* P5 BYOK data-use screen adds four closed fields (three vocabulary choices and a justification); the key is still only `apiKey`. */
-  assert.deepEqual([...code.matchAll(/formData\.get\("([^"]+)"\)/g)].map((m) => m[1]), ["apiKey", "training", "retentionClass", "zdr", "justification"]);
+  /* P6 production acceptance adds the research decision (a web-search box and a justification) and its withdrawal (a justification). */
+  assert.deepEqual([...code.matchAll(/formData\.get\("([^"]+)"\)/g)].map((m) => m[1]), ["apiKey", "training", "retentionClass", "zdr", "justification", "webSearch", "justification", "justification"]);
   assert.match(code, /await resolveTenantContext\(\)/);
   assert.ok(!/tenantId|searchParams|headers\(|cookies\(/.test(code), "no client-supplied tenant");
   assert.ok(!/\$\{value|\$\{.*apiKey/.test(code), "the key never reaches a redirect URL");
@@ -53,7 +54,10 @@ test("the key is never logged or rendered", () => {
   /* The data-use screen's selects use defaultValue for their empty choice; the KEY input never has one. */
   const keyInput = page.match(/<input[^>]*name="apiKey"[^>]*\/>/)?.[0] ?? "";
   assert.ok(keyInput && !/defaultValue|value=/.test(keyInput), "the key input is never pre-filled");
-  assert.equal((page.match(/<input\b/g) ?? []).length, 1, "the key is the page's only input");
+  /* P6 production acceptance adds one checkbox (web search); the key is still the page's only value input. */
+  const inputs = page.match(/<input\b[^>]*\/>/g) ?? [];
+  assert.deepEqual(inputs.filter((i) => !/name="apiKey"/.test(i)).map((i) => /type="checkbox"/.test(i) && /name="webSearch"/.test(i)), [true], "besides the key, only the web-search checkbox");
+  assert.equal(inputs.filter((i) => !/type="checkbox"/.test(i)).length, 1, "the key is the page's only value input");
   assert.match(page, /type="password"/);
   assert.match(page, /autoComplete="off"/);
 });

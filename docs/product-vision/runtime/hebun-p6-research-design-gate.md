@@ -156,3 +156,33 @@ by a unique run ledger (migration 90), claimed before the model; a failed run is
 retried that day. The cron route is inert until its secret is configured and the kill switch is on,
 each a separate Director gate. Rejected: design B (rebuild the granting person's context each run),
 because the run would be recorded as a human act.
+
+## D10 — Production acceptance activation (Director, 2026-11-16)
+
+Taken at the P6 production-acceptance readiness check, which found the scheduled path could not be
+turned on in production by any released ceremony and that sourced research had no platform cell.
+
+**Decided.**
+
+- **RA-EAI-1-WEB-SEARCH-1: ALLOW** `anthropic/messages × research × web-search`, its own recorded
+  platform cell (`platform-disclosure-policy.ts`). It covers the search queries the model derives from
+  the research question, sent through the basic (2025-03-05) web-search tool under the per-run cap
+  `HEBUN_RESEARCH_WEB_SEARCH_MAX_USES`, and the third-party results returned. Same bounds and the same
+  processor attestation as the research × conversation cell. The cell authorizes no tenant: each
+  organization's Governance still decides. Unverified at decision: the identity, terms and retention
+  of the search provider behind Anthropic's tool, and GATE-D-PROVIDER-RECONCILIATION-1.
+- **`research-schedule` is production-reachable** through the generic connectivity ceremony
+  (`GENERIC_PRODUCTION_REACHABLE_KEYS`). Reachable is not armed: with no row the switch reads OFF, and
+  enabling it in production stays its own Director gate.
+
+- **Research on the organization's own account** (option A): the readiness check also found no path
+  that could authorize research for a tenant on its own Anthropic key — the only own-account writer
+  authorized assistance. `/integrations/anthropic` now carries a separate Governance decision,
+  "Research on your Anthropic account" (`recordOwnAccountResearch` / `withdrawOwnAccountResearch`):
+  research × conversation, and research × web-search only when chosen, bound to the terms recorded for
+  that account and refused unless assistance is already authorized under them. Withdrawing research
+  leaves assistance; restating the terms keeps research in force. Rejected: option B, a terminal-only
+  ceremony flag.
+
+Unchanged: the cron secret, any tenant grant, mandate or standing authorization, and every Anthropic
+or web-search call remain separate Director gates.
