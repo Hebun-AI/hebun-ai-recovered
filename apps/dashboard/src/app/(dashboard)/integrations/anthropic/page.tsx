@@ -4,9 +4,11 @@ import { readByokKeyStatus } from "@/features/provider-anthropic/byok-key.server
 import { readByokDataUse } from "@/features/provider-anthropic/byok-account-terms.server";
 import {
   recordByokDataUseAction,
+  recordOwnAccountResearchAction,
   revokeAnthropicKeyAction,
   saveAnthropicKeyAction,
   stopUsingOwnKeyAction,
+  withdrawOwnAccountResearchAction,
 } from "./actions";
 
 export const metadata = { title: "Anthropic key — Hebun AI" };
@@ -30,6 +32,10 @@ const OUTCOMES: Readonly<Record<string, string>> = {
   "not-the-governance-authority": "Only your organization's Governance authority can do this.",
   "no-byok-connection": "There is no Anthropic key connection for this organization.",
   stopped: "Your key was revoked and disconnected. Heby uses Hebun's Anthropic account again.",
+  "research-authorized": "Research is authorized on your Anthropic account.",
+  "research-withdrawn": "Research is no longer authorized on your Anthropic account. Assistance is unchanged.",
+  "research-not-authorized": "Research is not authorized, so there was nothing to withdraw.",
+  "assistance-not-authorized": "Record your account's terms and authorize assistance first; research is decided under the same terms.",
   "platform-not-authorized":
     "Nothing was changed: your organization has not authorized assistance on Hebun's Anthropic account, so Heby could not fall back to it. Authorize it in Governance first.",
 };
@@ -37,6 +43,11 @@ const OUTCOMES: Readonly<Record<string, string>> = {
 const TRAINING: Record<string, string> = { none: "No training on our data", "customer-opt-in": "Only if we opt in", "provider-default": "Anthropic's default" };
 const RETENTION: Record<string, string> = { "zero-data-retention": "Zero data retention", "bounded-30-days": "Up to 30 days", extended: "Longer than 30 days" };
 const ZDR: Record<string, string> = { enabled: "Zero data retention is enabled", "not-enabled": "Zero data retention is not enabled" };
+const RESEARCH_STATE: Record<"none" | "unsourced" | "web-search", string> = {
+  none: "Research is not authorized.",
+  unsourced: "Research is authorized: the research question only, without web search.",
+  "web-search": "Research is authorized, including Anthropic web search.",
+};
 const SELECT = "rounded-lg border border-border bg-background px-3 py-2 text-sm text-fg";
 
 function Choice({ name, label, options }: { name: string; label: string; options: Record<string, string> }) {
@@ -141,6 +152,48 @@ export default async function AnthropicKeyPage({
               </form>
             ) : (
               <p className="mt-3 text-sm text-fg-muted">Only your organization&apos;s Governance authority can record this.</p>
+            )}
+          </section>
+        ) : null}
+
+        {dataUse.status === "read" && dataUse.authorized ? (
+          <section className="rounded-xl border border-border bg-surface p-5">
+            <h2 className="text-sm font-semibold text-fg">Research on your Anthropic account</h2>
+            <p className="mt-1 text-sm text-fg-secondary">{RESEARCH_STATE[dataUse.research]}</p>
+            <p className="mt-1 text-sm text-fg-muted">
+              Research sends the research question to Anthropic. With web search, Anthropic also runs search queries
+              derived from that question against a third-party search index and returns the results; the queries and
+              sources are recorded with each report.
+            </p>
+            {dataUse.viewerIsGovernanceAuthority ? (
+              <>
+                <form action={recordOwnAccountResearchAction} className="mt-3 flex flex-col gap-3">
+                  <label className="flex items-center gap-2 text-sm text-fg-secondary">
+                    <input type="checkbox" name="webSearch" defaultChecked={dataUse.research === "web-search"} />
+                    Include Anthropic web search
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm text-fg-secondary">
+                    Reason for this decision
+                    <textarea name="justification" required rows={2} className={SELECT} />
+                  </label>
+                  <button type="submit" className="self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary">
+                    Authorize research
+                  </button>
+                </form>
+                {dataUse.research !== "none" ? (
+                  <form action={withdrawOwnAccountResearchAction} className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
+                    <label className="flex flex-col gap-1 text-sm text-fg-secondary">
+                      Reason for withdrawing research
+                      <textarea name="justification" required rows={2} className={SELECT} />
+                    </label>
+                    <button type="submit" className="self-start rounded-lg border border-border px-4 py-2 text-sm text-fg hover:bg-surface-sunken">
+                      Withdraw research
+                    </button>
+                  </form>
+                ) : null}
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-fg-muted">Only your organization&apos;s Governance authority can decide this.</p>
             )}
           </section>
         ) : null}

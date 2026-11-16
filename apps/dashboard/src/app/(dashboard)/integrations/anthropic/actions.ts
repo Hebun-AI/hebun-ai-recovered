@@ -8,7 +8,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { revokeByokKey, saveByokKey } from "@/features/provider-anthropic/byok-key.server";
-import { recordByokDataUse, stopUsingOwnKey } from "@/features/provider-anthropic/byok-account-terms.server";
+import {
+  recordByokDataUse,
+  recordOwnAccountResearch,
+  stopUsingOwnKey,
+  withdrawOwnAccountResearch,
+} from "@/features/provider-anthropic/byok-account-terms.server";
 
 const PAGE = "/integrations/anthropic";
 
@@ -48,6 +53,27 @@ export async function stopUsingOwnKeyAction(): Promise<void> {
   const tenant = await resolveTenantContext();
   if (!tenant) redirect("/login");
   const outcome = await stopUsingOwnKey(tenant);
+  revalidatePath(PAGE);
+  redirect(`${PAGE}?outcome=${outcome}`);
+}
+
+/* P6 production acceptance — authorize research on the own account; web search only when its box is ticked. */
+export async function recordOwnAccountResearchAction(formData: FormData): Promise<void> {
+  const tenant = await resolveTenantContext();
+  if (!tenant) redirect("/login");
+  const outcome = await recordOwnAccountResearch(tenant, {
+    webSearch: formData.get("webSearch") === "on",
+    justification: formData.get("justification"),
+  });
+  revalidatePath(PAGE);
+  redirect(`${PAGE}?outcome=${outcome}`);
+}
+
+/* P6 production acceptance — withdraw research on the own account; assistance stays. */
+export async function withdrawOwnAccountResearchAction(formData: FormData): Promise<void> {
+  const tenant = await resolveTenantContext();
+  if (!tenant) redirect("/login");
+  const outcome = await withdrawOwnAccountResearch(tenant, { justification: formData.get("justification") });
   revalidatePath(PAGE);
   redirect(`${PAGE}?outcome=${outcome}`);
 }

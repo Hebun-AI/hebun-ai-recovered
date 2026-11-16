@@ -91,8 +91,9 @@ export type RecordedAllowedCell = AllowedPlatformCell & { readonly serviceScope:
   | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" | "knowledge" }
   /* D4 — Heby AI planning's closed operational projection, and nothing else of the Work register. */
   | { readonly purpose: "work-planning"; readonly dataClass: "operational-record" }
-  /* RA-EAI-1 — the research question in the person's words, and nothing else. */
-  | { readonly purpose: "research"; readonly dataClass: "conversation" }
+  /* RA-EAI-1 — the research question in the person's words, and nothing else.
+   * RA-EAI-1-WEB-SEARCH-1 — plus Anthropic web search: derived queries out, third-party results back. */
+  | { readonly purpose: "research"; readonly dataClass: "conversation" | "web-search" }
 );
 
 /**
@@ -123,6 +124,18 @@ const ANTHROPIC_WORK_PLANNING_ALLOW_EVIDENCE =
 
 const ANTHROPIC_RESEARCH_ALLOW_EVIDENCE =
   "RA-EAI-1 (Director, 2026-10-29): platform ALLOW for anthropic/messages × research × conversation only — the research question in the person's own words. Not allowed for research: work-artifact, knowledge, organization, operational-record and every other class. Anthropic's web-search tool is NOT covered: no search query, search result or third-party search transfer is authorized by this cell, and that transport is out of scope until its own Director decision. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified, model_ids enforced per call by APF-5), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. This cell authorizes no tenant and nothing performs research yet (no seam until RA-PREP-1). Unverified at decision: production credential ↔ observed Dashboard key equality (GATE-D-PROVIDER-RECONCILIATION-1); custom agreement / BAA status; per-request processing geography. The question is free text and is not claimed free of personal data.";
+
+const ANTHROPIC_RESEARCH_WEB_SEARCH_ALLOW_EVIDENCE =
+  "RA-EAI-1-WEB-SEARCH-1 (Director, 2026-11-16, P6 production acceptance): platform ALLOW for anthropic/messages × research × web-search only — the search queries the model derives from the research question, sent through the basic (2025-03-05) version of Anthropic's web-search tool under the per-run cap HEBUN_RESEARCH_WEB_SEARCH_MAX_USES (default 3, ceiling 5), run against a third-party search index, and the third-party results returned and stored as untrusted text. It is asked only together with research × conversation (P6-3 seam), never alone. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33; a tenant's own-account attestation must sit inside the same bounds. This cell authorizes no tenant. Unverified at decision: the identity, terms and retention of the search provider behind Anthropic's tool (Anthropic's subprocessor, not attested by Hebun); production credential ↔ observed Dashboard key equality (GATE-D-PROVIDER-RECONCILIATION-1); custom agreement / BAA status; per-request processing geography. Queries derive from free text and are not claimed free of personal data.";
+
+const ANTHROPIC_RESEARCH_WEB_SEARCH_CELL: RecordedAllowedCell = Object.freeze({
+  serviceScope: "anthropic/messages",
+  purpose: "research",
+  dataClass: "web-search",
+  decision: "allowed",
+  bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
+  evidence: ANTHROPIC_RESEARCH_WEB_SEARCH_ALLOW_EVIDENCE,
+} as const);
 
 const ANTHROPIC_RESEARCH_CELL: RecordedAllowedCell = Object.freeze({
   serviceScope: "anthropic/messages",
@@ -197,6 +210,7 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
     anthropicOriginationCell("knowledge"),
     ANTHROPIC_WORK_PLANNING_CELL,
     ANTHROPIC_RESEARCH_CELL,
+    ANTHROPIC_RESEARCH_WEB_SEARCH_CELL,
   ]),
 });
 

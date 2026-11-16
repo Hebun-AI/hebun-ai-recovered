@@ -142,12 +142,14 @@ const GENERIC = "scripts/provider-connectivity.ts";
       HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
       /* IMAGE → VIDEO production-acceptance preparation (Director decision, 2026-09-27). */
       HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+      /* P6 production acceptance (Director, 2026-11-16): the scheduled-research stop. */
+      RESEARCH_SCHEDULE_CONTROL_KEY,
     ].sort(),
-    "R2H's model decision, TRH-25's read decision, MEDIA-2B's image, MV-7's video and IMAGE → VIDEO's generation decisions, enumerated",
+    "R2H's model decision, TRH-25's read decision, MEDIA-2B's image, MV-7's video, IMAGE → VIDEO's generation and the P6 research-schedule decisions, enumerated",
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
-  /* P6-2 — the scheduled-research stop is NOT production-reachable here until P6-4's Director decision. */
-  assert.deepEqual(resolveGenericProductionReach(RESEARCH_SCHEDULE_CONTROL_KEY), { status: "refused", dedicatedCommand: null });
+  /* P6 production acceptance (Director, 2026-11-16) — the scheduled-research stop is production-reachable here. REACHABLE IS NOT ARMED: no row reads OFF. */
+  assert.deepEqual(resolveGenericProductionReach(RESEARCH_SCHEDULE_CONTROL_KEY), { status: "reachable" });
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");
   /*
    * MEDIA-2B took the production decision for paid image generation, so the generic ceremony now

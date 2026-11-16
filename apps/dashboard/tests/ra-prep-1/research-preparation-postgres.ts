@@ -29,8 +29,8 @@
  *       research agent, this tenant's work, a bounded brief; research runs only on the revision in force and
  *       its brief; withdrawal mid-call files nothing; tenant isolation; refusals filed; the scheduled gate
  *       reads the `research-schedule` kill switch first and fails closed
- *   R12 P6-3 web search: a tenant cannot grant research × web-search while no platform cell records it
- *       (RA-EAI-1-WEB-SEARCH-1), so research stays unsourced and the wire carries no tool; under a SIMULATED
+ *   R12 P6-3 web search: the recorded platform cell (RA-EAI-1-WEB-SEARCH-1, 2026-11-16) admits a tenant grant;
+ *       without that scope in force research stays unsourced and the wire carries no tool; under a SIMULATED
  *       cell and SIMULATED search results: one dispatch carrying the capped web-search tool, a sourced report
  *       (topic, date, sections, numbered sources, queries, unverified passages), an injection inside a search
  *       result is filed as text and grants nothing, a model-written link and a paused turn file nothing, and
@@ -695,18 +695,18 @@ async function main(): Promise<void> {
 
     /* ── R12 · P6-3 — web search, only under its own data-use decision ── */
     {
-      /* a) the tenant writer refuses research × web-search: no platform cell records it (RA-EAI-1-WEB-SEARCH-1). */
+      /* a) RA-EAI-1-WEB-SEARCH-1 (Director, 2026-11-16) recorded the platform cell, so the tenant writer now admits research × web-search. */
       const currentRevision = (await q<{ r: number }>(`select max(authorization_revision)::int r from tenant_ai_data_use_authorizations where tenant_id = $1`, [acmeSeed.tenantId]))[0]!.r;
       const grantWeb = await authorizeTenantExternalAiDataUse(
         acme,
         { attestationId, scopes: [{ purpose: "research", dataClass: "conversation" }, { purpose: "research", dataClass: "web-search" }], justification: RESEARCH_GRANT, observedRevision: currentRevision },
         dbDeps,
       );
-      assert.deepEqual(grantWeb, { status: "refused", reason: "platform-not-allowed" }, "R12a: no platform cell, no tenant grant");
-      /* R9d withdrew Acme's research grant; R12 re-grants research × conversation and withdraws it again at the end. */
-      await grant(acme, "research", currentRevision);
+      assert.equal(grantWeb.status, "written", `R12a: the recorded cell admits a tenant grant: ${JSON.stringify(grantWeb)}`);
+      /* R12 continues on research × conversation only (a new revision replaces the scope set) and withdraws it again at the end. */
+      await grant(acme, "research", currentRevision + 1);
 
-      /* b) so research stays unsourced and the wire carries no tool, even with a search reply ready. */
+      /* b) without the web-search scope in force, research stays unsourced and the wire carries no tool, even with a search reply ready. */
       searchReply = () => { throw new Error("a search was requested"); };
       const wireBefore = wire.length;
       const plain = await ask(acme, work, researcher);
@@ -834,7 +834,7 @@ async function main(): Promise<void> {
       assert.deepEqual(paused.status === "not-prepared" && paused.reason, "research-incomplete", `R12e: ${JSON.stringify(paused)}`);
       assert.equal(fetches - fetchesBefore, 1, "R12e: no continuation request");
       searchReply = null;
-      const w = await withdrawTenantExternalAiDataUse(acme, { serviceScope: "anthropic/messages", accountRef: RECORD.accountRef, justification: WITHDRAW, observedRevision: currentRevision + 1 }, dbDeps);
+      const w = await withdrawTenantExternalAiDataUse(acme, { serviceScope: "anthropic/messages", accountRef: RECORD.accountRef, justification: WITHDRAW, observedRevision: currentRevision + 2 }, dbDeps);
       assert.equal(w.status, "written", JSON.stringify(w));
     }
 

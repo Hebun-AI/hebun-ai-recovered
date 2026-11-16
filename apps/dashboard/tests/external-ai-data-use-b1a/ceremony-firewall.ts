@@ -119,6 +119,8 @@ assert.deepEqual(
     "anthropic/messages|work-planning|operational-record",
     /* RA-EAI-1, a separate reviewed change. */
     "anthropic/messages|research|conversation",
+    /* RA-EAI-1-WEB-SEARCH-1 (Director, 2026-11-16), a separate reviewed change. */
+    "anthropic/messages|research|web-search",
   ],
 );
 assert.ok(
