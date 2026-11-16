@@ -43,7 +43,7 @@ process.on("exit", (code) => {
   }
 });
 
-const MIGRATION = "src/db/migrations/20261110092021_commercial_billing.sql";
+const MIGRATION = "src/db/migrations/20261116135716_commercial_billing.sql";
 const WHSEC = "whsec_commercial_activation_test";
 const ENV = {
   HEBUN_BILLING_MODE: "test",
