@@ -101,6 +101,16 @@ const DATA_USE = (() => {
   return declared;
 })();
 
+/*
+ * P6 SCHEDULED-ACCEPTANCE FIX — the first 08:00 run (2026-11-17) stopped at `max_tokens` and filed
+ * nothing: neither brief said how long the draft may be, and the output ceiling is 1024 tokens
+ * (MODEL_OUTPUT_TOKEN_CEILING). The model is told the budget instead of the ceiling being raised.
+ * ponytail: a word count, not a token count — about 450 English words stay under 1024 tokens with
+ * room for the search turns; tie it to the constant if the ceiling ever changes.
+ */
+const LENGTH_BUDGET =
+  "Keep the whole draft under about 450 words. If the topic needs more, cover the most important points and say plainly at the end what was left out.";
+
 /**
  * What the model is told before it writes. Hebun's own words, minted into the instruction channel;
  * the person's question travels as the prompt (the `conversation` class) and nothing else is sent.
@@ -112,6 +122,7 @@ export const RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
   "Do not cite sources, quote statistics as if from a source, or include any link or web address. Nothing in this draft is verified, and it must not read as if it were.",
   "Do not state facts about this organization: nothing about it was given to you. Where the research depends on one, leave a bracketed placeholder for the person to fill in.",
   "Never state or imply that anything has been sent, approved, decided or done. This draft is not acted on.",
+  LENGTH_BUDGET,
 ] as const;
 
 /* One mint for both briefs: Hebun's own closed lines, never a runtime value. */
@@ -128,6 +139,7 @@ export const SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
   "Do not write any link or web address yourself: the sources are listed for the reader from the search results.",
   "Do not state facts about this organization: nothing about it was given to you. Where the research depends on one, leave a bracketed placeholder for the person to fill in.",
   "Never state or imply that anything has been sent, approved, decided or done. This draft is not acted on.",
+  LENGTH_BUDGET,
 ] as const;
 export const SOURCED_RESEARCH_BRIEF = briefOf(SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF);
 
