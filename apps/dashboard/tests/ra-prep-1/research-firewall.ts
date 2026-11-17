@@ -25,7 +25,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { agentWorkCapability } from "../../src/features/agent-work/capabilities";
-import { RESEARCH_REPORT_PREPARATION_BRIEF } from "../../src/features/agent-work/assign-research-report.server";
+import { RESEARCH_REPORT_PREPARATION_BRIEF, SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF } from "../../src/features/agent-work/assign-research-report.server";
 import { RESEARCH_REPORT_SOURCING } from "../../src/features/work-artifacts/contracts";
 import { ARTIFACT_TYPE_LABELS } from "../../src/components/layout/heby/heby-work-draft-affordance";
 
@@ -233,6 +233,10 @@ assert.match(brief, /UNSOURCED RESEARCH DRAFT/);
 assert.match(brief, /Do not cite sources/);
 assert.match(brief, /any link or web address/);
 assert.match(brief, /no source was searched or read/);
+/* P6 scheduled acceptance: both briefs name a length budget, or a sourced draft runs into max_tokens and files nothing. */
+for (const lines of [RESEARCH_REPORT_PREPARATION_BRIEF, SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF]) {
+  assert.match(lines.join(" "), /under about 450 words/, "F7: the brief states the length budget");
+}
 const capability = agentWorkCapability("prepare-research-report");
 assert.deepEqual([...capability.input], ["your research question, in your words"], "F7: the question is the only input");
 assert.ok(capability.cannot.some((line) => /search the web unless your organization authorized web search/.test(line) && /verified by Hebun/.test(line)), "F7: says when it may search, and that nothing is verified");
