@@ -88,6 +88,8 @@ const ISSUANCE_REFUSAL_TEXT: Record<InvitationIssuanceRefusal, string> = {
   "invitation-already-pending": "That person already has a live capability awaiting onboarding.",
   "authorization-already-consumed":
     "Another issuance spent this authorization first. Only one capability may exist per authorization.",
+  "plan-member-limit-reached":
+    "Your organization's plan has no free member seat (members plus pending capabilities). Free includes 1 member and Pro 5 — see Plan & Usage. Nothing was changed.",
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
 };
 

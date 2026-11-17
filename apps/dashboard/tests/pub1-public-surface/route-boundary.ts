@@ -314,10 +314,14 @@ function main(): void {
       [/customer logos?/i, "no customer may be named"],
       [/free trial|start free|sign up free/i, "there is no self-serve sign-up"],
       [/book a demo|schedule a demo/i, "no scheduling exists"],
-      [/\bpricing\b/i, "no pricing exists"],
+      /* COMMERCIAL-ACTIVATION-1: pricing now exists — `/pricing`, rendered from the enforced plan constants (checked below). */
       [/powered by (?:claude|anthropic|gpt|openai)/i, "the live model path is not armed in production"],
       [/\bratif/i, "ratification is withheld until production reachability is re-proven"],
     ];
+    {
+      const pricingPage = read("src/app/(public)/pricing/page.tsx");
+      assert.ok(/COMMERCIAL_PLAN_LIMITS/.test(pricingPage), "COMMERCIAL-ACTIVATION-1: the pricing the copy links to is rendered from the enforced constants");
+    }
     for (const [pattern, why] of FORBIDDEN) {
       const hit = pattern.exec(copy);
       assert.equal(hit, null, `public copy claims ${JSON.stringify(hit?.[0])}: ${why}`);

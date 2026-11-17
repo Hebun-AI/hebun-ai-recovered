@@ -281,7 +281,8 @@ async function main(): Promise<void> {
     assert.ok(ingressList, "the machine ingress allowlist exists");
     assert.deepEqual(
       ingressList![1]!.split(",").map((entry) => entry.trim()).filter(Boolean),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) */ '"/api/standing-research/scan"'],
+      /* COMMERCIAL-ACTIVATION-1: + Stripe's signed webhook. */
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) */ '"/api/standing-research/scan"', '"/api/billing/stripe/webhook"'],
       "the machine ingress allowlist holds exactly the five pinned ingresses",
     );
 

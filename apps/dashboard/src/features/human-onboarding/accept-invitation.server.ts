@@ -72,6 +72,7 @@ import {
   type InvitationAcceptanceResult,
 } from "./contracts";
 import { isAnyUniqueViolation } from "./issue-invitation.server";
+import { enforceMemberLimitWithin, PlanMemberLimitReached } from "@/features/tenant-entitlements/member-limit.server";
 
 export interface AcceptanceDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -260,6 +261,8 @@ export async function acceptInvitation(
     let created: { membershipId: string } | null = null;
 
     await db.transaction(async (tx) => {
+      /* COMMERCIAL-ACTIVATION-1 — the plan's member limit, under the tenant lock, before any write. */
+      await enforceMemberLimitWithin(tx as unknown as ControlPlaneDatabase, invitation.tenantId, now, "accept-invitation");
       /*
        * THE CONDITIONAL ACCEPTANCE, FIRST. Predicated on the invitation still being pending and
        * unexpired, so a concurrent acceptance that got here first makes this update zero rows — and
@@ -341,6 +344,7 @@ export async function acceptInvitation(
     };
   } catch (error) {
     if (error instanceof AcceptanceRaceLost) return refused("capability-not-usable");
+    if (error instanceof PlanMemberLimitReached) return refused("plan-member-limit-reached");
     /* `memberships_tenant_user_uq` or `memberships_accepted_invitation_uq` lost the race. */
     if (isAnyUniqueViolation(error)) return refused("already-a-member");
     return refused("persistence-unavailable");

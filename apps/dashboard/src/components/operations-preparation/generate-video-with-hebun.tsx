@@ -57,7 +57,8 @@ const REFUSAL_WORDING: Record<Refusal, string> = {
   "source-upload-refused": `The provider refused the image upload. No video was requested.`,
   "source-upload-unknown": `The image upload got no trustworthy answer. No video was requested, and nothing is retried.`,
   "source-not-prepared": `The image was not prepared for this attempt. No video was requested.`,
-  "dispatch-safety-cap-reached": `Your organization reached its daily AI dispatch safety cap for media. It is a safety bound, not a billing quota, and it resets at 00:00 UTC. ${NOT_SENT}`,
+  "dispatch-safety-cap-reached": `Your organization reached its daily media limit for its plan. It resets at 00:00 UTC; Plan & Usage shows the limit. ${NOT_SENT}`,
+  "plan-video-not-included": `Video generation is not included in your organization's Free plan. Pro includes video within its 10 media per day — see Plan & Usage. ${NOT_SENT}`,
   "source-data-use-not-cleared": `No data-use decision allows sending this image to this video provider. Holding, reviewing or selecting an image, or the provider being switched on, is not that permission. ${NOT_SENT}`,
 };
 

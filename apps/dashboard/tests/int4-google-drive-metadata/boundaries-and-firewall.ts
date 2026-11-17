@@ -163,6 +163,12 @@ function main(): void {
          * only when the Director control is ON.
          */
         "src/features/media-generation-live/higgsfield-video-transport.server.ts",
+        /*
+         * COMMERCIAL-ACTIVATION-1 — the Stripe REST client. One fixed origin (https://api.stripe.com/v1),
+         * redirects refused, 15 s timeout, no retry, reached only through billing.server.ts, and only
+         * when every HEBUN_BILLING_* / HEBUN_STRIPE_* value is configured.
+         */
+        "src/features/billing/stripe-api.server.ts",
       ].sort(),
       "every outbound-HTTP module in src is a named transport",
     );

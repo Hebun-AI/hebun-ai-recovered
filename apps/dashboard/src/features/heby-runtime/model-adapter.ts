@@ -96,7 +96,7 @@ export function unavailableStatusFor(
         available: false,
         reason: "provider-unavailable",
         detail:
-          "This organization reached its daily AI dispatch safety cap, so nothing was sent to the model. It is a safety bound, not a billing quota, and it resets at 00:00 UTC.",
+          "This organization reached its daily AI request limit for its plan, so nothing was sent to the model. It resets at 00:00 UTC; Plan & Usage shows the limit.",
       });
     case "AVAILABLE":
       return null;

@@ -444,6 +444,8 @@ async function main(): Promise<void> {
         .sort(),
       /* AMENDED BY GITHUB-2 — the installation pair joins INT-3's OAuth pair; see r4a-flow. */
       [
+        /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook: a machine door authenticated by its signature, named not matched. */
+        "src/app/api/billing/stripe/webhook/route.ts",
         "src/app/api/integrations/github/setup/route.ts",
         "src/app/api/integrations/github/start/route.ts",
         "src/app/api/integrations/google/callback/route.ts",

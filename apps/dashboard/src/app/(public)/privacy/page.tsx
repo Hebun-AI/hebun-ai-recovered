@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description: "How Hebun AI handles information, including Google account data.",
 };
 
-const LAST_UPDATED = "23 August 2026";
+const LAST_UPDATED = "10 November 2026";
 const CONTACT_EMAIL = "hebuntech@gmail.com";
 
 function Section({
@@ -151,6 +151,15 @@ export default function PrivacyPolicyPage() {
           behalf, and it is processed by the hosting and database infrastructure Hebun runs on for
           the sole purpose of operating the service. Hebun may disclose information where it is
           legally required to do so.
+        </p>
+      </Section>
+
+      <Section heading="Payments">
+        <p>
+          Subscriptions are paid through Stripe, Inc., which processes your payment details under its own privacy policy.
+          Hebun never receives or stores card numbers. Hebun stores only what it needs to connect a payment to your
+          organization: the Stripe customer and subscription identifiers, the subscription&apos;s status, and the plan that
+          results from it.
         </p>
       </Section>
 

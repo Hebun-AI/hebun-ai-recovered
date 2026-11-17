@@ -89,10 +89,22 @@ const SOURCE = walk("src").filter((f) => !f.startsWith("src/db/migrations/"));
       "@/db/schema/media-asset",
       "@/features/governance-audit/ai-dispatch-cap-audit.server",
       "@/features/governance-audit/ai-dispatch-cap-audit.server",
+      "@/features/tenant-entitlements/tenant-dispatch-ceiling.server",
       "drizzle-orm",
     ],
-    "the cap imports storage and its audit sibling — no deciding authority",
+    /* COMMERCIAL-ACTIVATION-1: the one added import is the tenant's daily ceiling (a read of the recorded
+     * plan against public constants). It decides a number, never whether a dispatch is authorized. */
+    "the cap imports storage, its audit sibling and the tenant ceiling read — no deciding authority",
   );
+  {
+    const ceiling = code("src/features/tenant-entitlements/tenant-dispatch-ceiling.server.ts");
+    assert.ok(!/\.(insert|update|delete)\(/.test(ceiling), "COMMERCIAL-ACTIVATION-1: the ceiling read writes nothing");
+    assert.deepEqual(
+      [...ceiling.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort(),
+      ["./plans", "@/db/client.server", "@/db/schema/company", "drizzle-orm"],
+      "COMMERCIAL-ACTIVATION-1: the ceiling reads the plan row and the public constants, nothing else",
+    );
+  }
   const a = code(AUDIT);
   assert.deepEqual([...a.matchAll(/\.(insert|update|delete)\(\s*(\w+)\s*\)/g)].map((m) => `${m[1]}:${m[2]}`), ["insert:auditLog"], "the sibling appends to the sink and nothing else");
   assert.equal([...a.matchAll(/action: (\w+),/g)].map((m) => m[1]).join(","), "AI_DISPATCH_CAP_REFUSED", "its one row is the refusal");

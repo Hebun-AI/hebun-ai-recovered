@@ -199,6 +199,8 @@ async function main(): Promise<void> {
       "/api/media-storage/acceptance",
       /* P6-4 (D7) — the 08:00 standing research tick. */
       "/api/standing-research/scan",
+      /* COMMERCIAL-ACTIVATION-1: Stripe's signed webhook. */
+      "/api/billing/stripe/webhook",
     ]);
 
     const importers = files("src").filter((f) => /\.(ts|tsx)$/.test(f) && /media-storage-acceptance\//.test(stripComments(readFileSync(f, "utf8"))));

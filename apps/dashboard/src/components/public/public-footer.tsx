@@ -18,6 +18,14 @@ export function PublicFooter() {
           <ul className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <li>
               <Link
+                href="/pricing"
+                className="inline-flex h-11 items-center rounded-sm px-2 text-meta text-fg-secondary hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Pricing
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/privacy"
                 className="inline-flex h-11 items-center rounded-sm px-2 text-meta text-fg-secondary hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
@@ -30,6 +38,14 @@ export function PublicFooter() {
                 className="inline-flex h-11 items-center rounded-sm px-2 text-meta text-fg-secondary hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Terms
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/refund"
+                className="inline-flex h-11 items-center rounded-sm px-2 text-meta text-fg-secondary hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Refunds
               </Link>
             </li>
             <li>

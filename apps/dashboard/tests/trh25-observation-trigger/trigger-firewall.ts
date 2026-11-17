@@ -183,7 +183,8 @@ function main(): void {
   assert.ok(exactList, "the machine ingress list exists");
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
-    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) — the 08:00 standing research tick, its own secret. */ '"/api/standing-research/scan"'],
+    /* COMMERCIAL-ACTIVATION-1: + Stripe's signed webhook. */
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) — the 08:00 standing research tick, its own secret. */ '"/api/standing-research/scan"', '"/api/billing/stripe/webhook"'],
     /*
      * THREE, and the third is the RUNG 2 act path's. Listing it here is not a formality: deployed
      * WITHOUT this entry, that route answered a scheduler with `307 -> /login` — the sign-in page
@@ -241,6 +242,8 @@ function main(): void {
   assert.deepEqual(
     routes.sort(),
     [
+      /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook: a machine door authenticated by its signature, named not matched. */
+      "src/app/api/billing/stripe/webhook/route.ts",
       "src/app/api/integrations/github/setup/route.ts",
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",

@@ -84,3 +84,4 @@ export * from "./external-recipient";
 export * from "./action-execution";
 export * from "./content-publication-intent";
 export * from "./support-ticket";
+export * from "./billing";

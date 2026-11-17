@@ -261,7 +261,8 @@ async function main(): Promise<void> {
       assert.equal(row.updated_by, null);
       assert.equal(row.deleted_at, null);
       assert.equal(row.provisioning_source, TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR);
-      assert.equal(row.plan, "free", "the column keeps its own default; R4A assigns it no meaning");
+      /* COMMERCIAL-ACTIVATION-1: a ceremony still omits `plan`; the column default is now `founding`. */
+      assert.equal(row.plan, "founding", "the column keeps its own default — a ceremony tenant is founding");
     }
 
     /* ── The owner role, field by field ───────────────────────────────────── */

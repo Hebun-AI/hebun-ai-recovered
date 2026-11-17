@@ -661,6 +661,8 @@ function main(): void {
       [
         CALLBACK,
         START,
+        /* COMMERCIAL-ACTIVATION-1 — Stripe's webhook: a machine door authenticated by its signature, named not matched. */
+        "src/app/api/billing/stripe/webhook/route.ts",
         "src/app/api/integrations/github/setup/route.ts",
         "src/app/api/integrations/github/start/route.ts",
         /* The Instagram OAuth ceremony — the third provider pair, added by this phase. */
@@ -682,10 +684,17 @@ function main(): void {
       ].sort(),
       "every route handler is accounted for: the OAuth pairs and the one machine ingress",
     );
-    for (const route of routes) {
+    /* COMMERCIAL-ACTIVATION-1: Stripe delivers webhooks by POST, so that ONE route is the exception, pinned by name. */
+    const STRIPE_WEBHOOK = "src/app/api/billing/stripe/webhook/route.ts";
+    for (const route of routes.filter((r) => r !== STRIPE_WEBHOOK)) {
       const code = codeOnly(read(route));
       assert.ok(/export async function GET/.test(code), `${route} must expose only GET`);
       assert.ok(!/export async function (POST|PUT|PATCH|DELETE)/.test(code), `${route} must not mutate over POST`);
+    }
+    {
+      const code = codeOnly(read(STRIPE_WEBHOOK));
+      assert.ok(/export async function POST/.test(code) && !/export async function (GET|PUT|PATCH|DELETE)/.test(code), "the Stripe webhook exposes POST only");
+      assert.ok(/processStripeWebhook\(rawBody, request\.headers\.get\(""\)\)/.test(code) /* string literals are blanked by codeOnly */, "…and hands every request to the signature-verifying sync");
     }
   }
 

@@ -314,8 +314,9 @@ function main(): void {
       .filter((entry) => entry.length > 0);
     assert.deepEqual(
       prefixes,
-      ["/login", "/register", "/privacy", "/terms", "/contact"],
-      "the public prefix list is closed at the sign-in flow, the legal notices and the public contact page",
+      /* COMMERCIAL-ACTIVATION-1: + the static pricing page and refund policy. */
+      ["/login", "/register", "/privacy", "/terms", "/contact", "/pricing", "/refund"],
+      "the public prefix list is closed at the sign-in flow, the legal notices, the public contact page, pricing and refunds",
     );
     /*
      * PUB-1 widened the list by one entry and added a SECOND, separate list for the public
