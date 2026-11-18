@@ -66,6 +66,11 @@ jobs:
       - name: Lint
         run: npx eslint .
 
+      # The runner was served Google Fonts URLs the build cannot parse (2026-11-18); the build reads
+      # the frozen stylesheets instead. Font files still download as usual. CI only.
+      - name: Pin Google Fonts stylesheets
+        run: echo "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=$PWD/scripts/ci/google-fonts-mocked-responses.cjs" >> "$GITHUB_ENV"
+
       - name: Production build
         run: npx next build
 
