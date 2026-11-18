@@ -266,10 +266,11 @@ async function runScheduledResearchForTenant(
   } catch {
     outcome = { status: "failed", tenantId, runId: principal.runId, reason: "unexpected-error" };
   }
+  /* P6 fix 2 — an action-claim refusal keeps its verbs (closed literals from the validator) so the next one names its cause. */
   if (outcome.status === "failed") {
     await db
       .update(scheduledResearchRuns)
-      .set({ status: "failed", failureReason: outcome.reason, finishedAt: new Date() })
+      .set({ status: "failed", failureReason: outcome.reason === "action-claim-in-output" && outcome.detail ? `${outcome.reason}:${outcome.detail}`.slice(0, 120) : outcome.reason, finishedAt: new Date() })
       .where(and(eq(scheduledResearchRuns.id, principal.runId), eq(scheduledResearchRuns.status, "claimed")))
       .catch(() => undefined);
   }
@@ -381,7 +382,8 @@ async function runAsPrincipal(
   if (stop === "max_tokens") return fail("output-truncated");
   if (stop === "refusal") return fail("model-refused");
   if (stop === "pause_turn") return fail("research-incomplete");
-  if (internalDraftActionClaims(result.text).length > 0) return fail("action-claim-in-output");
+  const claims = internalDraftActionClaims(result.text);
+  if (claims.length > 0) return fail("action-claim-in-output", claims.join(","));
 
   let content = result.text;
   let webResearch: { searchCount: number; sourceCount: number } | undefined;
