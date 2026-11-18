@@ -236,6 +236,10 @@ assert.match(brief, /no source was searched or read/);
 /* P6 scheduled acceptance: both briefs name a length budget, or a sourced draft runs into max_tokens and files nothing. */
 for (const lines of [RESEARCH_REPORT_PREPARATION_BRIEF, SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF]) {
   assert.match(lines.join(" "), /under about 450 words/, "F7: the brief states the length budget");
+  /* P6 fix 2: the 2026-11-18 run was refused for an action claim in its prose; both briefs name every refused verb. */
+  for (const verb of ["approved", "rejected", "authorized", "executed", "deployed", "deleted", "completed", "changed", "policy updated", "decision recorded"]) {
+    assert.ok(lines.join(" ").includes(verb), `F8: the brief names the refused verb "${verb}"`);
+  }
 }
 const capability = agentWorkCapability("prepare-research-report");
 assert.deepEqual([...capability.input], ["your research question, in your words"], "F7: the question is the only input");
