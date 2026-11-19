@@ -193,6 +193,8 @@ export function preparationBriefFor(input: {
 export interface PreparationBrief {
   readonly instruction: HebunInstruction;
   readonly material: readonly string[];
+  /** P6 — a sourced research brief answers from web search, not from the grounding context alone. */
+  readonly base?: "web-research";
 }
 
 /** CGO-9 / SCI-1 — what Hebun tells the model about a revision. Built from an integer, never from its text. */

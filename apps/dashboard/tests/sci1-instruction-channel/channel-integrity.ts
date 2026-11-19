@@ -135,7 +135,8 @@ async function main(): Promise<void> {
   const answer = code("src/features/heby-answer/model-answer.server.ts");
   /* HEBY-GROUNDED-CONVERSATION-1: the grounding call also names the optional classes it withholds. */
   assert.ok(/evidence: groundingLines\(resolutions, new Set\(optionalClasses\)\),\s*\.\.\.\(briefApplied && options\.preparationBrief!\.material\.length > 0 \? \{ material: options\.preparationBrief!\.material \} : \{\}\)/.test(answer));
-  assert.ok(/return joinHebunInstructions\(\[HEBY_MODEL_SYSTEM_INSTRUCTIONS, brief\.instruction\]\)/.test(answer));
+  /* P6 (2026-11-19): a sourced research brief picks the web-research base; both bases are minted constants. */
+  assert.ok(/const base = brief\.base === "web-research" \? HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS : HEBY_MODEL_SYSTEM_INSTRUCTIONS;\s*return joinHebunInstructions\(\[base, brief\.instruction\]\)/.test(answer));
   assert.ok(
     /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/.test(
       code("src/features/work-artifacts/prepare-work-artifact.server.ts"),

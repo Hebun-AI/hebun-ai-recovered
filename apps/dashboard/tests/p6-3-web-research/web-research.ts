@@ -10,7 +10,8 @@
  *      asked and before any fetch; and one the decision did not authorize
  *   W4 the sourced report: numbered sources only for URLs the search returned; uncited passages counted;
  *      missing sections named, never written; a model-written link or a cited text that is not the
- *      validated answer refuses; injected text in a result stays text
+ *      validated answer refuses; injected text in a result stays text; a draft citing no search result
+ *      refuses (P6, 2026-11-19: a sourceless reply had been filed as sourced research)
  *   W5 the per-run cap: default 3, an out-of-range or non-integer value falls back, never above 5
  */
 import assert from "node:assert/strict";
@@ -181,7 +182,9 @@ async function main(): Promise<void> {
     "W4: cited blocks that are not the validated answer refuse",
   );
   const none = composeSourcedResearchReport({ question: "q", researchedAt: at, validatedText: "Executive summary\nNothing found.", trace: { queries: [], results: [], segments: [{ text: "Executive summary\nNothing found.", citations: [] }], searchErrors: ["unavailable"] } });
-  assert.ok(none.status === "composed" && none.content.includes("No statement in this draft is backed by a search citation") && none.content.includes("SEARCH ERRORS: unavailable"), "W4: no source says so");
+  assert.deepEqual(none, { status: "refused", reason: "no-sources" }, "W4: a draft citing no search result is not filed as sourced");
+  const searchedUncited = composeSourcedResearchReport({ question: "q", researchedAt: at, validatedText: "Findings\nNo citation.", trace: { queries: ["q1"], results: [{ url: "https://a.example/one", title: "One" }], segments: [{ text: "Findings\nNo citation.", citations: [] }], searchErrors: [] } });
+  assert.deepEqual(searchedUncited, { status: "refused", reason: "no-sources" }, "W4: searched but cited nothing is still not sourced");
 
   /* ── W5 ── */
   assert.equal(researchWebSearchMaxUses({}), 3);
