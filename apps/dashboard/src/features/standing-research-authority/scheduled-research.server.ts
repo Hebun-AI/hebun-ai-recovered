@@ -153,6 +153,7 @@ export type ScheduledResearchFailure =
   | "action-claim-in-output"
   | "link-in-output"
   | "sourced-answer-mismatch"
+  | "sourced-no-sources"
   | "authorization-changed-while-preparing"
   | "agent-mandate-changed-while-preparing"
   | "write-refused"
@@ -395,7 +396,9 @@ async function runAsPrincipal(
       validatedText: result.text,
       trace: result.webResearch,
     });
-    if (composed.status === "refused") return fail(composed.reason === "link-in-output" ? "link-in-output" : "sourced-answer-mismatch");
+    if (composed.status === "refused") {
+      return fail(composed.reason === "link-in-output" ? "link-in-output" : composed.reason === "no-sources" ? "sourced-no-sources" : "sourced-answer-mismatch");
+    }
     content = composed.content;
     webResearch = { searchCount: composed.searchCount, sourceCount: composed.sourceCount };
   } else if (LINK.test(content)) {

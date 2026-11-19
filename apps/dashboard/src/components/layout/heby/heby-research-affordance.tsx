@@ -57,6 +57,7 @@ const NOT_PREPARED_WORDING: Partial<Record<NotPrepared, string>> = {
   "unsourced-link-in-output": "The agent's reply contained a web address, so it was not filed: an unsourced draft must not read as sourced.",
   "sourced-link-in-output": "The agent wrote a web address itself instead of citing a search result, so nothing was filed.",
   "sourced-answer-mismatch": "The search citations could not be matched to the agent's reply, so nothing was filed.",
+  "sourced-no-sources": "The agent's reply cited no search result, so it was not filed as sourced research.",
   "research-incomplete": "The web search did not finish in one request. It was not continued, and nothing was filed.",
   "output-truncated": "The agent's reply was cut off, so nothing was filed.",
   "model-refused": "The model declined to write this report. Nothing was filed.",

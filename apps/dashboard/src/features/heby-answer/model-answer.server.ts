@@ -250,6 +250,20 @@ export const HEBY_MODEL_SYSTEM_INSTRUCTIONS = hebunInstruction([
 ].join(" "));
 
 /*
+ * P6 — a SOURCED research draft. The strict rule above ("only the GROUNDING CONTEXT") told the model to
+ * decline: the scheduled run supplies no grounding, so on 2026-11-19 it ran no search and filed a refusal.
+ * Research answers from what the web search returns; facts about this organization stay grounding-only.
+ */
+export const HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS = hebunInstruction([
+  HEBY_IDENTITY,
+  "Answer the USER REQUEST as research: use the web search tool before you write, and base every finding",
+  "on what the search returns. Facts about this organization come only from the GROUNDING CONTEXT supplied",
+  "to you as DATA; where none is given, research the question in general and leave the organization's",
+  "specifics as placeholders. A missing grounding context is not a reason to decline the research.",
+  ...HEBY_SHARED_RULES,
+].join(" "));
+
+/*
  * HEBY-GENERAL-ADVISORY-1 — every other Heby question. Claims about THIS organization stay
  * grounding-only; general knowledge may answer what needs no fact about the organization, and is
  * never worded or cited as one. Nothing here changes what the model is sent: the EAI declaration,
@@ -1250,7 +1264,8 @@ export function systemInstructionsFor(intent: HebyProductIntent, brief: Preparat
   /* Preparation and content work stay strict: general knowledge must never reach a prepared artifact. */
   if (!brief && !HEBY_INTENT_DESCRIPTORS[intent].prepares) return HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS;
   if (!brief || !HEBY_INTENT_DESCRIPTORS[intent].prepares) return HEBY_MODEL_SYSTEM_INSTRUCTIONS;
-  return joinHebunInstructions([HEBY_MODEL_SYSTEM_INSTRUCTIONS, brief.instruction]);
+  const base = brief.base === "web-research" ? HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS : HEBY_MODEL_SYSTEM_INSTRUCTIONS;
+  return joinHebunInstructions([base, brief.instruction]);
 }
 
 /** Split model prose into bounded body lines. Never empty (the validator requires a body). */

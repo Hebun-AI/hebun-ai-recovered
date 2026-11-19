@@ -25,7 +25,9 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { agentWorkCapability } from "../../src/features/agent-work/capabilities";
-import { RESEARCH_REPORT_PREPARATION_BRIEF, SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF } from "../../src/features/agent-work/assign-research-report.server";
+import { RESEARCH_BRIEF, RESEARCH_REPORT_PREPARATION_BRIEF, SOURCED_RESEARCH_BRIEF, SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF } from "../../src/features/agent-work/assign-research-report.server";
+import { HEBY_MODEL_SYSTEM_INSTRUCTIONS, HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS, systemInstructionsFor } from "../../src/features/heby-answer/model-answer.server";
+import { WORK_ARTIFACT_PREPARATION_INTENT } from "../../src/features/work-artifacts/prepare-work-artifact.server";
 import { RESEARCH_REPORT_SOURCING } from "../../src/features/work-artifacts/contracts";
 import { ARTIFACT_TYPE_LABELS } from "../../src/components/layout/heby/heby-work-draft-affordance";
 
@@ -268,4 +270,13 @@ assert.equal(capability.authorizationRequired, false);
   assert.ok(run.lastIndexOf("readEffectiveWithin(tx, tenantId)") > model && run.lastIndexOf("readEffectiveAgentMandateForRuntime(tenantId, principal.agentId, { getDb: () => tx })") > model, "F11: authorization and mandate re-read inside filing");
 }
 
-console.log("ra-prep-1/research-firewall: F1–F11 PASS");
+/* ── F12 ── P6 (2026-11-19): sourced research is not told "only the grounding context"; unsourced stays strict. */
+{
+  const sourcedSystem = systemInstructionsFor(WORK_ARTIFACT_PREPARATION_INTENT, SOURCED_RESEARCH_BRIEF);
+  assert.ok(sourcedSystem.startsWith(HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS), "F12: sourced research opens with the web-research rule");
+  assert.ok(!sourcedSystem.includes("using only the GROUNDING CONTEXT"), "F12: and not the grounding-only rule");
+  assert.match(sourcedSystem, /use the web search tool before you write/, "F12: it is told to search");
+  assert.ok(systemInstructionsFor(WORK_ARTIFACT_PREPARATION_INTENT, RESEARCH_BRIEF).startsWith(HEBY_MODEL_SYSTEM_INSTRUCTIONS), "F12: unsourced research stays grounding-only");
+}
+
+console.log("ra-prep-1/research-firewall: F1–F12 PASS");

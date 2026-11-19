@@ -153,7 +153,7 @@ export const SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF: readonly string[] = [
   LENGTH_BUDGET,
   ACTION_WORDS,
 ] as const;
-export const SOURCED_RESEARCH_BRIEF = briefOf(SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF);
+export const SOURCED_RESEARCH_BRIEF = { ...briefOf(SOURCED_RESEARCH_REPORT_PREPARATION_BRIEF), base: "web-research" as const };
 
 /**
  * P6 D5 — THE PER-RUN SEARCH CAP. `HEBUN_RESEARCH_WEB_SEARCH_MAX_USES`, default 3; a value that is not
@@ -241,6 +241,8 @@ export type AssignResearchReportResult =
         | "sourced-link-in-output"
         /** P6-3 — the provider's cited blocks are not the answer that was validated; nothing can be placed. */
         | "sourced-answer-mismatch"
+        /** P6 — a sourced reply that cites no search result is not a sourced report. */
+        | "sourced-no-sources"
         /** P6-3 — the provider paused the searching turn; it is not continued, so nothing is filed. */
         | "research-incomplete"
         /** The mandate revision the dispatch rested on is no longer the one in force, read in the filing transaction. */
@@ -386,7 +388,9 @@ export async function assignResearchReport(
       if (!answer.webResearch) return notPrepared("no-model-answer");
       const composed = composeSourcedResearchReport({ question, researchedAt: new Date(), validatedText: served, trace: answer.webResearch });
       if (composed.status === "refused") {
-        return notPrepared(composed.reason === "link-in-output" ? "sourced-link-in-output" : "sourced-answer-mismatch");
+        return notPrepared(
+          composed.reason === "link-in-output" ? "sourced-link-in-output" : composed.reason === "no-sources" ? "sourced-no-sources" : "sourced-answer-mismatch",
+        );
       }
       content = composed.content;
       webResearch = { searchCount: composed.searchCount, sourceCount: composed.sourceCount };

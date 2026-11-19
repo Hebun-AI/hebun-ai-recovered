@@ -34,8 +34,9 @@ export type SourcedReportComposition =
       /**
        * `link-in-output` — the model wrote a web address itself. `answer-mismatch` — the cited text
        * blocks are not the answer the flow validated, so the citations cannot be placed on it.
+       * `no-sources` — no statement cites a search result, so the draft is not sourced (P6, 2026-11-19).
        */
-      readonly reason: "link-in-output" | "answer-mismatch";
+      readonly reason: "link-in-output" | "answer-mismatch" | "no-sources";
     };
 
 export function composeSourcedResearchReport(input: {
@@ -90,6 +91,7 @@ export function composeSourcedResearchReport(input: {
     for (const excerpt of excerpts.get(url) ?? []) lines.push(`    cited: "${excerpt}"`);
     return lines.join("\n");
   });
+  if (numbers.size === 0) return { status: "refused", reason: "no-sources" };
   const uncitedResults = trace.results.filter((result) => !numbers.has(result.url));
   const searchCount = trace.searchRequests ?? trace.queries.length;
 
@@ -97,14 +99,12 @@ export function composeSourcedResearchReport(input: {
     `RESEARCH TOPIC: ${oneLine(input.question)}`,
     `RESEARCH DATE: ${date} (UTC)`,
     `SOURCING: ${RESEARCH_REPORT_SOURCED}. Sources are third-party web pages returned by web search; Hebun has not verified them. ` +
-      (numbers.size > 0
-        ? "A statement marked [n] is cited by the model to source n; a statement without a mark has no source and is unverified."
-        : "No statement in this draft is backed by a search citation, so every statement is unverified."),
+      "A statement marked [n] is cited by the model to source n; a statement without a mark has no source and is unverified.",
     "",
     body,
   ];
   for (const heading of missingSections) parts.push("", heading, "Not provided in this draft.");
-  parts.push("", "SOURCES", ...(sources.length > 0 ? sources : ["None. No search result was cited."]));
+  parts.push("", "SOURCES", ...sources);
   parts.push(
     "",
     "UNVERIFIED STATEMENTS",
