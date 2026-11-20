@@ -46,7 +46,7 @@ SIMULATION     != RUNTIME
 | P3 | Customer Dashboard | PLANNED | |
 | P4 | Platform Admin Dashboard | PLANNED | |
 | P5 | Heby & AI Agent Platform | PARTIAL | |
-| P6 | Research & Opportunity Intelligence | PARTIAL | |
+| P6 | Research & Opportunity Intelligence | COMPLETE (current scope) | Done-criterion met in production 2026-11-20 (§21 P6-PRODUCTION-ACCEPTANCE) |
 | P7 | Content Studio & Integrations | PARTIAL | Largest delivered package |
 | P8 | Business Management | PARTIAL | |
 | P9 | Hebun Security | PARTIAL | P9.7 Hebun Shield is an independent product |
@@ -208,7 +208,7 @@ calls for it.
 1. **Purpose.** Research the market, competitors and opportunities, and deliver verifiable reports.
 2. **Features.** Business research · market research · competitor intelligence · opportunity
    discovery · customer opportunities · research reports · daily autonomous research.
-3. **Current state — PARTIAL.** RA-AUTH-1 and RA-EAI-1 are PRODUCTION-ACCEPTED; RA-PREP-1 is DEPLOYED.
+3. **Current state — COMPLETE (current scope); history below.** RA-AUTH-1 and RA-EAI-1 are PRODUCTION-ACCEPTED; RA-PREP-1 is DEPLOYED.
    Per its closure, no route, server action or component calls the research seam, no tenant holds a
    research authorization, and no web search exists. The only crons in `vercel.json` are three hourly
    scans (observation, machine delivery, standing issuance); none is research.
@@ -225,6 +225,12 @@ calls for it.
    check re-asked before the model, one run per tenant per day. It is inert in production — the cron
    secret is unset, `research-schedule` is off and no tenant holds a standing authorization — so P6's
    "done" (a sourced 08:00 report observed in production) is not yet reached.
+   **Update 2026-11-20 (P6 done):** the 08:00 run on `dpl_Ea4gk3g9` (main `d829ce80`, fix `8b4c316e`)
+   filed a research report dated 2026-11-20 with 3 web searches and 6 cited sources; the filing audit row
+   and disclosure decision are committed. The done-criterion is met in production
+   (`docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md`, §21 PRODUCTION-ACCEPTED).
+   Open: P6-2-LIVE-WRITE-UNEXERCISED-1, P6-3-SEARCH-DURATION-1, P6-4-AUTHORIZER-ATTRIBUTION-1,
+   P6-4-SCAN-LIMIT-1 (§22).
 4. **Missing.** A reachable research entry point; an external research source; tenant research
    authorization; the daily schedule.
 5. **Dependencies.** P5; GATE-D; a data-use decision for any new source.

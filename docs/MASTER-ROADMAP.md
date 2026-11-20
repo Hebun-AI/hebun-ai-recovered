@@ -5832,6 +5832,7 @@ re-graded here.
 | P6-2-STANDING-RESEARCH-AUTHORIZATION | DEPLOYED | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` |
 | P6-3-WEB-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` |
 | P6-4-SCHEDULED-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` |
+| P6-PRODUCTION-ACCEPTANCE | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` |
 
 ---
 
@@ -6075,8 +6076,8 @@ before §16.1 are not yet indexed (Phase B).
 | P6-2-LIVE-WRITE-UNEXERCISED-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Acceptance gap | DEFERRED | Director grants a research mandate and authorizes one brief; revision, decision and audit read back |
 | P6-2-GRANTER-RECHECK-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Authority gap | CLOSED | Closed in code by P6-4 5e73b805: every scheduled run re-checks the granter is an active member holding Governance authority before the model; production run tracked by P6-4-LIVE-RUN-UNEXERCISED-1 |
 | PRODMIG-PROMPT-IDLE-DISCONNECT-1 | P6-2-STANDING-RESEARCH-AUTHORIZATION | `docs/product-vision/runtime/hebun-p6-2-standing-research-authorization-closure.md` | Operational reliability | DEFERRED | Director-selected ceremony fix (error listener, reconnect before apply) proven by a bite-proof |
-| P6-3-LIVE-SEARCH-UNEXERCISED-1 | P6-3-WEB-RESEARCH | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` | Acceptance gap | DEFERRED | RA-EAI-1-WEB-SEARCH-1 decided; a tenant own key and grant; one authorized run read back (report, disclosure decision, audit row) |
+| P6-3-LIVE-SEARCH-UNEXERCISED-1 | P6-3-WEB-RESEARCH | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` | Acceptance gap | CLOSED | Closed by P6-PRODUCTION-ACCEPTANCE: 2026-11-20 scheduled run, 3 web searches, 6 cited sources, disclosure decision committed |
 | P6-3-SEARCH-DURATION-1 | P6-3-WEB-RESEARCH | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` | Operational reliability | DEFERRED | First authorized run within the function duration, or a recorded duration setting covering 90 s |
-| P6-4-LIVE-RUN-UNEXERCISED-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Acceptance gap | DEFERRED | Own key, grant, mandate and standing authorization; cron secret; research-schedule on; one 08:00 run read back |
+| P6-4-LIVE-RUN-UNEXERCISED-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` | Acceptance gap | CLOSED | Closed by P6-PRODUCTION-ACCEPTANCE: 2026-11-20 08:00 run filed a sourced report; filing audit row and disclosure decision read back |
 | P6-4-AUTHORIZER-ATTRIBUTION-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Attribution | DEFERRED | Director decision on a machine actor for data-use evidence and dispatch-cap rows, with its own migration |
 | P6-4-SCAN-LIMIT-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Scale | DEFERRED | More than 25 tenants with an authorization; then a cursor or a second tick |
