@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { executionSessions } from "../../src/features/execution/execution-pipeline";
 import { runExecutionShadowRead } from "../../src/features/execution-shadow-read";
 import type { CanonicalReadServices } from "../../src/features/canonical-read";
 import type { MemoryExecutionLineageSummary } from "../../src/features/execution-shadow-read";
@@ -107,8 +106,6 @@ function canonicalServices(
 }
 
 async function main() {
-  const before = JSON.stringify(executionSessions);
-
   const exact = await runExecutionShadowRead(input, {
     canonicalReadServices: canonicalServices({}),
     memorySummary: memorySummary(),
@@ -207,9 +204,6 @@ async function main() {
     },
   );
   assert.equal(invalid.status, "invalid-input");
-
-  const after = JSON.stringify(executionSessions);
-  assert.equal(before, after);
 
   console.log("execution-shadow-read service checks passed");
 }

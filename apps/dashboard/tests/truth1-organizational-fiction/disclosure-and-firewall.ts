@@ -174,8 +174,10 @@ function main(): void {
   /* ── 1: the census is real ───────────────────────────────────────────────── */
   {
     /* Anti-shrink floor, not a count: nobody may satisfy the firewall below by deleting the mock
-     * tree. A legitimate deletion lowers this line explicitly. */
-    assert.ok(mocks.size >= 18, `expected the known mock modules, found ${mocks.size}`);
+     * tree. A legitimate deletion lowers this line explicitly.
+     * 18 -> 16 (P5-1, D7): `features/agents/mock.ts` and `features/workflows/mock.ts` deleted with
+     * every consumer; the CRUD adapters start empty. */
+    assert.ok(mocks.size >= 16, `expected the known mock modules, found ${mocks.size}`);
 
     /* Every repaired route must still actually reach a mock by VALUE. A repair whose premise has
      * evaporated is a stale disclosure, and this suite would otherwise never notice. */
@@ -282,9 +284,6 @@ function main(): void {
       "simulated definitions",     // AGENT-ID-0.1 registries + TRUTH-1
       "example runs",              // TRUTH-1 /director/executions
       "Mock projection",           // /director/organization
-      "No live execution",         // /director/offline-execution — the marker is its own
-                                   // first sentence; the phrase "Simulation enforced" wraps
-                                   // across two source lines and is not a contiguous match.
     ];
     /*
      * OUT OF SCOPE, with the reason each is out — not a suppression list.

@@ -5,6 +5,7 @@ import { DirectorAIRuntime } from "../../src/features/director-ai-runtime";
 import type { TransformationDomainAssessment, TransformationGap, TransformationInitiative } from "../../src/features/enterprise-transformation-runtime";
 import { EnterpriseTransformationEngine } from "../../src/features/enterprise-transformation-runtime";
 import { OrganizationalIntelligenceEngine } from "../../src/features/organizational-intelligence";
+import { loadCrudFixtures } from "../helpers/crud-fixtures";
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -36,6 +37,8 @@ function baseObservations() {
 }
 
 async function main(): Promise<void> {
+  // P5-1 (D7): the CRUD stores no longer seed fixtures; this suite supplies its own roster.
+  await loadCrudFixtures();
   const empty = baseObservations();
   empty.departments = [];
   empty.humans = [];

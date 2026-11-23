@@ -156,9 +156,18 @@ async function main(): Promise<void> {
      * that had never consulted a connection. Its only consumer, the `status` badge in
      * `sidebar.config.ts`, was removed with it, so the module had nothing left to serve.
      */
-    assert.ok(mocks.size >= 18, `expected the known mock modules, found ${mocks.size}`);
+    /*
+     * ── FLOOR LOWERED 18 -> 16, WITH THE REASON (P5-1) ──────────────────────
+     *
+     * `features/agents/mock.ts` and `features/workflows/mock.ts` were deleted by P5-1 (Director
+     * decision D7: mock surfaces are deleted, not hidden). The agent and workflow CRUD adapters now
+     * start empty instead of seeding from them, the organization builder no longer reads seeded
+     * departments, and the orchestration / planning / execution / offline-execution simulations
+     * that consumed them were removed. The gate below still has hr/approvals fixtures to withhold.
+     */
+    assert.ok(mocks.size >= 16, `expected the known mock modules, found ${mocks.size}`);
     const organizationBuilder = codeOf(read("src/features/runtime-projection/builders/organization-projection-builder.ts"));
-    for (const source of ["@/features/hr/mock", "@/features/agents/mock", "@/features/approvals/mock"]) {
+    for (const source of ["@/features/hr/mock", "@/features/approvals/mock"]) {
       assert.ok(
         organizationBuilder.includes(source),
         `the organization projection still seeds from ${source}; if that changed, this phase's ` +
@@ -232,7 +241,9 @@ async function main(): Promise<void> {
     const ready = demo.overview.sections.filter((s) => s.sourceState === "ready");
     assert.ok(ready.length > 0, "the demo shell still renders seeded sections");
     const agents = demo.overview.sections.find((s) => s.sectionId === "active-agents");
-    assert.ok((agents?.recordCount ?? 0) > 0, "the demo shell still shows its reference data");
+    /* P5-1 (D7): the agent CRUD adapter no longer seeds compiled-in agents, so even the pre-auth
+     * demo shell has no agent headcount to show. Pinned at zero so a re-seed is a visible change. */
+    assert.equal(agents?.recordCount ?? 0, 0, "no compiled-in agent headcount survives, even in the demo shell");
     assert.equal(
       withControlPlane(false, () => withAuthEnabled(false, () => resolveMockSurfaceGate())).permitted,
       true,

@@ -6,8 +6,8 @@ import { WorkflowRegistry } from "@/features/workflow-runtime";
 /*
  * Workflow Registry — L1 TRUTH-1.
  *
- * "N active" in success green, over an in-memory Command Bus registry seeded from
- * `features/workflows/mock.ts`. Relabelled to the AGENT-ID-0.1 wording released on the sibling
+ * "N active" in success green, over an in-memory Command Bus registry then seeded from
+ * `features/workflows/mock.ts` (deleted by P5-1). Relabelled to the AGENT-ID-0.1 wording released on the sibling
  * registry page. No workflow here has ever run for any organization, and the page now says so.
  */
 

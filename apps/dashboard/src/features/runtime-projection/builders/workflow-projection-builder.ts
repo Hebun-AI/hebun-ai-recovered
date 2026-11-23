@@ -2,7 +2,6 @@ import type { AgentEmployeeRuntimeModel } from "@/features/agent-runtime/types";
 import type { HumanRuntimeModel, OrganizationRuntimeSnapshot } from "@/features/organization-runtime/types";
 import { getNodeSnapshot } from "@/features/knowledge-crud/node-adapter";
 import { getSnapshot as getMemorySnapshot } from "@/features/memory-crud/memory-adapter";
-import { latestGeneratedPlan } from "@/features/planning/planning-queries";
 import type { GoalRuntimeModel } from "@/features/goal-runtime/types";
 import type { MissionRuntimeModel } from "@/features/mission-runtime/types";
 import { getSnapshot as getWorkflowSnapshot } from "@/features/workflow-crud/workflow-adapter";
@@ -166,7 +165,7 @@ function projectWorkflow(
   const goal = WorkflowResponsibilityService.buildGoal(workflow, goals);
   const plan = WorkflowResponsibilityService.buildPlan(
     workflow,
-    latestGeneratedPlan(),
+    undefined,
     goals,
   );
   const department = toDepartmentRef(workflow, organizationProjection);

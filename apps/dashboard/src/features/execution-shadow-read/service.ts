@@ -11,106 +11,13 @@ import {
   isReadUuidLike,
 } from "@/features/canonical-read-platform";
 import { readCanonicalReadConfigFromEnv } from "@/features/canonical-read/config";
-import { executionSessionById } from "@/features/execution/execution-queries";
-import type { ExecutionSession } from "@/features/execution/types";
-import type { WorkflowCrudRecord } from "@/features/workflow-crud";
-import { getSnapshot as getWorkflowSnapshot } from "@/features/workflow-crud/workflow-adapter";
 import { compareExecutionShadow } from "./comparator";
 import type {
-  ExecutionNodeShadowSummary,
   ExecutionShadowReadInput,
   ExecutionShadowReadResult,
   MemoryExecutionLineageSummary,
   PostgresExecutionLineageSummary,
 } from "./types";
-
-function workflowFromPlan(
-  session: ExecutionSession,
-  workflowRecords: readonly WorkflowCrudRecord[],
-): ExecutionNodeShadowSummary | undefined {
-  const workflowRef =
-    session.orchestration.plan.resourceAllocation.resources.find(
-      (resource) => resource.category === "workflows",
-    )?.referenceId ??
-    session.orchestration.plan.tasks.find((task) => task.owner === "Workflow Engine")
-      ?.id;
-
-  if (!workflowRef) return undefined;
-
-  const workflow =
-    getWorkflowSnapshot().find((record) => record.id === workflowRef) ??
-    workflowRecords.find((record) => record.id === workflowRef);
-
-  return {
-    id: workflow?.id ?? workflowRef,
-    label: workflow?.name ?? "Workflow reference",
-    version: workflow?.version ?? null,
-    lifecycleStatus: workflow?.lifecycleStatus ?? null,
-    legacyStatus: workflow?.status ?? null,
-    simulationMode: workflow?.executionMode ?? null,
-  };
-}
-
-function taskFromPlan(session: ExecutionSession): ExecutionNodeShadowSummary | undefined {
-  const task = session.orchestration.plan.tasks[0];
-  if (!task) return undefined;
-
-  return {
-    id: task.id,
-    label: task.title,
-    legacyStatus: task.status,
-    version: null,
-  };
-}
-
-function summarizeMemoryExecutionSession(
-  session: ExecutionSession,
-  workflowRecords: readonly WorkflowCrudRecord[],
-): MemoryExecutionLineageSummary {
-  const workflow = workflowFromPlan(session, workflowRecords);
-  const task = taskFromPlan(session);
-  const plan: ExecutionNodeShadowSummary = {
-    id: session.planId,
-    label: session.orchestration.plan.title,
-    version: null,
-  };
-  const goal: ExecutionNodeShadowSummary = {
-    id: session.orchestration.plan.goalId,
-    label: session.orchestration.plan.goal.title,
-    version: null,
-  };
-
-  const warnings: string[] = [];
-  warnings.push(
-    "The current memory execution runtime does not carry a canonical command lineage row.",
-  );
-  warnings.push(
-    "The current memory execution runtime does not carry a Mission lineage reference.",
-  );
-
-  return {
-    source: "execution-session",
-    execution: {
-      id: session.id,
-      label: session.summary.headline,
-      version: null,
-      lifecycleStatus: null,
-      legacyStatus: session.executionState,
-      simulationMode: "offline",
-      startedAt: session.startedAt,
-      completedAt: session.endedAt ?? null,
-    },
-    command: undefined,
-    workflow,
-    task,
-    plan,
-    goal,
-    mission: undefined,
-    completeness:
-      workflow && task && plan && goal ? "partial" : "missing-root",
-    warnings,
-  };
-}
 
 function summarizePostgres(
   result: Awaited<ReturnType<CanonicalReadServices["getExecutionLineage"]>>,
@@ -144,7 +51,6 @@ export interface ExecutionShadowReadServiceOptions {
   readonly env?: NodeJS.ProcessEnv;
   readonly canonicalReadServices?: CanonicalReadServices;
   readonly memorySummary?: MemoryExecutionLineageSummary;
-  readonly workflowRecords?: readonly WorkflowCrudRecord[];
 }
 
 export async function runExecutionShadowRead(
@@ -178,14 +84,8 @@ export async function runExecutionShadowRead(
     );
 
   try {
-    const memorySummary =
-      options.memorySummary ??
-      (() => {
-        const session = executionSessionById(input.executionId);
-        if (!session) return undefined;
-        const workflows = options.workflowRecords ?? getWorkflowSnapshot();
-        return summarizeMemoryExecutionSession(session, workflows);
-      })();
+    // No in-memory execution runtime exists; only an injected memory summary is compared.
+    const memorySummary = options.memorySummary;
 
     const canonical = await services.getExecutionLineage(input);
     const postgresSummary = summarizePostgres(canonical);

@@ -58,7 +58,9 @@ function deadExecutionChainRemoved(): void {
 }
 
 function loadBearingMocksRetained(): void {
-  assert.ok(existsSync(join(process.cwd(), "src", "features", "agents", "mock.ts")), "agents/mock (load-bearing) retained");
+  // P5-1 (D7): agents/mock stopped being load-bearing — the agent CRUD adapter starts empty — and
+  // was deleted with every consumer. Pinned as retired so it cannot quietly return.
+  assert.ok(!existsSync(join(process.cwd(), "src", "features", "agents", "mock.ts")), "agents/mock is retired (P5-1)");
   assert.ok(existsSync(join(process.cwd(), "src", "features", "runtime-projection")), "runtimeProjectionRegistry (load-bearing) retained");
 }
 

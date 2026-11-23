@@ -92,8 +92,9 @@ function approvalRowRetired(): void {
 
 /* 10-12 — Load-bearing / still-reachable mocks retained. */
 function mocksRetained(): void {
-  assert.ok(existsSync("src/features/agents/mock.ts"), "agents/mock retained (load-bearing)");
-  assert.ok(/features\/agents\/mock/.test(read("src/features/agent-crud/agent-adapter.ts")), "agent-crud still seeds from agents/mock");
+  // P5-1 (D7): agents/mock is deleted; agent-crud starts empty and seeds from no fixture.
+  assert.ok(!existsSync("src/features/agents/mock.ts"), "agents/mock is retired (P5-1)");
+  assert.ok(!/features\/agents\/mock/.test(read("src/features/agent-crud/agent-adapter.ts")), "agent-crud seeds from no mock");
   for (const m of ["finance", "hr", "legal", "tickets"]) {
     assert.ok(existsSync(`src/features/${m}/mock.ts`), `${m}/mock retained`);
   }

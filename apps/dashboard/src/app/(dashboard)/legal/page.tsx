@@ -2,8 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { CommandAction } from "@/components/command/command-action";
 import { EventTimeline } from "@/components/dashboard/event-timeline";
-import { LegacyDomainNotice, LegacyAgentDefinitionCard } from "@/components/workforce-workspace/legacy-domain";
-import { agents } from "@/features/agents/mock";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { legalEvents } from "@/features/legal/events";
 import { legalOverview as l } from "@/features/legal/mock";
 
@@ -22,8 +21,6 @@ const kpis = [
 ];
 
 export default function LegalPage() {
-  const legalAgents = agents.filter((a) => a.department === "Legal");
-
   return (
     <>
       <PageHeader
@@ -56,19 +53,6 @@ export default function LegalPage() {
             </Card>
           </div>
         ))}
-
-        <div className="col-span-12">
-          <h3 className="mb-3 text-sm font-semibold text-fg-secondary">
-            Legal Department Agents — seeded definitions
-          </h3>
-          <div className="grid grid-cols-12 gap-6">
-            {legalAgents.map((agent) => (
-              <div key={agent.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-                <LegacyAgentDefinitionCard agent={agent} />
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div className="col-span-12">
           <EventTimeline events={legalEvents} title="Recent Legal Events" />
