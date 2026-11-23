@@ -79,10 +79,11 @@ const MUTATIONS: readonly Mutation[] = [
         find: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason };\n  }\n",
         replace: "",
       },
-      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too. */
+      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too.
+       * P5-2: the ceiling now judges one mandate read that also supplies the role, so both wait for the author. */
       {
-        find: "  const ceilingRefusal = await askCeiling();",
-        replace: "  const ceilingRefusal = authorship.status === \"resolved\" ? await askCeiling() : null;",
+        find: "  const authorMandate = await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps);\n  const ceilingRefusal = refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope);",
+        replace: "  const authorMandate = authorship.status === \"resolved\" ? await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps) : ({ status: \"known\", mandate: null } as const);\n  const ceilingRefusal = authorship.status === \"resolved\" ? refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope) : null;",
       },
       {
         find: "  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
@@ -100,10 +101,11 @@ const MUTATIONS: readonly Mutation[] = [
         find: "  if (authorship.status === \"refused\") {\n    return { status: \"refused\", reason: authorship.reason };\n  }\n",
         replace: "",
       },
-      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too. */
+      /* AGENT-EXECUTION-1: the mandate ceiling asks the resolved author, so in the reversed order it waits for one too.
+       * P5-2: the ceiling now judges one mandate read that also supplies the role, so both wait for the author. */
       {
-        find: "  const ceilingRefusal = await askCeiling();",
-        replace: "  const ceilingRefusal = authorship.status === \"resolved\" ? await askCeiling() : null;",
+        find: "  const authorMandate = await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps);\n  const ceilingRefusal = refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope);",
+        replace: "  const authorMandate = authorship.status === \"resolved\" ? await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps) : ({ status: \"known\", mandate: null } as const);\n  const ceilingRefusal = authorship.status === \"resolved\" ? refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope) : null;",
       },
       {
         find: "  /* A mandate withdrawn while the model was writing stops the filing, exactly as a stale revision does. */",
