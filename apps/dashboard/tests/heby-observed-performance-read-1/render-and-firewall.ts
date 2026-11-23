@@ -242,7 +242,8 @@ async function main(): Promise<void> {
 
   /* ── E. EAI policy unchanged ────────────────────────────────────────────────────────────── */
   const assistance = RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.filter((c) => c.purpose === "assistance").map((c) => c.dataClass).sort();
-  assert.deepEqual(assistance, ["conversation", "knowledge", "work-artifact"], "assistance allows no provider-observation");
+  /* P5-2: + agent-mandate (the agent's role); still no provider-observation. */
+  assert.deepEqual(assistance, ["agent-mandate", "conversation", "knowledge", "work-artifact"], "assistance allows no provider-observation");
 
   console.log("heby-observed-performance-read-1 render + firewall checks passed");
 }

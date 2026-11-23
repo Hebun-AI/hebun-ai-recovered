@@ -61,6 +61,8 @@ assert.deepEqual(
     "anthropic/messages|agent-origination|organization",
     "anthropic/messages|agent-origination|knowledge",
     "anthropic/messages|work-planning|operational-record",
+    /* P5-2 (Director, 2026-11-23): the agent's role, appended after research. */
+    "anthropic/messages|assistance|agent-mandate",
   ],
 );
 assert.equal(research[0]!.bounds, RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells[0]!.bounds, "the research cell shares the Anthropic bounds, not wider ones");

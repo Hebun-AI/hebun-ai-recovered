@@ -55,7 +55,7 @@ assert.deepEqual(
   RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells
     .filter((c) => c.serviceScope === "anthropic/messages" && c.purpose === "assistance")
     .map((c) => c.dataClass),
-  ["conversation", "knowledge", "work-artifact"],
+  ["conversation", "knowledge", "work-artifact", "agent-mandate"], /* P5-2: + the agent's role. */
 );
 assert.deepEqual(
   RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells

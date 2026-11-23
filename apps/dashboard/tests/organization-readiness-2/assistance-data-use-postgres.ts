@@ -37,7 +37,8 @@ import { appendProcessorAttestation, parseAttestationRecord } from "../../script
 const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md";
 const REVIEWED_RECORD_REF = `${REVIEWED_RECORD}@dbbe8a30bbaa2d6d396cb914a21e28735537fe33`;
 const REASON = "This test organization agrees its conversations, Knowledge and work artifacts may reach the reviewed assistant.";
-const ASSISTANCE = ["assistance:conversation", "assistance:knowledge", "assistance:work-artifact"];
+/* P5-2: + assistance × agent-mandate (the agent's role); scopesOf sorts, so it reads first. */
+const ASSISTANCE = ["assistance:agent-mandate", "assistance:conversation", "assistance:knowledge", "assistance:work-artifact"];
 
 async function sessionRowFor(client: Client, seeded: SeededLocalIdentity, tag: string): Promise<string> {
   const row = await client.query<{ id: string }>(
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
     if (viewA.status !== "read") throw new Error("unreachable");
     assert.equal(viewA.governanceEstablished, true);
     assert.equal(viewA.viewerIsGovernanceAuthority, true);
-    assert.deepEqual([...viewA.dataClasses], ["conversation", "knowledge", "work-artifact"], "what may be sent is the recorded policy's");
+    assert.deepEqual([...viewA.dataClasses], ["conversation", "knowledge", "work-artifact", "agent-mandate"], "what may be sent is the recorded policy's"); /* P5-2: + the agent's role. */
     assert.equal(viewA.attestation?.id, attestationId);
     assert.ok((viewA.attestation?.modelIds.length ?? 0) > 0);
     assert.equal(viewA.revision, null);

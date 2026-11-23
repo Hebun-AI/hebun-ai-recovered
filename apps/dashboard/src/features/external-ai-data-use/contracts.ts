@@ -93,6 +93,13 @@ export const DATA_CLASSES = [
    * Its own class so that no earlier research grant (research × conversation, RA-EAI-1) covers it.
    */
   "web-search",
+  /*
+   * P5-2 (D5, Director 2026-11-23) — an agent's in-force mandate PURPOSE, the organization's own words
+   * for what the agent is for, established and revised only by Governance. It reaches the model as the
+   * agent's role. Its own class: `organization` is the organization's structure (APF-3), not an
+   * instruction an organization wrote for one agent.
+   */
+  "agent-mandate",
 ] as const;
 export type DataClass = (typeof DATA_CLASSES)[number];
 

@@ -128,7 +128,7 @@ async function main(): Promise<void> {
     assert.match(await ceremony(harness.dbUrl, [...A, "--confirm"], "AUTHORIZE EXTERNAL AI DATA USE"), /✔ revision 1 \(active\)/);
     assert.match(await ceremony(harness.dbUrl, [...A, "--agent-origination", "--confirm"], "AUTHORIZE EXTERNAL AI DATA USE"), /✔ revision 2 \(active\)/);
     const before = await scopesOf(a.tenantId);
-    assert.equal(before.length, 6);
+    assert.equal(before.length, 7); /* P5-2: assistance now carries four pairs (+ agent-mandate), origination three. */
     assert.equal(await decide(a.tenantId, "work-planning", "operational-record"), "tenant-not-authorized", "no work-planning before the ceremony");
 
     /* ── 2. Refusals that write nothing. ── */
@@ -150,7 +150,7 @@ async function main(): Promise<void> {
     /* ── 3. Dry run shows exactly the pair it would add and keeps the rest. ── */
     const dry = await ceremony(harness.dbUrl, [...A, "--work-planning"]);
     assert.match(dry, /added work-planning × operational-record\s+platform ALLOWED · attestation inside bounds/);
-    assert.equal((dry.match(/ kept  /g) ?? []).length, 6, "the six pairs in force are kept");
+    assert.equal((dry.match(/ kept  /g) ?? []).length, 7, "the seven pairs in force are kept"); /* P5-2: + assistance × agent-mandate. */
     assert.match(dry, /DRY RUN — nothing was written/);
     assert.equal(await writes(), w0);
 

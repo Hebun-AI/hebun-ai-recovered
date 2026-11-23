@@ -23,6 +23,7 @@ assert.deepEqual(assistanceScopePairs(), [
   { purpose: "assistance", dataClass: "conversation" },
   { purpose: "assistance", dataClass: "knowledge" },
   { purpose: "assistance", dataClass: "work-artifact" },
+  { purpose: "assistance", dataClass: "agent-mandate" }, /* P5-2: the agent's role. */
 ]);
 
 /* 2 ─ actions and card send nothing forgeable */

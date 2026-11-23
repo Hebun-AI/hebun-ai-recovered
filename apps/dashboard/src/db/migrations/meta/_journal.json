@@ -638,6 +638,13 @@
       "when": 1794837436973,
       "tag": "20261116135716_commercial_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1795433967192,
+      "tag": "20261123113927_p5_2_agent_mandate_data_class",
+      "breakpoints": true
     }
   ]
 }

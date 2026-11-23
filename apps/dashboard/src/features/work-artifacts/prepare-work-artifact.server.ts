@@ -69,6 +69,7 @@
 import {
   answerHebyModelRequest,
   type HebyModelAnswerDeps,
+  type HebyModelAnswerOptions,
   type HebyModelAnswerResult,
 } from "@/features/heby-answer/model-answer.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
@@ -216,6 +217,9 @@ export interface PrepareWorkArtifactDeps {
   /** AOR-1a — where the one diagnosis line goes. The host's runtime log unless a test captures it. */
   readonly log?: (line: string) => void;
 }
+
+/* P5-2 — the classes a brief may declare, named through the answer flow so this seam imports no data-use module. */
+type DataClass = NonNullable<HebyModelAnswerOptions["preparationBriefDataClasses"]>[number];
 
 const ORGANIZATION_WORK: WorkScope = Object.freeze({ kind: "organization" as const });
 
@@ -387,8 +391,16 @@ export async function prepareWorkArtifact(
       await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps),
       workScope,
     );
-  const ceilingRefusal = await askCeiling();
+  const authorMandate = await readEffectiveAgentMandate(tenant, authorship.authorship.agentId, mandateDeps);
+  const ceilingRefusal = refuseOutsideAgentWorkCapability(PREPARATION_CAPABILITY, authorMandate, workScope);
   if (ceilingRefusal) return { status: "refused", reason: ceilingRefusal };
+  /*
+   * P5-2 — THE AUTHOR'S ROLE is the purpose of the same in-force mandate the ceiling just admitted: one
+   * read, so the role and the permission can never come from different revisions. Governance alone
+   * writes it. It travels as `agent-mandate` material, so a tenant that has not authorized that class
+   * for assistance is refused by the data-use gate before the model is asked.
+   */
+  const agentRole = authorMandate.status === "known" ? authorMandate.mandate?.purpose : undefined;
 
   /* 3. THE DIRECTOR'S CLAUDE PROVIDER CONTROL. The same fail-closed read the answer flow makes. */
   const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
@@ -475,6 +487,8 @@ export async function prepareWorkArtifact(
    * is the STORED one, so no request can relabel an existing draft. A client that creates another
    * type gets internal semantics and an artifact that can never become public content.
    */
+  if (agentRole) briefInput = { ...briefInput, agentRole };
+  const briefClasses: readonly DataClass[] = input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"];
   const publicContent = briefInput.artifactType === CONTENT_DRAFT_TYPE;
 
   /* ── INVOCATION: from here on, a refusal may follow a real model call ── */
@@ -514,7 +528,8 @@ export async function prepareWorkArtifact(
        * provider observation authority's, and assistance does not cover it, so a preparation that
        * carries one is refused before the model is asked.
        */
-      preparationBriefDataClasses: input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"],
+      /* P5-2 — plus the author's mandate purpose, carried as the agent's role. */
+      preparationBriefDataClasses: agentRole ? [...briefClasses, "agent-mandate"] : briefClasses,
       /*
        * AOR-1b — an internal plan or message is judged as a draft a person will act on: planning and
        * checklist language passes, and a completed act is a claim even when attributed to someone else.

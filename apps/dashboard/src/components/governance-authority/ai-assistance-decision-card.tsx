@@ -32,6 +32,7 @@ const CLASS_WORDING: Record<string, string> = {
   conversation: "Heby conversations — what people here ask Heby, and its replies",
   knowledge: "This organization’s Knowledge entries",
   "work-artifact": "Work records and their artifacts",
+  "agent-mandate": "Each agent’s role — the purpose written in its mandate",
 };
 
 const CONTRACT_WORDING: Record<string, string> = {
