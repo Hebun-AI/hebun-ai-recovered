@@ -127,6 +127,8 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
       "src/app/(dashboard)/agents/actions.ts",
       "src/app/(dashboard)/agents/page.tsx",
       "src/components/agents/agent-placement-card.tsx",
+      /* P5-3 — the template seam places a new agent through the released writer when a department is chosen. */
+      "src/features/agent-templates/create-agent-from-template.server.ts",
       /*
        * PHASE 4B, Director decision: an agent's office prints its department. A read-only display,
        * so these two may reach the reader and the pure contracts, and the assertion below keeps the

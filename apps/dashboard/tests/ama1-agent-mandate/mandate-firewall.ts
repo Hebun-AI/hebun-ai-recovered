@@ -542,6 +542,8 @@ function noProposalEnforcementExists(): void {
       /* WF-4. The shared permit spend re-reads the effective mandate for agent-proposed requests. */
       path.join("src", "features", "action-authorization", "consume-action-permit.server.ts"),
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
+      /* P5-3. The template seam calls the released mandate writer once per setup; it reads and enforces nothing. */
+      path.join("src", "features", "agent-templates", "create-agent-from-template.server.ts"),
       /* RA-PREP-1. The research seam asks the same ceiling of the research agent after the model, before filing. */
       path.join("src", "features", "agent-work", "assign-research-report.server.ts"),
       /* AGENT-EXECUTION-1. The agent work seam applies the one shared ceiling before an agent performs work. */
