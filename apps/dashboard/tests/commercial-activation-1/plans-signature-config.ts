@@ -46,15 +46,17 @@ assert.equal(resolvePlanDispatchCap("pro", "model", { [MODEL]: "nope" }), 0, "a 
 assert.equal(asPlanCode("enterprise"), "free");
 assert.equal(asPlanCode(undefined), "free");
 assert.equal(asPlanCode("founding"), "founding");
-assert.deepEqual(COMMERCIAL_PLAN_LIMITS.free, { model: 15, media: 1, videoGeneration: false, memberLimit: 1 });
-assert.deepEqual(COMMERCIAL_PLAN_LIMITS.pro, { model: 100, media: 10, videoGeneration: true, memberLimit: 5 });
+/* P5-4 (Director, 2026-11-23): + agentLimit (Free 1, Pro 5) and standingSchedules (Free none). */
+assert.deepEqual(COMMERCIAL_PLAN_LIMITS.free, { model: 15, media: 1, videoGeneration: false, memberLimit: 1, agentLimit: 1, standingSchedules: false });
+assert.deepEqual(COMMERCIAL_PLAN_LIMITS.pro, { model: 100, media: 10, videoGeneration: true, memberLimit: 5, agentLimit: 5, standingSchedules: true });
 assert.equal(PRO_PRICE.unitAmount, 4900);
 console.log("ok P2 free/pro public limits, env upper bound, fail-closed unknown plan");
 
 /* P3 */
-assert.deepEqual(planFeatures("free"), { videoGeneration: false, memberLimit: 1 });
-assert.deepEqual(planFeatures("pro"), { videoGeneration: true, memberLimit: 5 });
-assert.deepEqual(planFeatures("founding"), { videoGeneration: true, memberLimit: null });
+/* P5-4: + agentLimit and standingSchedules; Founding keeps no plan limit. */
+assert.deepEqual(planFeatures("free"), { videoGeneration: false, memberLimit: 1, agentLimit: 1, standingSchedules: false });
+assert.deepEqual(planFeatures("pro"), { videoGeneration: true, memberLimit: 5, agentLimit: 5, standingSchedules: true });
+assert.deepEqual(planFeatures("founding"), { videoGeneration: true, memberLimit: null, agentLimit: null, standingSchedules: true });
 console.log("ok P3 plan features");
 
 /* S1–S6 */

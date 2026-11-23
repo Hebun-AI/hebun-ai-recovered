@@ -155,6 +155,13 @@ async function main(): Promise<void> {
       assert.ok(workItemId, "work recorded");
       const g = await authorizeTenantExternalAiDataUse(ctx, { attestationId, scopes: [{ purpose: "research", dataClass: "conversation" }], justification: GRANT, observedRevision: null }, dbDeps);
       assert.equal(g.status, "written", JSON.stringify(g));
+      /* P5-4 — a Free plan holds no schedule: the grant is refused and nothing is written. */
+      const plan = (await q<{ plan: string }>(`select plan from companies where id = $1`, [ctx.tenantId]))[0]!.plan;
+      await setup.query(`update companies set plan = 'free' where id = $1`, [ctx.tenantId]);
+      const freeGrant = await authorizeStandingResearch(ctx, { workItemId, agentId, title: `${name} demand`, brief: BRIEF, justification: REASON, observedAuthorizationRevision: null } as never, { getDb: () => handle.db });
+      assert.deepEqual(freeGrant, { status: "refused", reason: "plan-schedule-not-included" }, "P5-4: Free cannot hold a schedule");
+      assert.equal(await n(`select count(*)::int n from standing_research_authorizations where tenant_id = $1`, [ctx.tenantId]), 0, "P5-4: nothing written");
+      await setup.query(`update companies set plan = $2 where id = $1`, [ctx.tenantId, plan]);
       const s = await authorizeStandingResearch(ctx, { workItemId, agentId, title: `${name} demand`, brief: BRIEF, justification: REASON, observedAuthorizationRevision: null } as never, { getDb: () => handle.db });
       assert.equal(s.status, "authorized", JSON.stringify(s));
       return { agentId, workItemId, authorizationId: s.status === "authorized" ? s.authorization.authorizationId : "" };
@@ -294,6 +301,10 @@ async function main(): Promise<void> {
     await setup.query(`update companies set tenant_status = 'suspended' where id = $1`, [acmeSeed.tenantId]);
     await failsBeforeModel("organization suspended", "organization-not-active");
     await setup.query(`update companies set tenant_status = 'active' where id = $1`, [acmeSeed.tenantId]);
+    /* P5-4 — a plan downgraded to Free after the grant stops the next run, before the model. */
+    await setup.query(`update companies set plan = 'free' where id = $1`, [acmeSeed.tenantId]);
+    await failsBeforeModel("plan downgraded to Free", "plan-schedule-not-included");
+    await setup.query(`update companies set plan = 'founding' where id = $1`, [acmeSeed.tenantId]);
     await failsBeforeModel("Claude control off", "model-connectivity-disabled", { resolveClaudeEnabled: async () => false });
     await failsBeforeModel("live, no own key", "research-requires-own-key", { env: { ...ENV, HEBUN_MODEL_TRANSPORT: "live" } });
     await failsBeforeModel("data-use refused", "research-data-use-not-authorized", { authorizeDisclosure: async () => ({ disposition: "refused" }) as never });

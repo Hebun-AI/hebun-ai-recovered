@@ -73,6 +73,8 @@ import {
   tenantAnthropicAccountRef,
 } from "@/features/provider-anthropic/model-credential.server";
 import { readEffectiveWithin } from "./standing-research.server";
+import { readTenantPlan } from "@/features/tenant-entitlements/tenant-dispatch-ceiling.server";
+import { planFeatures } from "@/features/tenant-entitlements/plans";
 import { RESEARCH_SCHEDULE_CONTROL_KEY, type StandingResearchAuthorizationRecord } from "./contracts";
 
 const CAPABILITY = agentWorkCapability("prepare-research-report");
@@ -137,6 +139,8 @@ export type ScheduledResearchFailure =
   | "research-schedule-disabled"
   | "authorization-changed"
   | "organization-not-active"
+  /** P5-4 — the organization's plan holds no schedule (a downgrade to Free after the grant). */
+  | "plan-schedule-not-included"
   | "granter-not-active-member"
   | "granter-lost-governance-authority"
   | "work-unavailable"
@@ -303,6 +307,8 @@ async function runAsPrincipal(
 
   const org = await db.select({ status: companies.tenantStatus }).from(companies).where(eq(companies.id, tenantId)).limit(1);
   if (org[0]?.status !== "active") return fail("organization-not-active");
+  /* P5-4 — the plan is read at run time, before the model: a downgrade stops the next run. */
+  if (!planFeatures(await readTenantPlan(db, tenantId)).standingSchedules) return fail("plan-schedule-not-included");
   const member = await db
     .select({ id: memberships.id })
     .from(memberships)

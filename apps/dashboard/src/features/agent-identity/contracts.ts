@@ -30,7 +30,9 @@ export type AgentIdentityRefusal =
   /** This organization has no Governance authority at all, or it could not be resolved (APF-1). */
   | "no-governance-authority"
   /** Governance exists and the acting human does not hold it (APF-1). */
-  | "not-the-governance-authority";
+  | "not-the-governance-authority"
+  /** P5-4 — the organization's plan admits no more agents (Free 1, Pro 5; retired agents do not count). */
+  | "plan-agent-limit-reached";
 
 /*
  * AP-1 — REGISTERING AN AGENT IS A GOVERNANCE DECISION.

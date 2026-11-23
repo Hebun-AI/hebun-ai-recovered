@@ -52,6 +52,8 @@ import {
   type StandingResearchWriteResult,
 } from "./contracts";
 import { recordStandingResearchEventWithin, recordStandingResearchRefusal } from "@/features/governance-audit/standing-research-audit.server";
+import { readTenantPlan } from "@/features/tenant-entitlements/tenant-dispatch-ceiling.server";
+import { planFeatures } from "@/features/tenant-entitlements/plans";
 
 export interface StandingResearchDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -215,6 +217,10 @@ async function writeRevision(
       const tx = rawTx as unknown as ControlPlaneDatabase;
       const effective = await readEffectiveWithin(tx, person.tenantId);
       if (observed !== (effective?.authorizationRevision ?? null)) throw new Abort("stale-authorization-revision");
+      /* P5-4 — granting a schedule needs a plan that holds one; withdrawing never does. */
+      if (nextState === "active" && !planFeatures(await readTenantPlan(tx, person.tenantId)).standingSchedules) {
+        throw new Abort("plan-schedule-not-included");
+      }
 
       if (nextState === "withdrawn" && effective?.state !== "active") throw new Abort("no-active-authorization");
       if (
@@ -412,6 +418,8 @@ export async function admitScheduledResearch(
   try {
     const effective = await readEffectiveWithin(db, tenantId);
     if (!effective || effective.state !== "active") return { status: "refused", reason: "no-active-authorization" };
+    /* P5-4 — the plan is read at run time, so a downgrade stops the next scheduled run. */
+    if (!planFeatures(await readTenantPlan(db, tenantId)).standingSchedules) return { status: "refused", reason: "plan-schedule-not-included" };
     return { status: "admitted", authorization: effective };
   } catch {
     return { status: "refused", reason: "persistence-unavailable" };
