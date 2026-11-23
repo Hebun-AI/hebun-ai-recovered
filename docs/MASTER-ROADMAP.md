@@ -5834,6 +5834,7 @@ re-graded here.
 | P6-4-SCHEDULED-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` |
 | P6-PRODUCTION-ACCEPTANCE | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` |
 | P5-1-MOCK-REMOVAL | DEPLOYED | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` |
+| P5-2-ROLE-BRIEF | DEPLOYED | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` |
 
 ---
 
@@ -6084,3 +6085,5 @@ before §16.1 are not yet indexed (Phase B).
 | P6-4-SCAN-LIMIT-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Scale | DEFERRED | More than 25 tenants with an authorization; then a cursor or a second tick |
 | P5-1-SIGNED-IN-RENDER-1 | P5-1-MOCK-REMOVAL | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` | Acceptance gap | DEFERRED | One signed-in production read of /hr, /finance, /legal and /agents on TRH, by P5-9 |
 | P5-1-L4-BITE-PROOF-TIMEOUT-1 | P5-1-MOCK-REMOVAL | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` | CI reliability | DEFERRED | None for P5; a second timeout reopens it |
+| P5-2-LIVE-ROLE-UNOBSERVED-1 | P5-2-ROLE-BRIEF | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` | Acceptance gap | DEFERRED | One production agent draft on TRH carrying its role, with agent-mandate authorized, by P5-9 |
+| P5-2-ASSISTANCE-ADD-CLASS-UX-1 | P5-2-ROLE-BRIEF | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` | Product gap | DEFERRED | Director decision to offer renew on the assistance card when the policy holds a pair the decision lacks |
