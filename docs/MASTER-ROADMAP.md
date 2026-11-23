@@ -5835,6 +5835,7 @@ re-graded here.
 | P6-PRODUCTION-ACCEPTANCE | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` |
 | P5-1-MOCK-REMOVAL | DEPLOYED | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` |
 | P5-2-ROLE-BRIEF | DEPLOYED | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` |
+| P5-3-AGENT-TEMPLATES | DEPLOYED | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` |
 
 ---
 
@@ -6087,3 +6088,5 @@ before §16.1 are not yet indexed (Phase B).
 | P5-1-L4-BITE-PROOF-TIMEOUT-1 | P5-1-MOCK-REMOVAL | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` | CI reliability | DEFERRED | None for P5; a second timeout reopens it |
 | P5-2-LIVE-ROLE-UNOBSERVED-1 | P5-2-ROLE-BRIEF | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` | Acceptance gap | DEFERRED | One production agent draft on TRH carrying its role, with agent-mandate authorized, by P5-9 |
 | P5-2-ASSISTANCE-ADD-CLASS-UX-1 | P5-2-ROLE-BRIEF | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` | Product gap | DEFERRED | Director decision to offer renew on the assistance card when the policy holds a pair the decision lacks |
+| P5-3-TEMPLATE-UNOBSERVED-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Acceptance gap | DEFERRED | P5-9 sets up the Content and Research agents on TRH from templates and reads back their mandates |
+| P5-3-MANDATE-PARTIAL-UNDRIVEN-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Test coverage | DEFERRED | A mandate-writer test seam, if step 2 ever becomes refusable on its own |
