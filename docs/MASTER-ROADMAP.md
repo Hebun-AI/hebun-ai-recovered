@@ -5833,6 +5833,7 @@ re-graded here.
 | P6-3-WEB-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-3-web-research-closure.md` |
 | P6-4-SCHEDULED-RESEARCH | DEPLOYED | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` |
 | P6-PRODUCTION-ACCEPTANCE | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` |
+| P5-1-MOCK-REMOVAL | DEPLOYED | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` |
 
 ---
 
@@ -6081,3 +6082,5 @@ before §16.1 are not yet indexed (Phase B).
 | P6-4-LIVE-RUN-UNEXERCISED-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-production-acceptance-closure.md` | Acceptance gap | CLOSED | Closed by P6-PRODUCTION-ACCEPTANCE: 2026-11-20 08:00 run filed a sourced report; filing audit row and disclosure decision read back |
 | P6-4-AUTHORIZER-ATTRIBUTION-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Attribution | DEFERRED | Director decision on a machine actor for data-use evidence and dispatch-cap rows, with its own migration |
 | P6-4-SCAN-LIMIT-1 | P6-4-SCHEDULED-RESEARCH | `docs/product-vision/runtime/hebun-p6-4-scheduled-research-closure.md` | Scale | DEFERRED | More than 25 tenants with an authorization; then a cursor or a second tick |
+| P5-1-SIGNED-IN-RENDER-1 | P5-1-MOCK-REMOVAL | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` | Acceptance gap | DEFERRED | One signed-in production read of /hr, /finance, /legal and /agents on TRH, by P5-9 |
+| P5-1-L4-BITE-PROOF-TIMEOUT-1 | P5-1-MOCK-REMOVAL | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` | CI reliability | DEFERRED | None for P5; a second timeout reopens it |
