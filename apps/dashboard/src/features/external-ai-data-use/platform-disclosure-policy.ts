@@ -85,7 +85,7 @@ const HIGGSFIELD_DENIAL_EVIDENCE =
 
 /** The only cells the recorded policy can hold. Widening any member is a reviewed type change. */
 export type RecordedAllowedCell = AllowedPlatformCell & { readonly serviceScope: "anthropic/messages" } & (
-  | { readonly purpose: "assistance"; readonly dataClass: "conversation" | "knowledge" | "work-artifact" }
+  | { readonly purpose: "assistance"; readonly dataClass: "conversation" | "knowledge" | "work-artifact" | "agent-mandate" }
   /* APF-3 — origination's narrow projection: the human goal and the organization's structure.
    * WF-3B — plus the statements of the WF-3A Knowledge grounding universe. */
   | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" | "knowledge" }
@@ -128,6 +128,9 @@ const ANTHROPIC_RESEARCH_ALLOW_EVIDENCE =
 const ANTHROPIC_RESEARCH_WEB_SEARCH_ALLOW_EVIDENCE =
   "RA-EAI-1-WEB-SEARCH-1 (Director, 2026-11-16, P6 production acceptance): platform ALLOW for anthropic/messages × research × web-search only — the search queries the model derives from the research question, sent through the basic (2025-03-05) version of Anthropic's web-search tool under the per-run cap HEBUN_RESEARCH_WEB_SEARCH_MAX_USES (default 3, ceiling 5), run against a third-party search index, and the third-party results returned and stored as untrusted text. It is asked only together with research × conversation (P6-3 seam), never alone. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33; a tenant's own-account attestation must sit inside the same bounds. This cell authorizes no tenant. Unverified at decision: the identity, terms and retention of the search provider behind Anthropic's tool (Anthropic's subprocessor, not attested by Hebun); production credential ↔ observed Dashboard key equality (GATE-D-PROVIDER-RECONCILIATION-1); custom agreement / BAA status; per-request processing geography. Queries derive from free text and are not claimed free of personal data.";
 
+const ANTHROPIC_ASSISTANCE_AGENT_MANDATE_ALLOW_EVIDENCE =
+  "P5-2 (Director, 2026-11-23, P5 design gate D5): platform ALLOW for anthropic/messages × assistance × agent-mandate only — the in-force mandate purpose of the agent preparing a work artifact (the organization's own words for what the agent is for, 12 to 2,000 characters, established and revised only by a Governance decision), sent as fenced material and never as instruction. No agent, mandate, decision, actor or tenant identifier is disclosed. Same bounds and the same processor attestation as the other assistance cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified, model_ids enforced per call by APF-5), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Unverified at decision: production credential ↔ observed Dashboard key equality (GATE-D-PROVIDER-RECONCILIATION-1); custom agreement / BAA status; per-request processing geography. The purpose is organization-authored free text and is not claimed free of personal data.";
+
 const ANTHROPIC_RESEARCH_WEB_SEARCH_CELL: RecordedAllowedCell = Object.freeze({
   serviceScope: "anthropic/messages",
   purpose: "research",
@@ -166,14 +169,14 @@ function anthropicOriginationCell(dataClass: "conversation" | "organization" | "
   } as const);
 }
 
-function anthropicAssistanceCell(dataClass: "conversation" | "knowledge" | "work-artifact"): RecordedAllowedCell {
+function anthropicAssistanceCell(dataClass: "conversation" | "knowledge" | "work-artifact" | "agent-mandate"): RecordedAllowedCell {
   return Object.freeze({
     serviceScope: "anthropic/messages",
     purpose: "assistance",
     dataClass,
     decision: "allowed",
     bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
-    evidence: ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE,
+    evidence: dataClass === "agent-mandate" ? ANTHROPIC_ASSISTANCE_AGENT_MANDATE_ALLOW_EVIDENCE : ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE,
   } as const);
 }
 
@@ -182,7 +185,7 @@ function anthropicAssistanceCell(dataClass: "conversation" | "knowledge" | "work
  *
  * Both Higgsfield scopes are DENIED for every purpose and data class; the runtime integration and
  * its own disabled root controls are left exactly as they are. Anthropic is ALLOWED for the three
- * B1D cells, the origination cells, the one work-planning cell and the one research cell, and UNKNOWN for every other purpose
+ * B1D cells, the P5-2 agent-mandate assistance cell, the origination cells, the one work-planning cell and the one research cell, and UNKNOWN for every other purpose
  * and data class. OpenAI has no cell: UNKNOWN.
  */
 export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
@@ -211,6 +214,8 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
     ANTHROPIC_WORK_PLANNING_CELL,
     ANTHROPIC_RESEARCH_CELL,
     ANTHROPIC_RESEARCH_WEB_SEARCH_CELL,
+    /* P5-2 (Director, 2026-11-23): the agent's role, appended last. */
+    anthropicAssistanceCell("agent-mandate"),
   ]),
 });
 

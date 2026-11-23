@@ -75,6 +75,7 @@ export const EXTERNAL_AI_DATA_CLASSES_SQL = [
   "media-generated",
   "media-supplied",
   "web-search",
+  "agent-mandate",
 ] as const;
 export const EXTERNAL_AI_CONTRACT_SURFACES_SQL = [
   "anthropic-commercial-terms",

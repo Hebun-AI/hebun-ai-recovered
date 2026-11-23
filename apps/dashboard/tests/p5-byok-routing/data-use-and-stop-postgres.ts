@@ -132,7 +132,7 @@ async function main(): Promise<void> {
 
     assert.equal(await recordOwnAccountResearch(A, { webSearch: false, ...RESEARCH_WHY }, deps), "research-authorized");
     assert.equal(await researchOf(A), "unsourced");
-    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|conversation", "assistance|knowledge", "assistance|work-artifact", "research|conversation"], "assistance kept, research added, no web search");
+    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|agent-mandate", "assistance|conversation", "assistance|knowledge", "assistance|work-artifact", "research|conversation"], "assistance kept, research added, no web search");
     assert.equal(await recordOwnAccountResearch(A, { webSearch: false, ...RESEARCH_WHY }, deps), "data-use-unchanged");
     assert.equal(await recordOwnAccountResearch(A, { webSearch: true, ...RESEARCH_WHY }, deps), "research-authorized");
     assert.equal(await researchOf(A), "web-search");
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
     assert.equal(await researchOf(A), "none");
     const afterWithdraw = await readByokDataUse(A, deps);
     assert.ok(afterWithdraw.status === "read" && afterWithdraw.authorized, "assistance is still authorized");
-    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|conversation", "assistance|knowledge", "assistance|work-artifact"]);
+    assert.deepEqual(await scopesOf(A.tenantId), ["assistance|agent-mandate", "assistance|conversation", "assistance|knowledge", "assistance|work-artifact"]);
     ok("research: kept when terms are restated; withdrawn on its own, assistance unchanged");
 
     /* ── stop using the own key: only onto an authorized platform account ── */

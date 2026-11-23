@@ -138,10 +138,15 @@ async function main(): Promise<void> {
   /* P6 (2026-11-19): a sourced research brief picks the web-research base; both bases are minted constants. */
   assert.ok(/const base = brief\.base === "web-research" \? HEBY_WEB_RESEARCH_SYSTEM_INSTRUCTIONS : HEBY_MODEL_SYSTEM_INSTRUCTIONS;\s*return joinHebunInstructions\(\[base, brief\.instruction\]\)/.test(answer));
   assert.ok(
-    /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/.test(
+    /const briefClasses: readonly DataClass\[\] = input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\];/.test(
       code("src/features/work-artifacts/prepare-work-artifact.server.ts"),
     ),
     "the declared classes are exactly the material's: revision = work-artifact, observation = provider-observation",
+  );
+  /* P5-2 — the agent role is material too, and its class is declared exactly when it travels. */
+  assert.ok(
+    /preparationBriefDataClasses: agentRole \? \[\.\.\.briefClasses, "agent-mandate"\] : briefClasses,/.test(code("src/features/work-artifacts/prepare-work-artifact.server.ts")),
+    "the agent role is declared as agent-mandate",
   );
 
   /* 12 · census and firewall. */

@@ -77,6 +77,7 @@ assert.deepEqual(
     "media-supplied",
     /* P6-3 (D3) appends web-search, with its CHECK migration (ledger 88 -> 89). */
     "web-search",
+    "agent-mandate", /* P5-2: an agent's mandate purpose, its role. */
   ],
 );
 for (const forbidden of ["public", "confidential", "secret", "pii", "personal"]) {
@@ -116,6 +117,8 @@ const B1D_ALLOWED = new Set([
   "anthropic/messages|research|conversation",
   /* RA-EAI-1-WEB-SEARCH-1 (Director, 2026-11-16): web search, its own cell. */
   "anthropic/messages|research|web-search",
+  /* P5-2 (Director, 2026-11-23): the agent's role, its own class and cell. */
+  "anthropic/messages|assistance|agent-mandate",
 ]);
 for (const serviceScope of SERVICE_SCOPES) {
   for (const purpose of PURPOSES) {
@@ -132,7 +135,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 9, "B1D's three ALLOWED cells, APF-3's two, WF-3B's one, D4's one, RA-EAI-1's one and RA-EAI-1-WEB-SEARCH-1's one, exactly");
+assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 10, "B1D's three ALLOWED cells, APF-3's two, WF-3B's one, D4's one, RA-EAI-1's one, RA-EAI-1-WEB-SEARCH-1's one and P5-2's one, exactly");
 
 /* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has room for those three cells only. ────── */
 const policySource = readFileSync(
@@ -146,7 +149,7 @@ assert.match(
 );
 assert.match(
   policySource,
-  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \| "knowledge" \}[\s\S]*?\| \{ readonly purpose: "work-planning"; readonly dataClass: "operational-record" \}[\s\S]*?\| \{ readonly purpose: "research"; readonly dataClass: "conversation" \| "web-search" \}\s*\);/,
+  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \| "agent-mandate" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \| "knowledge" \}[\s\S]*?\| \{ readonly purpose: "work-planning"; readonly dataClass: "operational-record" \}[\s\S]*?\| \{ readonly purpose: "research"; readonly dataClass: "conversation" \| "web-search" \}\s*\);/,
   "the recorded cell type names one scope and exactly four purposes, each with its own closed data classes",
 );
 assert.ok(!/\bwildcard\b|"\*"/.test(policySource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "no wildcard");

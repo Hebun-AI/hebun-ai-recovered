@@ -81,9 +81,11 @@ assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /p
 assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /readonly dataUsePurpose\?: "research";/);
 assert.match(
   codeOf(read("src/features/work-artifacts/prepare-work-artifact.server.ts")),
-  /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/,
+  /const briefClasses: readonly DataClass\[\] = input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\];/,
   "a preparation carrying a platform observation declares it",
 );
+/* P5-2: an author's role is its mandate purpose, declared as `agent-mandate` whenever it travels. */
+assert.match(codeOf(read("src/features/work-artifacts/prepare-work-artifact.server.ts")), /preparationBriefDataClasses: agentRole \? \[\.\.\.briefClasses, "agent-mandate"\] : briefClasses,/, "a preparation carrying the agent's role declares it");
 /* The relevance judge sends through a transport directly; it must stay unwired until it routes here. */
 assert.deepEqual(
   SRC.filter((f) => !f.startsWith("src/features/relevance-judge/") && !f.startsWith("src/features/knowledge-retrieval/") && /relevance-judge/.test(codeOf(read(f)))),

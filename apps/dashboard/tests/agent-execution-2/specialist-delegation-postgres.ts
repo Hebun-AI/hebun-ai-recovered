@@ -62,6 +62,8 @@ const DRAFT_TEXT = "Plan: count stock in aisle three on Monday, reconcile with t
 const APPROVE = "I have read this proposal and authorize it for the agent execution proof.";
 const MANDATE = "Bounding what this agent may do for the agent execution proof.";
 const PURPOSE = "Assist authorized people with organizational work inside the agent's assigned responsibility.";
+/* P5-2 — the specialist's own purpose, so the same work given to two agents carries two roles. */
+const SPECIALIST_PURPOSE = "Research buyers and markets for handmade rugs; answer from records, flag what is unknown.";
 
 let networkCalls = 0;
 globalThis.fetch = (() => {
@@ -147,10 +149,10 @@ async function main(): Promise<void> {
       return r.status === "established" ? r.identity.agentId : "";
     };
     const revisions = new Map<string, number>();
-    const mandate = async (ctx: TenantContext, agentId: string, proposalScope: string[], responsibility: unknown[]) => {
+    const mandate = async (ctx: TenantContext, agentId: string, proposalScope: string[], responsibility: unknown[], purpose = PURPOSE) => {
       const r = await establishAgentMandateWithResponsibility(
         ctx,
-        { agentId, purpose: PURPOSE, proposalScope, justification: MANDATE, observedMandateRevision: revisions.get(agentId) ?? null, responsibility },
+        { agentId, purpose, proposalScope, justification: MANDATE, observedMandateRevision: revisions.get(agentId) ?? null, responsibility },
         dbDeps,
       );
       assert.equal(r.status, "established", JSON.stringify(r));
@@ -228,7 +230,7 @@ async function main(): Promise<void> {
     const heby = await agent(acme, "Coordinator");
     await mandate(acme, heby, ["record-work"], [{ kind: "organization" }, { kind: "domain", workDomainId: research }]);
     const specialist = await agent(acme, "Research Agent");
-    await mandate(acme, specialist, ["record-work"], [{ kind: "domain", workDomainId: research }]);
+    await mandate(acme, specialist, ["record-work"], [{ kind: "domain", workDomainId: research }], SPECIALIST_PURPOSE);
     const seller = await agent(acme, "Sales Agent");
     await mandate(acme, seller, ["record-work"], [{ kind: "domain", workDomainId: sales }]);
     const researchWork = await scopedWork(acme, { kind: "domain", workDomainId: research });
@@ -291,6 +293,11 @@ async function main(): Promise<void> {
     assert.equal(s3.status, "prepared", JSON.stringify(s3));
     assert.equal(s3.status === "prepared" && s3.agentRole, "coordinator");
     assert.equal(instructions(sent.at(-1)!.system), instructions(s2Request.system), "S3: specialist and coordinator get the same system instructions");
+    /* P5-2 — the same work, two agents: each request carries its own agent's role, fenced as material. */
+    const roleOf = (system: string) => system.match(/--- AGENT ROLE BEGINS ---\n([\s\S]*?)\n--- AGENT ROLE ENDS ---/)?.[1];
+    assert.equal(roleOf(s2Request.system), SPECIALIST_PURPOSE, "S3/P5-2: the specialist's request carries the specialist's role");
+    assert.equal(roleOf(sent.at(-1)!.system), PURPOSE, "S3/P5-2: the coordinator's request carries the coordinator's role");
+    assert.ok(!instructions(s2Request.system).includes(SPECIALIST_PURPOSE), "S3/P5-2: the role never enters the instruction channel");
 
     /* ── S4 · organization work has no specialist ── */
     const s4 = await readWorkDraftChoices(acme, orgWork, dbDeps);

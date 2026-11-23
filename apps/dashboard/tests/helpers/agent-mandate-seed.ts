@@ -252,3 +252,6 @@ export async function seedGovernanceBootstrapRows(
     [tenantId, session.rows[0]!.id, humanId],
   );
 }
+
+/** P5-2 — the purpose every seeded mandate carries; preparation sends it as the agent's role. */
+export { PURPOSE as SEEDED_MANDATE_PURPOSE };

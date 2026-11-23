@@ -72,8 +72,10 @@ assert.ok(/isReviewBasisCurrent/.test(seam), "7: and the basis staleness");
 
 /* 8 — disclosure classes */
 assert.ok(
-  seam.includes('preparationBriefDataClasses: input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"]'),
-  "8: preparation egress classes unchanged",
+  seam.includes('const briefClasses: readonly DataClass[] = input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"];') &&
+    /* P5-2: plus `agent-mandate` only when the author's mandate purpose travels as its role. */
+    seam.includes('preparationBriefDataClasses: agentRole ? [...briefClasses, "agent-mandate"] : briefClasses,'),
+  "8: preparation egress classes unchanged, plus the P5-2 agent role",
 );
 
 /* 9 — nothing system-owned joins the brief */

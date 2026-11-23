@@ -57,7 +57,8 @@ import { Client } from "pg";
 
 const SERVICE_SCOPE = "anthropic/messages";
 const EXPECTED_DATA_CLASSES = {
-  assistance: ["conversation", "knowledge", "work-artifact"],
+  /* P5-2 (Director, 2026-11-23): + agent-mandate, the agent's role, as a reviewed policy change. */
+  assistance: ["conversation", "knowledge", "work-artifact", "agent-mandate"],
   "agent-origination": ["conversation", "organization", "knowledge"],
   "work-planning": ["operational-record"],
 } as const;

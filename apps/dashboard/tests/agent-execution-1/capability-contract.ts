@@ -64,7 +64,9 @@ for (const capability of AGENT_WORK_CAPABILITIES) {
   assert.ok(capability.cannot.some((line) => /send|publish/.test(line)), `${capability.id} says it cannot send or publish`);
 }
 /* The seam declares exactly the classes the contract names — and a provider observation never travels. */
-assert.match(code(PREPARE), /preparationBriefDataClasses: input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\]/);
+/* P5-2: the same classes, plus `agent-mandate` exactly when the author's mandate purpose travels as its role. */
+assert.match(code(PREPARE), /const briefClasses: readonly DataClass\[\] = input\.observationSupplement \? \["work-artifact", "provider-observation"\] : \["work-artifact"\];/);
+assert.match(code(PREPARE), /preparationBriefDataClasses: agentRole \? \[\.\.\.briefClasses, "agent-mandate"\] : briefClasses,/);
 assert.doesNotMatch(code(SEAM), /observationSupplement|conversationId|artifactId:\s*input/, "the assignment never adds grounding, a conversation or a revision target");
 
 /* ── C4 · a composition, not an authority ── */

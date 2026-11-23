@@ -25,7 +25,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
+import { SEEDED_MANDATE_PURPOSE, seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
   HEBY_GENERAL_ADVISORY_SYSTEM_INSTRUCTIONS, HEBY_MODEL_SYSTEM_INSTRUCTIONS,
@@ -296,10 +296,11 @@ async function main(): Promise<void> {
       );
       assert.equal(plan.status, "prepared", "operational plans still prepare");
       assert.equal(generated.length, 3);
-      /* AGENT-EXECUTION-2: the strict rules plus the internal-draft brief (see the pin above). */
+      /* AGENT-EXECUTION-2: the strict rules plus the internal-draft brief (see the pin above).
+       * P5-2: plus the minted role sentence, because the author's mandate purpose now travels as its role. */
       assert.equal(
         generated[2]!.systemInstructions,
-        systemInstructionsFor("PREPARE_RECOMMENDATION", preparationBriefFor({ artifactType: "operational-plan" })),
+        systemInstructionsFor("PREPARE_RECOMMENDATION", preparationBriefFor({ artifactType: "operational-plan", agentRole: SEEDED_MANDATE_PURPOSE })),
         "operational-plan: strict rules plus the internal-draft brief",
       );
       assert.ok(String(generated[2]!.systemInstructions).startsWith(String(HEBY_MODEL_SYSTEM_INSTRUCTIONS)), "the strict rules still come first");
@@ -324,7 +325,8 @@ async function main(): Promise<void> {
       system.startsWith(HEBY_MODEL_SYSTEM_INSTRUCTIONS),
       "the standing instructions come first — the trust boundary is appended to, never replaced",
     );
-    const expectedBrief = preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram" });
+    /* P5-2: the author's mandate purpose travels as its role, so the minted role sentence follows the brief. */
+    const expectedBrief = preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram", agentRole: SEEDED_MANDATE_PURPOSE });
     assert.equal(
       system.slice(HEBY_MODEL_SYSTEM_INSTRUCTIONS.length),
       `\n\n${expectedBrief!.instruction}`,

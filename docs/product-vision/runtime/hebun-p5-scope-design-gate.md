@@ -56,6 +56,16 @@ merge and deploy remains a separate gate (`CLAUDE.md`, `hebun-loop.md`).
 - **D6 · First scheduled templates.** Weekly content plan draft; weekly operations summary.
 - **D7 · Mock surfaces — DELETE.** Not hidden; removed with their imports.
 
+## P5-2 decisions (2026-11-23)
+
+- **D8 · Role brief storage — MANDATE PURPOSE.** An agent's role brief is the purpose of its in-force
+  mandate. No new table or column; only a Governance mandate revision changes it.
+- **D9 · D5 measured — NEW CLASS, ONE WINDOW.** `organization` covers the organization's structure
+  (APF-3) and has no assistance cell, so it does not cover an agent instruction. A new data class
+  `agent-mandate` and the platform cell assistance × agent-mandate are opened, with migration
+  `20261123113927_p5_2_agent_mandate_data_class`. Rollout: production migration, deploy, then TRH
+  Governance renews its assistance decision at once; agent drafts are refused in between.
+
 ## Principles every slice is held to
 
 - An agent prepares; Governance decides; a permit authorizes; an executor executes. No slice adds
