@@ -11,7 +11,8 @@
  *
  *   structural           — a real, present fact: an id, a declared field, the active
  *                          persistence provider, CRUD availability.
- *   seeded               — originates from features/agents/mock.ts (record.createdBy === "Seed").
+ *   seeded               — a record with createdBy === "Seed". Since P5-1 no fixture seeds the
+ *                          store, so none is produced; the class stays for honest classification.
  *   derived-from-seeded  — computed from seeded stores; not surfaced as live.
  *   simulated            — runtime mode / projection status; there is no real runtime.
  *   unavailable          — NOT connected: live activity, execution, live provider invocation,

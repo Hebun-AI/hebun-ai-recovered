@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { getDirectorDashboardUiModel } from "../../src/features/director-dashboard-ui/adapter.server";
+import { getSnapshot as getAgentSnapshot } from "../../src/features/agent-crud/agent-adapter";
 import {
   materializeRuntimeEvidence,
   resetRuntimeObservabilityForTests,
@@ -54,9 +55,12 @@ function emptyProducer(): void {
     assert.equal(section?.health, "unknown", "empty evidence must never read healthy");
     assert.equal(section?.recordCount, 0);
   }
-  // Sections backed by other producers are unaffected.
+  // Sections backed by other producers are unaffected: `active-agents` still reports its OWN
+  // store, not the evidence sink. P5-1 (D7): that store no longer seeds fixtures, so the proof is
+  // equality with the agent store (empty today) and that the section is read, not unavailable.
   const agents = model.overview.sections.find(({ sectionId }) => sectionId === "active-agents");
-  assert.equal((agents?.recordCount ?? 0) > 0, true);
+  assert.equal(agents?.recordCount ?? -1, getAgentSnapshot().length);
+  assert.notEqual(agents?.sourceState, "unavailable");
 }
 
 /**

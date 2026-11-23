@@ -2,15 +2,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { CommandAction } from "@/components/command/command-action";
 import { EventTimeline } from "@/components/dashboard/event-timeline";
-import { LegacyDomainNotice, LegacyAgentDefinitionCard } from "@/components/workforce-workspace/legacy-domain";
-import { agents } from "@/features/agents/mock";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { hrEvents } from "@/features/hr/events";
 import { hrOverview as h } from "@/features/hr/mock";
 
 /*
  * HR — legacy domain surface (UI Phase 25C). Not an authoritative Workforce domain (workforce
  * composition / agents / roles is not full HR software). Made honest, not redesigned: legacy
- * notice, illustrative mock KPIs, seeded definition cards (no pulsing activity). Disposition: 25D.
+ * notice, illustrative mock KPIs,. Disposition: 25D.
  */
 
 const kpis = [
@@ -21,8 +20,6 @@ const kpis = [
 ];
 
 export default function HrPage() {
-  const hrAgents = agents.filter((a) => a.department === "HR");
-
   return (
     <>
       <PageHeader
@@ -55,19 +52,6 @@ export default function HrPage() {
             </Card>
           </div>
         ))}
-
-        <div className="col-span-12">
-          <h3 className="mb-3 text-sm font-semibold text-fg-secondary">
-            HR Department Agents — seeded definitions
-          </h3>
-          <div className="grid grid-cols-12 gap-6">
-            {hrAgents.map((agent) => (
-              <div key={agent.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-                <LegacyAgentDefinitionCard agent={agent} />
-              </div>
-            ))}
-          </div>
-        </div>
 
         <div className="col-span-12">
           <EventTimeline events={hrEvents} title="Recent HR Events" />

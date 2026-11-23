@@ -72,8 +72,9 @@ function teamsNoFakeStaffing(): void {
   assert.equal(m.liveStaffing, false, "no live staffing");
   assert.equal(m.reportingHierarchy, false, "no reporting hierarchy");
   assert.ok(m.honestEmpty.some((f) => /staffing/i.test(f.concept)), "honest-empty names live staffing");
-  // Groupings are seeded structure, present but labelled seeded.
-  assert.ok(m.seededDefinitionCount > 0 && m.groupingCount > 0, "seeded groupings read structurally");
+  // P5-1 (D7): the agent CRUD store no longer seeds compiled-in agents, so there is no seeded
+  // structure to group. Zero is the honest count; the provenance note below still holds.
+  assert.equal(m.seededDefinitionCount, 0, "no seeded definitions remain to group");
   assert.ok(/seeded/i.test(m.provenanceNote) && /not an authoritative/i.test(m.provenanceNote), "provenance says seeded, not authoritative teams");
 }
 
@@ -149,10 +150,10 @@ function phase25bPreserved(): void {
   assert.ok(!/@\/features\/agent-runtime/.test(agentsPageSrc), "agents page still avoids the runtime projection");
 }
 
-/* 19 — agents/mock remains load-bearing and untouched (still seeds agent-crud). */
+/* 19 — P5-1 (D7): agents/mock is retired and agent-crud seeds from no fixture. */
 function mockLoadBearing(): void {
-  assert.ok(existsSync("src/features/agents/mock.ts"), "agents/mock remains");
-  assert.ok(/features\/agents\/mock/.test(read("src/features/agent-crud/agent-adapter.ts")), "agent-crud still seeds from agents/mock");
+  assert.ok(!existsSync("src/features/agents/mock.ts"), "agents/mock is retired (P5-1)");
+  assert.ok(!/features\/agents\/mock/.test(read("src/features/agent-crud/agent-adapter.ts")), "agent-crud seeds from no mock");
 }
 
 /* 20 — Heby remains advisory-only and cannot manage the workforce. */

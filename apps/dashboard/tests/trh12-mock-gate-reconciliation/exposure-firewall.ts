@@ -38,7 +38,7 @@
  * Source-level. No database, no LLM, no render harness.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -136,11 +136,13 @@ function main(): void {
    * unchanged, and the DEDICATED simulation route still renders in every posture because it does
    * not consult this gate — so a developer loses no capability, only a misplaced presentation.
    */
-  const mock = read(MOCK);
-  assert.ok(mock.length > 0, "the seeded definition module still exists");
+  /* P5-1 (Director decision D7, 2026-11-20) reversed half of this section on purpose: mock
+   * surfaces are DELETED, not hidden. The 36 definitions are gone and the CRUD adapter starts
+   * empty. The surface component and the dedicated route below are still pinned unchanged. */
+  assert.ok(!existsSync(path.join(ROOT, MOCK)), "the seeded definition module is deleted (P5-1)");
   assert.ok(
-    read(ADAPTER).includes('from "@/features/agents/mock"'),
-    "the CRUD adapter still seeds from the definitions — its consumers are untouched",
+    !read(ADAPTER).includes("@/features/agents/mock"),
+    "the CRUD adapter seeds from no compiled-in definitions",
   );
   for (const label of ["not durable", "not connected", "Provider (ref)", "Model (ref)"]) {
     assert.ok(
@@ -158,10 +160,13 @@ function main(): void {
    * The boundary AGENT-ID-0.1 established, re-measured here because a phase that touches both
    * surfaces at once is exactly when it could be crossed by accident.
    */
+  /* P5-1: the definitions module is gone, so the boundary is restated on what replaced it as the
+   * store's starting point — the CRUD adapter — which must still not reach the durable authority. */
+  const adapter = read(ADAPTER);
   assert.ok(
-    !codeOf(mock).includes("agent-identity") &&
-      !codeOf(mock).includes("createDurableAgentIdentityAction"),
-    "the simulation still cannot reach the durable authority",
+    !codeOf(adapter).includes("agent-identity") &&
+      !codeOf(adapter).includes("createDurableAgentIdentityAction"),
+    "the simulation store still cannot reach the durable authority",
   );
 
   /* ── 7. THE TRH-11 HEADER DID NOT REGRESS ─────────────────────────────────

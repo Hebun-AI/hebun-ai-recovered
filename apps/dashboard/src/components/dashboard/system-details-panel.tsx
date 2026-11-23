@@ -15,9 +15,6 @@ import { KnowledgeGraphWidget } from "@/components/dashboard/knowledge-graph-wid
 import { RegistryWidget } from "@/components/dashboard/registry-widget";
 import { ExecutiveSummaryPanel } from "@/components/director/executive-summary-panel";
 import { MemoryWidget } from "@/components/memory/memory-widget";
-import { OfflineExecutionWidget } from "@/components/offline-execution/offline-execution-widget";
-import { OrchestrationWidget } from "@/components/orchestration/orchestration-widget";
-import { PlanningWidget } from "@/components/planning/planning-widget";
 import { PolicyWidget } from "@/components/policy/policy-widget";
 import { InvocationWidget } from "@/components/provider-invocation/invocation-widget";
 import { ProviderFrameworkWidget } from "@/components/provider-framework/provider-framework-widget";
@@ -85,8 +82,6 @@ export function SystemDetailsPanel() {
         <div className="grid gap-5 xl:grid-cols-2 xl:gap-6">
           <ReasoningWidget />
           <PolicyWidget />
-          <PlanningWidget />
-          <OrchestrationWidget />
         </div>
       </DetailsSection>
 
@@ -126,7 +121,6 @@ export function SystemDetailsPanel() {
         <div className="grid gap-5 xl:grid-cols-2 xl:gap-6">
           <RuntimeWidget />
           <ActivationWidget />
-          <OfflineExecutionWidget />
           <ClaudeLiveWidget />
           <ClaudeWidget />
           <CodexWidget />

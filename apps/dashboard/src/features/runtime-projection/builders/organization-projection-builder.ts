@@ -1,4 +1,3 @@
-import { departments as seededDepartments } from "@/features/agents/mock";
 import { approvals } from "@/features/approvals/mock";
 import { getSnapshot as getAgentSnapshot } from "@/features/agent-crud/agent-adapter";
 import { getNodeSnapshot } from "@/features/knowledge-crud/node-adapter";
@@ -246,11 +245,9 @@ function buildOrganizationRuntimeProjection(): OrganizationRuntimeSnapshot {
   const goalItems = buildGoalItems();
   const missionItems = buildMissionItems();
 
-  const departmentSeedMap = new Map(
-    seededDepartments.map((department) => [department.name, department]),
-  );
+  // P5-1: no compiled-in department fixtures; departments come only from the records below.
+  const departmentSeedMap = new Map<string, { id: string; headAgent: string }>();
   const departmentNames = new Set<string>([
-    ...seededDepartments.map((department) => department.name),
     ...agents.map((agent) => agent.department),
     ...employees.map((employee) => employee.department),
     ...workflows.map((workflow) => workflow.department),

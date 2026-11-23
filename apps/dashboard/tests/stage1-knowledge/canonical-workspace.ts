@@ -341,7 +341,9 @@ function noMockReachesKnowledge(): void {
    * that had never consulted a connection. Its only consumer, the `status` badge in
    * `sidebar.config.ts`, was removed with it, so the module had nothing left to serve.
    */
-  assert.ok(mocks.size >= 18, `the known mock modules are still present, found ${mocks.size}`);
+  /* 18 -> 16 (P5-1, D7): `features/agents/mock.ts` and `features/workflows/mock.ts` deleted with
+   * every consumer; the agent and workflow CRUD adapters start empty. */
+  assert.ok(mocks.size >= 16, `the known mock modules are still present, found ${mocks.size}`);
 
   const gate = new Set([
     "src/features/mock-surface-gating/gate.server.ts",

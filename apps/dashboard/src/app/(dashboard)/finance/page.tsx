@@ -2,10 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { CommandAction } from "@/components/command/command-action";
 import { EventTimeline } from "@/components/dashboard/event-timeline";
-import { LegacyDomainNotice, LegacyAgentDefinitionCard } from "@/components/workforce-workspace/legacy-domain";
-import { WorkflowCard } from "@/features/workflows/workflow-card";
-import { agents } from "@/features/agents/mock";
-import { financeWorkflows } from "@/features/workflows/mock";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { financeEvents } from "@/features/finance/events";
 import { financeOverview as f } from "@/features/finance/mock";
 import { usdCompact } from "@/lib/format";
@@ -27,8 +24,6 @@ const kpis = [
 ];
 
 export default function FinancePage() {
-  const financeAgents = agents.filter((a) => a.department === "Finance");
-
   return (
     <>
       <PageHeader
@@ -63,38 +58,11 @@ export default function FinancePage() {
           </div>
         ))}
 
-        {/* Agents — seeded definitions, honest (no pulsing activity). */}
-        <div className="col-span-12">
-          <h3 className="mb-3 text-sm font-semibold text-fg-secondary">
-            Finance Department Agents — seeded definitions
-          </h3>
-          <div className="grid grid-cols-12 gap-6">
-            {financeAgents.map((agent) => (
-              <div key={agent.id} className="col-span-12 sm:col-span-6 xl:col-span-3">
-                <LegacyAgentDefinitionCard agent={agent} />
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Events (illustrative) */}
         <div className="col-span-12">
           <EventTimeline events={financeEvents} title="Recent Finance Events" />
         </div>
 
-        {/* Workflows */}
-        <div className="col-span-12">
-          <h3 className="mb-3 text-sm font-semibold text-fg-secondary">
-            Finance Workflows
-          </h3>
-          <div className="grid grid-cols-12 gap-6">
-            {financeWorkflows.slice(0, 6).map((wf) => (
-              <div key={wf.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-                <WorkflowCard workflow={wf} />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </>
   );

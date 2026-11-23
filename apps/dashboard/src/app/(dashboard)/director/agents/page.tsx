@@ -9,7 +9,7 @@ import { AgentRegistry } from "@/features/agent-runtime";
  * Agent Context — L1 TRUTH-1.
  *
  * The header counted `AgentRegistry.listAgents()` under a green "N active agents" badge. That
- * registry is seeded from `features/agents/mock.ts`, so the badge stated a live headcount for the
+ * registry was seeded from `features/agents/mock.ts` (deleted by P5-1), so the badge stated a live headcount for the
  * reader's organization that no authority owns — the same defect AGENT-ID-0.1 corrected one route
  * away, on `/director/registries/agents`, and the same fiction the mock-surface gate exists to keep
  * out of the Director dashboard.

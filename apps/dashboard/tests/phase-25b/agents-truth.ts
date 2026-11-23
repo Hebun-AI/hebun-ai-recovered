@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { getAgentsTruthModel } from "../../src/features/workforce/agents-truth-model";
+import { agentAdapter } from "../../src/features/agent-crud/agent-adapter";
+import type { AgentCrudRecord } from "../../src/features/agent-crud/types";
 import { getWorkforceWorkspaceModel } from "../../src/features/workforce/workspace-model";
 import { WORKSPACES, getWorkspace } from "../../src/config/workspace-nav";
 import { activeProvider } from "../../src/features/persistence";
@@ -214,7 +216,42 @@ function routesNotWorsened(): void {
   assert.ok(/"\/agents"/.test(read("src/config/sidebar.config.ts")), "staticRoutes still lists /agents");
 }
 
-function main(): void {
+/*
+ * P5-1 (D7): the agent CRUD store no longer seeds compiled-in agents. This suite proves how the
+ * truth model CLASSIFIES and SHAPES a seeded record, so it now supplies one test-owned record with
+ * the shape the deleted seed produced. Nothing in src seeds it.
+ */
+const SEEDED_FIXTURE: AgentCrudRecord = {
+  id: "agent-fixture-25b",
+  name: "Fixture Agent",
+  slug: "fixture-agent",
+  description: "Fixture agent for Operations.",
+  department: "Operations",
+  category: "Fixture",
+  owner: "Operations",
+  status: "idle",
+  version: "v1.0.0",
+  capabilities: ["Fixture", "Operations execution"],
+  provider: "reference-simulation-provider",
+  model: "gpt-5.4",
+  tools: ["tickets"],
+  permissions: ["agent.read"],
+  runtime: "simulation",
+  memory: "Operations working memory",
+  knowledge: "Operations playbooks and procedures",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  createdBy: "Seed",
+  updatedBy: "Seed",
+  lifecycleStatus: "active",
+  role: "Fixture",
+  tasksToday: 0,
+  costToday: 0,
+  lastActive: "never",
+};
+
+async function main(): Promise<void> {
+  await agentAdapter.save([SEEDED_FIXTURE]);
   overviewHonest();
   noLiveActivityCard();
   noSeededActivityAsLive();
@@ -233,4 +270,4 @@ function main(): void {
   console.log("phase 25B workforce overview + agents truth-surface contract checks passed");
 }
 
-main();
+void main();

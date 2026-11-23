@@ -201,7 +201,6 @@ export const WORKSPACES: readonly Workspace[] = [
       "/director/execution-center",
       "/director/executions",
       "/director/execution",
-      "/director/offline-execution",
       "/director/orchestration",
       "/director/task-planning",
     ],
