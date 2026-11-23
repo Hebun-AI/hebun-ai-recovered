@@ -9,6 +9,7 @@ import { resolveTenantContext } from "@/features/auth-runtime/request-session.se
 import { organizationalDemoDataPermitted } from "@/features/mock-surface-gating/gate.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { AgentPlacementCard } from "@/components/agents/agent-placement-card";
+import { AgentTemplateCard } from "@/components/agents/agent-template-card";
 import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
@@ -301,6 +302,8 @@ export default async function AgentsPage() {
           * is FOR, and only then is there anything to observe about what it proposed. It is the
           * second thing on this page that writes a database row, and the only other one.
           */}
+        {/* P5-3 — set up an agent from a template, through the same three Governance acts as the cards below. */}
+        {tenant ? <AgentTemplateCard structure={structure} /> : null}
         <AgentPlacementCard register={placements} structure={structure} identities={identities} />
         <AgentMandateCard block={mandateBlock} entries={mandateEntries} workDomains={workDomains} />
         {capabilities.map((entry, index) => (

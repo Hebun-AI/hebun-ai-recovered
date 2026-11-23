@@ -430,6 +430,8 @@ function main(): void {
       "@/features/agent-mandate/establish-agent-mandate.server",
       /* AP-4B: the result type of the one remaining mandate entry. */
       "@/features/agent-mandate/responsibility-contracts",
+      /* P5-3 — the template seam: it calls the released identity, mandate and placement writers in order and owns nothing. */
+      "@/features/agent-templates/create-agent-from-template.server",
       "@/features/auth-runtime/request-session.server",
       /* AP-2 — the Organization Authority's agent placement writer and its type-only contracts. */
       "@/features/organization-authority/agent-placement-contracts",
@@ -551,6 +553,8 @@ function main(): void {
   assert.deepEqual(
     [...actions.matchAll(/export async function (\w+)/g)].map((m) => m[1]).sort(),
     [
+      /* P5-3 — set up an agent from a template: the three released acts above, in order, through one seam. */
+      "createAgentFromTemplateAction",
       "createDurableAgentIdentityAction",
       /*
        * AMA-3. Recording or revising what a durable agent is FOR. ONE action for both, because
@@ -569,7 +573,7 @@ function main(): void {
       "suspendDurableAgentIdentityAction",
       "withdrawAgentPlacementAction",
     ],
-    "the boundary exposes exactly eight actions: establish an identity, withdraw one, suspend or reactivate one, record a mandate, file a hypothesis, and place or unplace an agent",
+    "the boundary exposes exactly nine actions: establish an identity, withdraw one, suspend or reactivate one, record a mandate, file a hypothesis, place or unplace an agent, and set one up from a template",
   );
   /*
    * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement

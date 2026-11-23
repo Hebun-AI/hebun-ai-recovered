@@ -17,6 +17,7 @@ import type { CreateDurableAgentIdentityResult } from "@/features/agent-identity
 import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity/retirement-contracts";
 import type { AgentServiceTransitionResult } from "@/features/agent-identity/suspension-contracts";
 import { establishAgentMandateWithResponsibility } from "@/features/agent-mandate/establish-agent-mandate.server";
+import { createAgentFromTemplate, type CreateAgentFromTemplateResult } from "@/features/agent-templates/create-agent-from-template.server";
 import type { EstablishResponsibleAgentMandateResult } from "@/features/agent-mandate/responsibility-contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
@@ -319,6 +320,28 @@ export async function withdrawAgentPlacementAction(input: {
     agentId: String(input?.agentId ?? ""),
     expectedDepartmentId:
       typeof input?.expectedDepartmentId === "string" ? input.expectedDepartmentId : null,
+  });
+  if (result.status !== "refused") revalidatePath("/agents");
+  return result;
+}
+
+/*
+ * P5-3 — CREATE AN AGENT FROM A TEMPLATE. Transport only: the three released setup acts run in
+ * `createAgentFromTemplate`, each with its own Governance check, and a refused step is reported with
+ * the writer's own reason. The client names a template, a name, a reason and optionally a department.
+ */
+export async function createAgentFromTemplateAction(input: {
+  readonly templateId: string;
+  readonly name: string;
+  readonly justification: string;
+  readonly departmentId: string | null;
+}): Promise<CreateAgentFromTemplateResult> {
+  const tenant = await resolveTenantContext();
+  const result = await createAgentFromTemplate(tenant, {
+    templateId: String(input?.templateId ?? ""),
+    name: String(input?.name ?? ""),
+    justification: String(input?.justification ?? ""),
+    departmentId: typeof input?.departmentId === "string" ? input.departmentId : null,
   });
   if (result.status !== "refused") revalidatePath("/agents");
   return result;

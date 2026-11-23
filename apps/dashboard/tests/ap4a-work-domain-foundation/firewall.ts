@@ -99,8 +99,8 @@ assert.deepEqual(
 assert.deepEqual(importers("agent-mandate/read-agent-mandate-responsibility.server", SRC).filter((f) => f !== RESPONSIBILITY_READER), [], "the AP-4A responsibility reader stays operator-only");
 assert.deepEqual(
   SRC.filter((f) => /establishAgentMandateWithResponsibility/.test(code(f))).sort(),
-  ["src/app/(dashboard)/agents/actions.ts", "src/features/agent-mandate/index.ts", MANDATE].sort(),
-  "the one mandate entry is reached by the /agents action (and re-exported by the barrel)",
+  ["src/app/(dashboard)/agents/actions.ts", "src/features/agent-mandate/index.ts", MANDATE, "src/features/agent-templates/create-agent-from-template.server.ts"].sort(),
+  "the one mandate entry is reached by the /agents action and the P5-3 template seam (and re-exported by the barrel)",
 );
 assert.deepEqual(
   SCRIPTS.filter((f) => /establishAgentMandateWithResponsibility/.test(code(f))),

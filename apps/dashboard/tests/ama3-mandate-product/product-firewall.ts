@@ -113,10 +113,12 @@ function exactlyOneWriterSurvivedTheProductConnection(): void {
     /* AP-4B: the writer's one entry is now `establishAgentMandateWithResponsibility`. */
     .filter((f) => /\bestablishAgentMandate(WithResponsibility)?\s*\(/.test(codeOf(read(f))))
     .sort();
+  /* P5-3 (Director, 2026-11-23): the agent template seam is the second product caller. It calls the same
+   * writer through the same entry with a template's values, so there is still one workflow, not two. */
   assert.deepEqual(
     callers,
-    [ACTIONS],
-    "exactly ONE product caller of the mandate writer",
+    [ACTIONS, "src/features/agent-templates/create-agent-from-template.server.ts"].sort(),
+    "exactly TWO product callers of the mandate writer: the /agents action and the P5-3 template seam",
   );
 }
 
