@@ -39,6 +39,10 @@ export const AUTH_MAIL_ENV_KEYS = Object.freeze({
 export const AUTH_MAIL_TIMEOUT_MS = 10_000;
 
 export const EMAIL_VERIFICATION_SUBJECT = "Confirm your email address for Hebun";
+export const PASSWORD_RESET_SUBJECT = "Reset your Hebun password";
+
+/** ACTIVATION-1: which authentication message a send carries. */
+export type AuthMailKind = "email-verification" | "password-reset";
 
 export type AuthMailEnvironment =
   | {
@@ -116,6 +120,23 @@ export function buildEmailVerificationText(link: string): string {
   ].join("\n");
 }
 
+/** ACTIVATION-1: the reset link. The token is in the fragment and nowhere else. */
+export function buildPasswordResetLink(linkOrigin: string, reference: string): string {
+  return `${linkOrigin}/reset-password#${EMAIL_VERIFICATION_FRAGMENT_KEY}=${reference}`;
+}
+
+export function buildPasswordResetText(link: string): string {
+  return [
+    "Someone asked to reset the Hebun password for this email address.",
+    "",
+    "To choose a new password, open this link:",
+    link,
+    "",
+    "The link works once and expires in 1 hour. Resetting signs out every open Hebun session.",
+    "If you did not ask for this, ignore this message. Your password stays the same.",
+  ].join("\n");
+}
+
 /**
  * THE ONE DIAGNOSTIC THIS PATH EMITS (AEO-1-PROD-DELIVERY-1, a named Director exception).
  *
@@ -151,7 +172,13 @@ export interface AuthMailDeps {
  * `globalThis.fetch` reference is the second named exception, pinned by the firewall.
  */
 export async function sendEmailVerificationMessage(
-  input: { readonly to: string; readonly reference: string; readonly idempotencyKey: string },
+  input: {
+    readonly to: string;
+    readonly reference: string;
+    readonly idempotencyKey: string;
+    /** ACTIVATION-1. Absent means email verification, the released behaviour. */
+    readonly kind?: AuthMailKind;
+  },
   environment: Extract<AuthMailEnvironment, { status: "configured" }>,
   deps: AuthMailDeps = {},
 ): Promise<AuthMailDeliveryOutcome> {
@@ -168,16 +195,17 @@ export async function sendEmailVerificationMessage(
     const transport = createResendEmailTransport({
       apiKey: environment.apiKey,
       sender: environment.from,
-      subject: EMAIL_VERIFICATION_SUBJECT,
+      subject: input.kind === "password-reset" ? PASSWORD_RESET_SUBJECT : EMAIL_VERIFICATION_SUBJECT,
       timeoutMs: AUTH_MAIL_TIMEOUT_MS,
       fetchImpl: observed,
     });
     const sent = await transport.send({
       endpointKind: "email",
       endpoint: input.to,
-      content: buildEmailVerificationText(
-        buildEmailVerificationLink(environment.linkOrigin, input.reference),
-      ),
+      content:
+        input.kind === "password-reset"
+          ? buildPasswordResetText(buildPasswordResetLink(environment.linkOrigin, input.reference))
+          : buildEmailVerificationText(buildEmailVerificationLink(environment.linkOrigin, input.reference)),
       idempotencyKey: input.idempotencyKey,
     });
     outcome = sent.class;

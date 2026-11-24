@@ -89,8 +89,8 @@ function main(): void {
     BOUNDARY_SUITE,
     "/integrations must not be public",
     /* AUTH-EMAIL-OWNERSHIP-1: the anchor follows the list, which now also holds `/verify-email`. */
-    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email"];',
-    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/integrations"];',
+    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/forgot-password", "/reset-password"];',
+    'const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/forgot-password", "/reset-password", "/integrations"];',
   );
 
   bites(

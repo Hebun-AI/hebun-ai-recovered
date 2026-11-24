@@ -72,18 +72,27 @@ export function AssistanceDataUseCard({ view }: { readonly view: ReadView }) {
   const [pending, startTransition] = useTransition();
   const [justification, setJustification] = useState("");
   const [refusal, setRefusal] = useState<TenantExternalAiDataUseWriteRefusal | null>(null);
-  const [written, setWritten] = useState<"authorized" | "withdrawn" | null>(null);
+  const [written, setWritten] = useState<"authorized" | "withdrawn" | "renewed" | null>(null);
   const reasonId = useId();
   const errorId = useId();
 
   const canAuthorize = !view.assistanceAuthorized && view.attestation !== null;
   const canDecide = view.viewerIsGovernanceAuthority && (view.assistanceAuthorized || canAuthorize);
 
-  function submit() {
+  /*
+   * ACTIVATION-1 — RENEW: when the decision in force lacks a class the policy now allows, the same
+   * authorize writer records one new revision that adds it (it composes held ∪ policy pairs). No
+   * withdraw-and-re-authorize window.
+   */
+  const canRenew =
+    view.viewerIsGovernanceAuthority && view.assistanceAuthorized && view.missingDataClasses.length > 0 && view.attestation !== null;
+
+  function submit(mode: "decide" | "renew" = "decide") {
     setRefusal(null);
     setWritten(null);
     startTransition(async () => {
-      const result = view.assistanceAuthorized
+      const renewing = mode === "renew";
+      const result = view.assistanceAuthorized && !renewing
         ? await withdrawAssistanceDataUseAction({ justification, observedRevision: view.revision })
         : await authorizeAssistanceDataUseAction({
             attestationId: view.attestation?.id ?? "",
@@ -91,7 +100,7 @@ export function AssistanceDataUseCard({ view }: { readonly view: ReadView }) {
             observedRevision: view.revision,
           });
       if (result.status === "written") {
-        setWritten(view.assistanceAuthorized ? "withdrawn" : "authorized");
+        setWritten(renewing ? "renewed" : view.assistanceAuthorized ? "withdrawn" : "authorized");
         setJustification("");
         router.refresh();
         return;
@@ -195,8 +204,20 @@ export function AssistanceDataUseCard({ view }: { readonly view: ReadView }) {
                 disabled={pending}
               />
             </div>
-            <div>
-              <Button onClick={submit} disabled={pending} variant={view.assistanceAuthorized ? "outline" : "primary"}>
+            {canRenew ? (
+              <p className="text-fg-muted">
+                Not yet covered by the decision in force:{" "}
+                {view.missingDataClasses.map((c) => CLASS_WORDING[c] ?? c).join("; ")}. Agents that need it are
+                refused until it is added.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              {canRenew ? (
+                <Button onClick={() => submit("renew")} disabled={pending} variant="primary">
+                  {pending ? "Recording…" : "Add the new data uses"}
+                </Button>
+              ) : null}
+              <Button onClick={() => submit()} disabled={pending} variant={view.assistanceAuthorized ? "outline" : "primary"}>
                 {pending
                   ? "Recording…"
                   : view.assistanceAuthorized
@@ -209,7 +230,9 @@ export function AssistanceDataUseCard({ view }: { readonly view: ReadView }) {
 
         {written ? (
           <p className="text-fg-muted" role="status">
-            {written === "authorized"
+            {written === "renewed"
+              ? "Recorded as a Governance decision. The new data uses are now covered."
+              : written === "authorized"
               ? "Recorded as a Governance decision. This authorizes data use only; the readiness above shows whether the platform model is available."
               : "Withdrawal recorded as a Governance decision. Heby sends this organization’s data to no AI processor for assistance."}
           </p>

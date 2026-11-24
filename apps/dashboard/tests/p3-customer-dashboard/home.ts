@@ -64,6 +64,8 @@ test("the route reads only released, tenant-scoped seams, server-side", () => {
     "@/features/auth-runtime/human-label-read.server",
     "@/features/auth-runtime/request-session.server",
     "@/features/command-overview/workspace-model",
+    /* ACTIVATION-1 — first-run setup notice: the released, tenant-scoped assistance decision read. */
+    "@/features/external-ai-data-use/assistance-data-use.server",
     "@/features/governance-activity/security-observation-source.server",
     "@/features/live-map/awareness",
     "@/features/live-map/read-live-map.server",
@@ -71,6 +73,8 @@ test("the route reads only released, tenant-scoped seams, server-side", () => {
     /* P6-1 — the research reports panel: the released, tenant-scoped artifact list and the type constant. */
     "@/features/work-artifacts/contracts",
     "@/features/work-artifacts/read-work-artifacts.server",
+    /* ACTIVATION-1 — the setup notice links to the Governance decision card. */
+    "next/link",
   ]);
   assert.ok(!/\b(insert|update|delete|write|create|approve|reject|execute)[A-Z(]/.test(page), "no writer is called");
 });
@@ -177,10 +181,11 @@ test("every quick action points at a route that exists", () => {
 test("sign-in lands on the shell's home: customer → /home, Director → /command", () => {
   assert.equal(landingRouteFor("customer"), "/home");
   assert.equal(landingRouteFor("director"), "/command");
-  for (const value of [undefined, "", "Customer", "admin", "director", "https://evil.example"]) {
-    assert.equal(landingRouteFor(resolveShellExperience(value)), "/command", `${String(value)} keeps Director`);
+  /* ACTIVATION-1: Customer is the default; only the exact word `director` lands on /command. */
+  for (const value of [undefined, "", "Customer", "admin", "customer", "https://evil.example"]) {
+    assert.equal(landingRouteFor(resolveShellExperience(value)), "/home", `${String(value)} lands on Customer home`);
   }
-  assert.equal(landingRouteFor(resolveShellExperience("customer")), "/home");
+  assert.equal(landingRouteFor(resolveShellExperience("director")), "/command");
   assert.match(read("src/features/auth-runtime/landing-route.ts"), /resolveShellExperience\(process\.env\.HEBUN_SHELL_EXPERIENCE\)/);
 });
 

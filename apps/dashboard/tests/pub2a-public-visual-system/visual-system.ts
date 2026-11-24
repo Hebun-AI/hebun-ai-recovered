@@ -145,7 +145,8 @@ function main(): void {
        */
       "An organization can connect a real Google account.",
       "Named mechanisms, not adjectives.",
-      "Hebun is not open for self-serve sign-up.",
+      /* ACTIVATION-1: self-service sign-up is open; the access section says so instead of the opposite. */
+      "Start on Free. Upgrade when you need Pro.",
       "Anything absent from this table is absent from the product.",
       "Hebun holds no compliance certification and claims none.",
       "Field names, not sample data. Hebun shows no record it does not hold.",

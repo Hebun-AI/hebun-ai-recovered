@@ -332,7 +332,7 @@ function main(): void {
       .split(",")
       .map((entry) => entry.trim().replace(/^"|"$/g, ""))
       .filter((entry) => entry.length > 0);
-    /* AUTH-EMAIL-OWNERSHIP-1: `/verify-email` joins by EXACT match (Director-approved design gate) — the landing page of an emailed link, which reads nothing and does nothing on load; still no prefix and nothing else. */ assert.deepEqual(exact, ["/", "/verify-email"], "the exact-match public list is closed at the public homepage and the email confirmation page");
+    /* AUTH-EMAIL-OWNERSHIP-1: `/verify-email` joins by EXACT match (Director-approved design gate) — the landing page of an emailed link, which reads nothing and does nothing on load; still no prefix and nothing else. */ /* ACTIVATION-1: the two signed-out password reset pages join by EXACT match. */ assert.deepEqual(exact, ["/", "/verify-email", "/forgot-password", "/reset-password"], "the exact-match public list is closed at the public homepage the email confirmation page and the two password reset pages");
     for (const prefix of prefixes) {
       assert.ok(
         !existsSync(path.join(ROOT, `src/app/(dashboard)${prefix}`)),

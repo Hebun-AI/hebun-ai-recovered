@@ -75,10 +75,10 @@ export function PublicHeader() {
               Sign in
             </Link>
             <Link
-              href="/contact"
+              href="/register"
               className="inline-flex h-11 items-center rounded-md bg-primary px-4 text-body font-semibold text-on-primary hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              Request access
+              Create account
             </Link>
           </nav>
         </div>

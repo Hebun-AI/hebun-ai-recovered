@@ -343,10 +343,11 @@ function main(): void {
       /MFA protected|two-factor|enterprise verified|phishing|single sign-on enabled/i,
       "the sign-in page claims no capability D1 does not have",
     );
+    /* ACTIVATION-1: a recovery path exists now, and the sign-in page links to it rather than denying it. */
     assert.match(
       page,
-      /recovery is not available/i,
-      "the missing recovery path is stated rather than hidden",
+      /href="\/forgot-password"/,
+      "the recovery path is linked from the sign-in page",
     );
   }
 

@@ -86,9 +86,14 @@ export const authEmailChallenges = pgTable(
       "auth_email_challenges_terminal_chk",
       sql`${t.consumedAt} is null or ${t.supersededAt} is null`,
     ),
+    /*
+     * A consumed email-verification challenge names the session that presented it. A password reset
+     * is consumed by someone who cannot sign in, so it is the one purpose consumed with no session.
+     * `purpose::text` keeps the CHECK valid in the migration that adds the enum value.
+     */
     check(
       "auth_email_challenges_consumed_session_chk",
-      sql`(${t.consumedAt} is null) = (${t.consumedSessionContextId} is null)`,
+      sql`(${t.consumedSessionContextId} is null or ${t.consumedAt} is not null) and (${t.consumedAt} is null or ${t.consumedSessionContextId} is not null or ${t.purpose}::text = 'password-reset')`,
     ),
     check(
       "auth_email_challenges_consumed_window_chk",

@@ -255,11 +255,11 @@ export default function PublicHomePage() {
           </p>
           <div className="flex flex-col gap-8">
             <h2 className="max-w-[var(--measure-statement)] text-statement font-bold tracking-[var(--tracking-statement)] text-balance text-fg">
-              Hebun is not open for self-serve sign-up.
+              Start on Free. Upgrade when you need Pro.
             </h2>
             <p className="max-w-[var(--measure-prose)] text-title leading-relaxed text-pretty text-fg-secondary">
-              Organizations join by invitation. Tell us who you are and what your organization needs
-              to govern.
+              Create an account and your organization in one step. Invite your team from inside it, and
+              see the plans on the pricing page.
             </p>
             <div>
               <RequestAccessLink />

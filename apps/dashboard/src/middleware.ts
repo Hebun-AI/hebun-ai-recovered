@@ -113,7 +113,12 @@ const MACHINE_INGRESS_PATHS = [
  * the page reads nothing and does nothing on load, and the act behind its button requires an
  * authorized session of the identity the link was mailed for.
  */
-const PUBLIC_EXACT_PATHS = ["/", "/verify-email"];
+/*
+ * ACTIVATION-1: `/forgot-password` and `/reset-password` are signed-out pages for the same reason —
+ * the visitor cannot sign in. `/reset-password` reads its token from the fragment, which no request
+ * carries; the act behind its button is decided by the reset authority alone.
+ */
+const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/forgot-password", "/reset-password"];
 
 export function middleware(request: NextRequest): NextResponse {
   if (process.env.HEBUN_AUTH_ENABLED !== "true") {

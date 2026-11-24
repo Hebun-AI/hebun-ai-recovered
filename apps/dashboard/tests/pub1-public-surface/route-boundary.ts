@@ -141,7 +141,7 @@ function main(): void {
         `${entry} must not be a dashboard route — the dashboard did not become public`,
       );
     }
-    /* AUTH-EMAIL-OWNERSHIP-1: `/verify-email` joins by EXACT match (Director-approved design gate) — the landing page of an emailed link, which reads nothing and does nothing on load; still no prefix and nothing else. */ assert.deepEqual(exact, ["/", "/verify-email"], "the exact-match public list is closed at the public homepage and the email confirmation page");
+    /* AUTH-EMAIL-OWNERSHIP-1: `/verify-email` joins by EXACT match (Director-approved design gate) — the landing page of an emailed link, which reads nothing and does nothing on load; still no prefix and nothing else. */ /* ACTIVATION-1: the two signed-out password reset pages join by EXACT match; neither reads anything on load. */ assert.deepEqual(exact, ["/", "/verify-email", "/forgot-password", "/reset-password"], "the exact-match public list is closed at the public homepage, the email confirmation page and the two password reset pages");
     assert.ok(
       !existsSync(abs("src/app/(dashboard)/page.tsx")),
       "the dashboard group must not claim / — that is the public homepage",
@@ -352,7 +352,8 @@ function main(): void {
       assert.ok(!forbidden.test(contact), `the contact page must hold no form: ${forbidden}`);
     }
     const cta = codeOf(read("src/components/public/request-access-link.tsx"));
-    assert.match(cta, /href="\/contact"/, "Request access must lead to /contact");
+    /* ACTIVATION-1: the call to action is self-service sign-up, a page and not a pipeline. */
+    assert.match(cta, /href="\/register"/, "the call to action must lead to /register");
 
     const home = codeOf(read(`${PUBLIC_APP}/page.tsx`));
     assert.ok(!/redirect\(/.test(home), "/ must not redirect — it is the public homepage");

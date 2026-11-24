@@ -87,6 +87,11 @@ export type AssistanceDataUseView =
       /** The lineage's latest revision, or null when this organization never decided. */
       readonly revision: number | null;
       readonly assistanceAuthorized: boolean;
+      /**
+       * ACTIVATION-1: data classes the platform policy allows for assistance that the decision in force
+       * does not yet cover (e.g. a class added after it was made). Empty when not authorized.
+       */
+      readonly missingDataClasses: readonly DataClass[];
       /** Other purposes in force. Untouched by this decision; listed so nobody is surprised. */
       readonly otherPurposes: readonly Purpose[];
       readonly decidedAt: string | null;
@@ -130,6 +135,11 @@ export async function readAssistanceDataUse(
           : null,
       revision: effective?.authorizationRevision ?? null,
       assistanceAuthorized: inForce.some((p) => p.purpose === PURPOSE),
+      missingDataClasses: inForce.some((p) => p.purpose === PURPOSE)
+        ? assistanceScopePairs()
+            .filter((pair) => !inForce.some((p) => p.purpose === pair.purpose && p.dataClass === pair.dataClass))
+            .map((pair) => pair.dataClass)
+        : [],
       otherPurposes: [...new Set(inForce.filter((p) => p.purpose !== PURPOSE).map((p) => p.purpose))].sort(),
       decidedAt: effective?.authorizedAt ?? null,
     };

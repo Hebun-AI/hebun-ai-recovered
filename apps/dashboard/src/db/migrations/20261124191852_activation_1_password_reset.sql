@@ -1,0 +1,3 @@
+ALTER TYPE "public"."auth_email_challenge_purpose" ADD VALUE 'password-reset';--> statement-breakpoint
+ALTER TABLE "auth_email_challenges" DROP CONSTRAINT "auth_email_challenges_consumed_session_chk";--> statement-breakpoint
+ALTER TABLE "auth_email_challenges" ADD CONSTRAINT "auth_email_challenges_consumed_session_chk" CHECK (("auth_email_challenges"."consumed_session_context_id" is null or "auth_email_challenges"."consumed_at" is not null) and ("auth_email_challenges"."consumed_at" is null or "auth_email_challenges"."consumed_session_context_id" is not null or "auth_email_challenges"."purpose"::text = 'password-reset'));

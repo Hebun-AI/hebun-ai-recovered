@@ -130,10 +130,14 @@ export default async function LoginPage(props: {
         </Link>
       </p>
 
+      <p className="text-sm text-neutral-500">
+        <Link href="/forgot-password" className="font-medium text-neutral-900 underline underline-offset-4">
+          Forgot your password?
+        </Link>
+      </p>
+
       <p className="text-xs text-neutral-500">
-        Password recovery is not available yet — there is no reset flow in this
-        build. Single-factor sign-in only; MFA and single sign-on are not
-        implemented.
+        Single-factor sign-in only; MFA and single sign-on are not implemented.
       </p>
     </main>
   );

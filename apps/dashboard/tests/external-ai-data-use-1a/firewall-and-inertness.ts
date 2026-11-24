@@ -85,6 +85,8 @@ assert.deepEqual(
     "src/app/(dashboard)/governance/authority/actions.ts",
     /* ORGANIZATION-READINESS-2 — the page reads the assistance view; it holds no writer. */
     "src/app/(dashboard)/governance/authority/page.tsx",
+    /* ACTIVATION-1 — /home's first-run notice reads the released assistance decision view (read only). */
+    "src/app/(dashboard)/home/page.tsx",
     /* ORGANIZATION-READINESS-2 — the decision card imports two TYPES only (pinned below). */
     "src/components/governance-authority/ai-assistance-decision-card.tsx",
     /* RA-PREP-1 — the research seam asks the released gate before the model; it writes nothing here. */

@@ -52,7 +52,8 @@ console.log(`ok F3 ${clientFiles.length} client files reach no billing code`);
 const middleware = read("src/middleware.ts");
 const machine = middleware.slice(middleware.indexOf("const MACHINE_INGRESS_PATHS"), middleware.indexOf("];", middleware.indexOf("const MACHINE_INGRESS_PATHS")));
 assert.ok(machine.includes('"/api/billing/stripe/webhook"'), "F4 webhook is machine ingress");
-assert.ok(/const PUBLIC_EXACT_PATHS = \["\/", "\/verify-email"\];/.test(middleware), "F4 the human exact list is unchanged");
+/* ACTIVATION-1 added the two password reset pages to the human exact list; billing added nothing to it. */
+assert.ok(/const PUBLIC_EXACT_PATHS = \["\/", "\/verify-email", "\/forgot-password", "\/reset-password"\];/.test(middleware), "F4 the human exact list holds no billing path");
 const route = read("src/app/api/billing/stripe/webhook/route.ts");
 assert.ok(/request\.text\(\)/.test(route) && /stripe-signature/.test(route), "F4 raw body and signature header");
 assert.ok(!/resolveTenantContext|cookies\(/.test(route), "F4 the webhook reads no session");
