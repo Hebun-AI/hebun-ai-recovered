@@ -37,9 +37,15 @@ import {
   type AuthenticationDigestKey,
 } from "@/features/auth/environment/auth-environment.server";
 import {
+  findActiveLocalIdentityByEmail,
   lockIdentityForOwnership,
   markEmailOwnershipVerified,
+  revokeSessionIfActive,
 } from "@/features/auth-runtime/identity-repository.server";
+import { userSessionContexts } from "@/db/schema/user-session-context";
+import { authCredentials } from "@/db/schema/auth-credential";
+import { replacePasswordCredential } from "@/features/auth-runtime/credential-repository.server";
+import { MIN_ENROLLMENT_PASSWORD_LENGTH } from "@/features/identity-enrollment/contracts";
 
 import { resolveAuthMailEnvironment, sendEmailVerificationMessage } from "./auth-mail.server";
 import {
@@ -53,6 +59,12 @@ import {
   EMAIL_VERIFICATION_PURPOSE,
   EMAIL_VERIFICATION_TOKEN_PATTERN,
   EMAIL_VERIFICATION_TTL_SECONDS,
+  PASSWORD_RESET_COOLDOWN_SECONDS,
+  PASSWORD_RESET_DAILY_LIMIT,
+  PASSWORD_RESET_PURPOSE,
+  PASSWORD_RESET_TTL_SECONDS,
+  type PasswordResetConfirmResult,
+  type PasswordResetIssueResult,
   type AuthMailDeliveryOutcome,
   type EmailOwnershipState,
   type EmailVerificationConfirmRefusal,
@@ -464,4 +476,235 @@ export async function readEmailOwnershipState(
   } catch {
     return { status: "unavailable" };
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ACTIVATION-1 · PASSWORD RESET
+ *
+ * Same table, digest, rate limits and one-open-link rule as verification, under its own purpose.
+ * ISSUE takes an address typed by a visitor and mails ONLY that identity's own stored address, so the
+ * visitor chooses nothing about where the link goes. Its result is for tests: the action shows one
+ * sentence for every outcome, so the form never reveals whether an account exists.
+ * CONFIRM needs no session (the human cannot sign in). It replaces the password credential, revokes
+ * every live session of the identity and consumes the link, all in one transaction.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+async function hasActivePasswordCredential(
+  tx: Pick<ControlPlaneDatabase, "select">,
+  authIdentityId: string,
+): Promise<boolean> {
+  const rows = await tx
+    .select({ id: authCredentials.id })
+    .from(authCredentials)
+    .where(
+      and(
+        eq(authCredentials.authIdentityId, authIdentityId),
+        eq(authCredentials.credentialType, "password"),
+        eq(authCredentials.status, "active"),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** Upper bound on a typed password, so the derivation cost stays bounded. */
+const PASSWORD_RESET_MAX_LENGTH = 1024;
+
+export async function issuePasswordReset(
+  typedEmail: string,
+  deps: EmailVerificationDeps = {},
+): Promise<PasswordResetIssueResult> {
+  assertServerRuntime();
+  type Refusal = Extract<PasswordResetIssueResult, { status: "refused" }>["reason"];
+  const refused = (reason: Refusal): PasswordResetIssueResult => ({ status: "refused", reason });
+
+  const digestKey = resolveDigestKeys(deps)[0];
+  if (!digestKey) return refused("unavailable");
+  const mail = resolveAuthMailEnvironment(deps.mailEnv ?? process.env);
+  if (mail.status !== "configured") return refused("delivery-unavailable");
+  const db = (deps.getDb ?? getControlPlaneDb)();
+  if (!db) return refused("persistence-unavailable");
+  const now = (deps.now ?? (() => new Date()))();
+  const email = typeof typedEmail === "string" ? typedEmail.trim().slice(0, 320) : "";
+  if (!email) return refused("no-account");
+
+  const reference = (deps.mintReference ?? generateEmailVerificationReference)();
+  const tokenHash = digestEmailVerificationReference(reference, digestKey);
+
+  let issued: { readonly challengeId: string; readonly to: string };
+  try {
+    const found = await findActiveLocalIdentityByEmail(db, email);
+    if (!found) return refused("no-account");
+    issued = await db.transaction(async (tx) => {
+      const identity = await lockIdentityForOwnership(tx, found.authIdentityId);
+      if (!identity || !identity.usable) throw new OwnershipAbort("no-account");
+      /*
+       * Only an identity that already HAS a password can reset one. An identity with none (an
+       * enrollment never completed) gets its first credential through enrollment, never a mailed link.
+       */
+      if (!(await hasActivePasswordCredential(tx, identity.authIdentityId))) throw new OwnershipAbort("no-account");
+
+      const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const [own] = await tx
+        .select({
+          lastIssuedAt: max(authEmailChallenges.issuedAt),
+          inLastDay: sql<number>`count(*) filter (where ${authEmailChallenges.issuedAt} > ${dayAgo})`.mapWith(Number),
+        })
+        .from(authEmailChallenges)
+        .where(
+          and(
+            eq(authEmailChallenges.authIdentityId, identity.authIdentityId),
+            eq(authEmailChallenges.purpose, PASSWORD_RESET_PURPOSE),
+          ),
+        );
+      if (
+        own?.lastIssuedAt &&
+        now.getTime() - new Date(own.lastIssuedAt).getTime() < PASSWORD_RESET_COOLDOWN_SECONDS * 1000
+      ) {
+        throw new OwnershipAbort("cooldown");
+      }
+      if ((own?.inLastDay ?? 0) >= PASSWORD_RESET_DAILY_LIMIT) throw new OwnershipAbort("daily-limit");
+
+      const [global] = await tx
+        .select({ n: count() })
+        .from(authEmailChallenges)
+        .where(gt(authEmailChallenges.issuedAt, new Date(now.getTime() - 60 * 60 * 1000)));
+      if ((global?.n ?? 0) >= AUTH_MAIL_GLOBAL_HOURLY_LIMIT) throw new OwnershipAbort("global-limit");
+
+      await tx
+        .update(authEmailChallenges)
+        .set({ supersededAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(authEmailChallenges.authIdentityId, identity.authIdentityId),
+            eq(authEmailChallenges.purpose, PASSWORD_RESET_PURPOSE),
+            isNull(authEmailChallenges.consumedAt),
+            isNull(authEmailChallenges.supersededAt),
+          ),
+        );
+
+      const inserted = await tx
+        .insert(authEmailChallenges)
+        .values({
+          authIdentityId: identity.authIdentityId,
+          purpose: PASSWORD_RESET_PURPOSE,
+          emailAtIssue: identity.normalizedEmail,
+          tokenDigestVersion: digestKey.version,
+          tokenHash,
+          issuedAt: now,
+          expiresAt: new Date(now.getTime() + PASSWORD_RESET_TTL_SECONDS * 1000),
+          createdBy: identity.userId,
+          createdByType: "human",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning({ id: authEmailChallenges.id });
+      return { challengeId: inserted[0]!.id, to: identity.deliveryEmail };
+    });
+  } catch (error) {
+    if (error instanceof OwnershipAbort) return refused(error.reason as Refusal);
+    return refused("persistence-unavailable");
+  }
+
+  const delivery = await sendEmailVerificationMessage(
+    { to: issued.to, reference, idempotencyKey: issued.challengeId, kind: "password-reset" },
+    mail,
+    { fetchImpl: deps.fetchImpl },
+  );
+  await recordDeliveryOutcome(db, issued.challengeId, delivery, (deps.now ?? (() => new Date()))());
+  return { status: "issued", delivery };
+}
+
+export async function confirmPasswordReset(
+  reference: string,
+  newPassword: string,
+  deps: EmailVerificationDeps = {},
+): Promise<PasswordResetConfirmResult> {
+  assertServerRuntime();
+  type Refusal = Extract<PasswordResetConfirmResult, { status: "refused" }>["reason"];
+  const refused = (reason: Refusal): PasswordResetConfirmResult => ({ status: "refused", reason });
+
+  if (typeof reference !== "string" || !EMAIL_VERIFICATION_TOKEN_PATTERN.test(reference)) {
+    return refused("invalid-link");
+  }
+  if (
+    typeof newPassword !== "string" ||
+    newPassword.length < MIN_ENROLLMENT_PASSWORD_LENGTH ||
+    newPassword.length > PASSWORD_RESET_MAX_LENGTH
+  ) {
+    return refused("password-unacceptable");
+  }
+  const digestKeys = resolveDigestKeys(deps);
+  if (digestKeys.length === 0) return refused("unavailable");
+  const db = (deps.getDb ?? getControlPlaneDb)();
+  if (!db) return refused("persistence-unavailable");
+  const now = (deps.now ?? (() => new Date()))();
+
+  try {
+    await db.transaction(async (tx) => {
+      let challenge: { readonly id: string; readonly authIdentityId: string; readonly emailAtIssue: string } | undefined;
+      for (const key of digestKeys) {
+        const rows = await tx
+          .select({
+            id: authEmailChallenges.id,
+            authIdentityId: authEmailChallenges.authIdentityId,
+            emailAtIssue: authEmailChallenges.emailAtIssue,
+          })
+          .from(authEmailChallenges)
+          .where(
+            and(
+              eq(authEmailChallenges.tokenDigestVersion, key.version),
+              eq(authEmailChallenges.tokenHash, digestEmailVerificationReference(reference, key)),
+              eq(authEmailChallenges.purpose, PASSWORD_RESET_PURPOSE),
+            ),
+          )
+          .limit(1);
+        if (rows[0]) {
+          challenge = rows[0];
+          break;
+        }
+      }
+      if (!challenge) throw new OwnershipAbort("invalid-link");
+
+      const identity = await lockIdentityForOwnership(tx, challenge.authIdentityId);
+      if (!identity || !identity.usable) throw new OwnershipAbort("invalid-link");
+      /* A link resets only while the identity still has the address it was mailed to. */
+      if (challenge.emailAtIssue !== identity.normalizedEmail) throw new OwnershipAbort("invalid-link");
+
+      const consumed = await tx
+        .update(authEmailChallenges)
+        .set({
+          consumedAt: now,
+          updatedAt: now,
+          updatedBy: identity.userId,
+          updatedByType: "human",
+        })
+        .where(
+          and(
+            eq(authEmailChallenges.id, challenge.id),
+            isNull(authEmailChallenges.consumedAt),
+            lte(authEmailChallenges.issuedAt, now),
+            gt(authEmailChallenges.expiresAt, now),
+            isNull(authEmailChallenges.supersededAt),
+          ),
+        )
+        .returning({ id: authEmailChallenges.id });
+      if (consumed.length !== 1) throw new OwnershipAbort("invalid-link");
+
+      if (!(await hasActivePasswordCredential(tx, identity.authIdentityId))) throw new OwnershipAbort("invalid-link");
+      await replacePasswordCredential(tx, identity.authIdentityId, newPassword, "password-reset-by-email-link", now);
+      /* A new password must not leave a session opened with the old one alive. */
+      const live = await tx
+        .select({ id: userSessionContexts.id })
+        .from(userSessionContexts)
+        .where(and(eq(userSessionContexts.authIdentityId, identity.authIdentityId), isNull(userSessionContexts.revokedAt)));
+      for (const session of live) {
+        await revokeSessionIfActive(tx, session.id, now, "password-reset");
+      }
+    });
+  } catch (error) {
+    if (error instanceof OwnershipAbort) return refused(error.reason as Refusal);
+    return refused("persistence-unavailable");
+  }
+  return { status: "reset" };
 }

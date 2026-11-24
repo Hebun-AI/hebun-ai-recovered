@@ -10,6 +10,8 @@ import { resolveTenantContext } from "@/features/auth-runtime/request-session.se
 import { resolveHumanNames } from "@/features/auth-runtime/human-label-read.server";
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { RESEARCH_REPORT_ARTIFACT_TYPE } from "@/features/work-artifacts/contracts";
+import { readAssistanceDataUse } from "@/features/external-ai-data-use/assistance-data-use.server";
+import Link from "next/link";
 
 export const metadata = { title: "Home — Hebun AI" };
 
@@ -25,7 +27,7 @@ export const metadata = { title: "Home — Hebun AI" };
  */
 export default async function CustomerHomePage() {
   const tenant = await resolveTenantContext();
-  const [pending, awaiting, liveMap, recordedActs, work, humanNames, artifacts] = await Promise.all([
+  const [pending, awaiting, liveMap, recordedActs, work, humanNames, artifacts, assistance] = await Promise.all([
     readPendingActionRequests(tenant),
     readAwaitingDecisionAggregate(tenant),
     readLiveMapProjection(tenant),
@@ -33,11 +35,41 @@ export default async function CustomerHomePage() {
     readWorkRegister(tenant),
     resolveHumanNames(tenant, tenant?.userId ? [tenant.userId] : []),
     listWorkArtifacts(tenant),
+    readAssistanceDataUse(tenant),
   ]);
+  /*
+   * ACTIVATION-1 — first-run setup: Heby and agents send nothing to the AI processor until this
+   * organization's Governance authority records the assistance decision. Point there; decide nothing.
+   */
+  const assistanceSetup =
+    assistance.status === "read" && (!assistance.assistanceAuthorized || assistance.missingDataClasses.length > 0)
+      ? assistance
+      : null;
   /* One instant for every duration this page renders. */
   const evaluatedAt = new Date().toISOString();
 
   return (
+    <>
+    {assistanceSetup ? (
+      <section aria-labelledby="assistance-setup" className="mx-auto mb-6 w-full max-w-5xl rounded-md border border-border bg-surface-subtle p-4 text-sm">
+        <h2 id="assistance-setup" className="font-semibold text-fg">
+          {assistanceSetup.assistanceAuthorized ? "AI assistance needs one more decision" : "Turn on AI assistance"}
+        </h2>
+        <p className="mt-1 text-fg-muted">
+          {assistanceSetup.assistanceAuthorized
+            ? "A data use that agents need is not yet covered by this organization’s decision."
+            : "Heby and agents send nothing to the AI processor until this organization decides it may."}{" "}
+          {assistanceSetup.viewerIsGovernanceAuthority
+            ? "You hold Governance authority here, so you can decide it."
+            : assistanceSetup.governanceEstablished
+              ? "Only this organization’s Governance authority can decide it."
+              : "First confirm your email address and accept Governance authority on the Governance page."}
+        </p>
+        <Link href="/governance/authority" className="mt-2 inline-block font-medium text-primary underline">
+          Open AI assistance data use
+        </Link>
+      </section>
+    ) : null}
     <CustomerHome
       name={tenant?.userId ? humanNames.get(tenant.userId) ?? null : null}
       organization={summariseLiveMap(liveMap)}
@@ -57,5 +89,6 @@ export default async function CustomerHomePage() {
       }
       evaluatedAt={evaluatedAt}
     />
+    </>
   );
 }

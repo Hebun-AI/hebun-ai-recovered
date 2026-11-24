@@ -312,6 +312,8 @@ export const authCredentialStatusEnum = pgEnum("auth_credential_status", [
  * purpose (password recovery is M2) is a deliberate schema decision, never a string a caller picks. */
 export const authEmailChallengePurposeEnum = pgEnum("auth_email_challenge_purpose", [
   "email-verification",
+  /* ACTIVATION-1: a mailed, single-use link that lets the mailbox holder set a new password. */
+  "password-reset",
 ]);
 
 /* G2.1 pre-Governance genesis nomination lifecycle.

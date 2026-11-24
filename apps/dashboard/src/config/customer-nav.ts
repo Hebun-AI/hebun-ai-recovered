@@ -124,10 +124,11 @@ export function resolveActiveNavHref(
 /**
  * Which shell the authenticated workspace renders. A deployment setting read on the server, never
  * a client value, and NOT an authority: both shells sit behind the same layout gate and every
- * route keeps its own checks. Anything but the exact word `customer` keeps the Director shell.
+ * route keeps its own checks. ACTIVATION-1: the Customer shell is the default; only the exact word
+ * `director` keeps the Director shell.
  */
 export type ShellExperience = "director" | "customer";
 
 export function resolveShellExperience(value: string | undefined): ShellExperience {
-  return value === "customer" ? "customer" : "director";
+  return value === "director" ? "director" : "customer";
 }

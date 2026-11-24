@@ -89,10 +89,11 @@ test("the admin navigation is mounted nowhere; the only admin route is the guard
   assert.ok(!read("src/app/(dashboard)/layout.tsx").includes('experience="admin"'), "no admin theme scope is mounted");
 });
 
-test("the shell experience is a server setting that defaults to Director", () => {
-  assert.equal(resolveShellExperience("customer"), "customer");
-  for (const value of [undefined, "", "Customer", "admin", "director", " customer"]) {
-    assert.equal(resolveShellExperience(value), "director", String(value));
+/* ACTIVATION-1: the Customer shell became the default; only the exact word `director` keeps the Director shell. */
+test("the shell experience is a server setting that defaults to Customer", () => {
+  assert.equal(resolveShellExperience("director"), "director");
+  for (const value of [undefined, "", "Customer", "admin", "customer", " director"]) {
+    assert.equal(resolveShellExperience(value), "customer", String(value));
   }
   const layout = read("src/app/(dashboard)/layout.tsx");
   assert.match(layout, /resolveShellExperience\(process\.env\.HEBUN_SHELL_EXPERIENCE\)/);

@@ -102,3 +102,40 @@ export type EmailOwnershipState =
       readonly deliveryAvailable: boolean;
     }
   | { readonly status: "unavailable" };
+
+/* ── ACTIVATION-1 · PASSWORD RESET ────────────────────────────────────────────
+ *
+ * A mailed, single-use link to the identity's own address. Shorter-lived than a verification link
+ * because it replaces a credential. The request result is never shown to the visitor (no account
+ * enumeration); the action answers the same sentence for every address.
+ */
+export const PASSWORD_RESET_PURPOSE = "password-reset" as const;
+export const PASSWORD_RESET_TTL_SECONDS = 60 * 60;
+export const PASSWORD_RESET_COOLDOWN_SECONDS = 60;
+export const PASSWORD_RESET_DAILY_LIMIT = 5;
+/** Same floor as a first password (`MIN_ENROLLMENT_PASSWORD_LENGTH`); restated so a client form need not import enrollment. */
+export const PASSWORD_RESET_MIN_LENGTH = 12;
+
+export type PasswordResetIssueResult =
+  | { readonly status: "issued"; readonly delivery: AuthMailDeliveryOutcome }
+  | {
+      readonly status: "refused";
+      readonly reason:
+        | "no-account"
+        | "cooldown"
+        | "daily-limit"
+        | "global-limit"
+        | "delivery-unavailable"
+        | "unavailable"
+        | "persistence-unavailable";
+    };
+
+export type PasswordResetConfirmRefusal =
+  | "invalid-link"
+  | "password-unacceptable"
+  | "unavailable"
+  | "persistence-unavailable";
+
+export type PasswordResetConfirmResult =
+  | { readonly status: "reset" }
+  | { readonly status: "refused"; readonly reason: PasswordResetConfirmRefusal };

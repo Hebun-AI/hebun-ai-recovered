@@ -209,7 +209,11 @@ function openingChangesNothing(): void {
   assert.ok(/robots: \{ index: false, follow: false \}/.test(page), "and is never indexed");
 
   const middleware = codeOf(read(MIDDLEWARE));
-  assert.ok(middleware.includes('const PUBLIC_EXACT_PATHS = ["/", "/verify-email"];'), "public by exact path");
+  /* ACTIVATION-1 added the two signed-out password reset pages to the same exact list. */
+  assert.ok(
+    middleware.includes('const PUBLIC_EXACT_PATHS = ["/", "/verify-email", "/forgot-password", "/reset-password"];'),
+    "public by exact path",
+  );
   assert.ok(!/PUBLIC_PREFIXES = \[[^\]]*verify-email/.test(middleware), "never as a prefix");
 }
 

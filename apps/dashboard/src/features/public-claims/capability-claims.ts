@@ -64,9 +64,9 @@ export const PUBLIC_CAPABILITY_CLAIMS: readonly PublicCapabilityClaim[] = Object
     capability: "Tenant workspace",
     state: "available" as const,
     limit:
-      "Membership is by invitation from the organization. There is no self-serve sign-up, and every read is scoped to the organization the request belongs to.",
+      "An organization creates its own account at sign-up; its people join by invitation from it. Every read is scoped to the organization the request belongs to.",
     provenance:
-      "src/middleware.ts (no public product route) + src/app/login/join/page.tsx (invitation/enrollment entry, no sign-up form)",
+      "src/app/register (self-service sign-up) + src/app/login/join/page.tsx (invitation/enrollment entry) + src/middleware.ts (no public product route)",
   }),
   Object.freeze({
     id: "knowledge-ingestion" as const,

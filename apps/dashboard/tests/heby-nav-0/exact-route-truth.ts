@@ -114,12 +114,14 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/tickets/actions.ts",
   /* P4: the Platform Admin MFA challenge — one field (the code); grant and MFA are resolved on the server. */
   "src/app/admin/verify/actions.ts",
+  /* ACTIVATION-1 — request a password reset link. */ "src/app/forgot-password/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
   /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
    * only way a browser can cause tenant creation, which is why it is named here rather than matched
    * by a pattern — a second one appearing is a decision somebody has to record. */
   "src/app/register/actions.ts",
+  /* ACTIVATION-1 — set a new password from an emailed link. */ "src/app/reset-password/actions.ts",
   /* AUTH-EMAIL-OWNERSHIP-1 — requesting and confirming a link to prove one's own address. Session-bound; a recorded decision. */
   "src/app/verify-email/actions.ts",
 ];

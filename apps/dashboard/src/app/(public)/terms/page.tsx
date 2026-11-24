@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   description: "The terms that apply to use of Hebun AI.",
 };
 
-const LAST_UPDATED = "10 November 2026";
+const LAST_UPDATED = "24 November 2026";
 const CONTACT_EMAIL = "hebuntech@gmail.com";
 
 function Section({
@@ -106,8 +106,8 @@ export default function TermsOfServicePage() {
         <p>
           Access requires an account within a workspace. You are responsible for the credentials
           used to sign in and for activity carried out through your account. Sign-in is
-          single-factor; there is no multi-factor or single sign-on option, and no self-service
-          password reset. Contact Hebun if you lose access.
+          single-factor; there is no multi-factor or single sign-on option. A forgotten password
+          can be reset from a link mailed to the account&rsquo;s address.
         </p>
         <p>
           A workspace&rsquo;s access to Hebun may be suspended, and access may be ended at any time.

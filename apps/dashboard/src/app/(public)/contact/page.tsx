@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PublicProse, PublicSection } from "@/components/public/public-section";
 
 /*
- * `/contact` — where "Request access" leads.
+ * `/contact` — how to reach Hebun.
  *
  * ── WHAT IS DELIBERATELY NOT HERE ────────────────────────────────────────────
  *
@@ -19,16 +19,16 @@ import { PublicProse, PublicSection } from "@/components/public/public-section";
  * Static. No session, no tenant, no database.
  */
 export const metadata: Metadata = {
-  title: "Request access",
+  title: "Contact",
   description:
-    "Access to Hebun AI is by invitation. How to reach us, and what a first message should carry.",
+    "How to reach Hebun AI, and what a first message should carry.",
   alternates: { canonical: "/contact" },
   openGraph: {
     type: "website",
     url: "/contact",
     siteName: "Hebun AI",
-    title: "Request access — Hebun AI",
-    description: "Access to Hebun AI is by invitation.",
+    title: "Contact — Hebun AI",
+    description: "How to reach Hebun AI.",
   },
 };
 
@@ -44,12 +44,11 @@ export default function ContactPage() {
           </p>
           <div className="flex flex-col gap-7">
             <h1 className="max-w-[18ch] text-display-lg font-extrabold tracking-[var(--tracking-hero)] text-balance text-fg">
-              Access is by invitation.
+              Talk to us.
             </h1>
             <p className="max-w-[var(--measure-prose)] text-body leading-relaxed text-pretty text-fg">
-              There is no self-serve sign-up. An organization is set up deliberately, and the people
-              inside it join by invitation from that organization. To start that conversation, write
-              to us.
+              Any organization can create its own account from the sign-up page. For questions,
+              larger teams or support, write to us.
             </p>
             <div>
               <a
