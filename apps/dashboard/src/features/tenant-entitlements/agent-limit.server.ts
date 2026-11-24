@@ -7,9 +7,10 @@
  * insert" cannot both see the last free place. Agents above a limit (a downgraded plan) are kept; only
  * a new registration is refused.
  */
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
+import { agentNotRetiredCondition } from "@/features/agent-identity/in-service";
 import { readTenantPlan } from "./tenant-dispatch-ceiling.server";
 import { planFeatures } from "./plans";
 
@@ -23,6 +24,6 @@ export async function agentLimitAdmitsWithin(tx: TransactionHandle, tenantId: st
   const [row] = await tx
     .select({ n: count() })
     .from(agents)
-    .where(and(eq(agents.tenantId, tenantId), isNull(agents.retiredAt)));
+    .where(and(eq(agents.tenantId, tenantId), agentNotRetiredCondition()));
   return Number(row?.n ?? 0) < limit;
 }
