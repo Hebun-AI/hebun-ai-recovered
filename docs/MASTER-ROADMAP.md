@@ -5837,6 +5837,7 @@ re-graded here.
 | P5-2-ROLE-BRIEF | DEPLOYED | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` |
 | P5-3-AGENT-TEMPLATES | DEPLOYED | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` |
 | P5-4-PLAN-ENTITLEMENTS | DEPLOYED | `docs/product-vision/runtime/hebun-p5-4-plan-entitlements-closure.md` |
+| P5-5-SCHEDULED-AGENT-TASK | DEPLOYED | `docs/product-vision/runtime/hebun-p5-5-scheduled-agent-task-closure.md` |
 
 ---
 
@@ -6092,3 +6093,4 @@ before §16.1 are not yet indexed (Phase B).
 | P5-3-TEMPLATE-UNOBSERVED-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Acceptance gap | DEFERRED | P5-9 sets up the Content and Research agents on TRH from templates and reads back their mandates |
 | P5-3-MANDATE-PARTIAL-UNDRIVEN-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Test coverage | DEFERRED | A mandate-writer test seam, if step 2 ever becomes refusable on its own |
 | P5-4-LIMITS-UNOBSERVED-1 | P5-4-PLAN-ENTITLEMENTS | `docs/product-vision/runtime/hebun-p5-4-plan-entitlements-closure.md` | Acceptance gap | DEFERRED | P5-9: a Free tenant refused a second agent and a schedule, a Pro tenant admitted, an own-key call excluded from the plan count |
+| P5-5-RUN-UNOBSERVED-1 | P5-5-SCHEDULED-AGENT-TASK | `docs/product-vision/runtime/hebun-p5-5-scheduled-agent-task-closure.md` | Acceptance gap | DEFERRED | P5-9: trigger secret set and switch on, a tenant with its own key and a granted template, one Monday run filing a draft with its ledger row filed |
