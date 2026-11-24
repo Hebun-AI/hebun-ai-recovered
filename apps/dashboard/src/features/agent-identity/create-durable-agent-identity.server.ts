@@ -43,6 +43,7 @@ import { recordGovernanceEventWithin } from "@/features/governance-audit/governa
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
 import { validateJustification } from "@/features/governance-decision/persistence.server";
+import { agentLimitAdmitsWithin } from "@/features/tenant-entitlements/agent-limit.server";
 import {
   AGENT_REGISTRATION_DECISION_TYPE,
   AGENT_REGISTRATION_SUBJECT_TYPE,
@@ -171,6 +172,11 @@ function resolveDbOrNull(deps: AgentIdentityDeps): ControlPlaneDatabase | null {
       }
       if (!authority.authorized) {
         return { status: "refused" as const, reason: "not-the-governance-authority" as const };
+      }
+
+      /* P5-4 — the plan's agent limit, asked inside this transaction before the decision is written. */
+      if (!(await agentLimitAdmitsWithin(tx, tenant.tenantId))) {
+        return { status: "refused" as const, reason: "plan-agent-limit-reached" as const };
       }
 
       /*

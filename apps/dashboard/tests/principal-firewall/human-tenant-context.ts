@@ -343,6 +343,8 @@ function main(): void {
       "src/features/admin-views/platform-readers.server.ts",
       /* P6-2 — the standing research authorization binds its agent by the (tenant_id, id) composite key. A table definition, not a reader. */
       "src/db/schema/standing-research-authorization.ts",
+      /* P5-4 — the plan's agent limit counts this tenant's agents not retired. A scoping predicate in a count, not a grant. */
+      "src/features/tenant-entitlements/agent-limit.server.ts",
     ].sort(),
     "`agents.tenant_id` is a tenant SCOPE in eight readers (AP-2 adds the placement read and write, L-2b the suspension writer) and a composite-key target in five table definitions, and the P4 admin count key — a grant in none of them",
   );

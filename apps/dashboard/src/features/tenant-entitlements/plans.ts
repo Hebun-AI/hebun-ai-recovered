@@ -23,8 +23,9 @@ export type PlanCode = (typeof PLAN_CODES)[number];
 export type BasePlanCode = Exclude<PlanCode, "pro">;
 
 export const COMMERCIAL_PLAN_LIMITS = Object.freeze({
-  free: Object.freeze({ model: 15, media: 1, videoGeneration: false, memberLimit: 1 }),
-  pro: Object.freeze({ model: 100, media: 10, videoGeneration: true, memberLimit: 5 }),
+  /* P5-4 (Director, 2026-11-23): agentLimit counts agents not retired; standingSchedules = may hold a schedule. */
+  free: Object.freeze({ model: 15, media: 1, videoGeneration: false, memberLimit: 1, agentLimit: 1, standingSchedules: false }),
+  pro: Object.freeze({ model: 100, media: 10, videoGeneration: true, memberLimit: 5, agentLimit: 5, standingSchedules: true }),
 });
 
 /** The Pro list price; checkout verifies the configured Stripe price matches it exactly. */
@@ -44,9 +45,19 @@ export interface PlanFeatures {
   readonly videoGeneration: boolean;
   /** Active members plus pending invitations. `null` = no plan limit (founding only). */
   readonly memberLimit: number | null;
+  /** P5-4 — agents not retired. `null` = no plan limit (founding only). */
+  readonly agentLimit: number | null;
+  /** P5-4 — whether a standing (scheduled) authorization may be held. */
+  readonly standingSchedules: boolean;
 }
 
 export function planFeatures(plan: PlanCode): PlanFeatures {
-  if (plan === "founding") return { videoGeneration: true, memberLimit: null };
-  return { videoGeneration: COMMERCIAL_PLAN_LIMITS[plan].videoGeneration, memberLimit: COMMERCIAL_PLAN_LIMITS[plan].memberLimit };
+  if (plan === "founding") return { videoGeneration: true, memberLimit: null, agentLimit: null, standingSchedules: true };
+  const limits = COMMERCIAL_PLAN_LIMITS[plan];
+  return {
+    videoGeneration: limits.videoGeneration,
+    memberLimit: limits.memberLimit,
+    agentLimit: limits.agentLimit,
+    standingSchedules: limits.standingSchedules,
+  };
 }

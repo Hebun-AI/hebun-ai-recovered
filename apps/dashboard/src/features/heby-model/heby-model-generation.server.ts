@@ -211,6 +211,8 @@ export async function generateHebyModelAnswer(
     const admission = await (deps.admitDispatch ?? admitAiDispatch)({
       tenantId: evidence.tenantId,
       dispatchClass: "model",
+      /* P5-4 (D3) — a call on this tenant's own verified key is not charged to its plan quota. */
+      credentialSource: credential?.source === "tenant" ? "tenant" : "platform",
       actorUserId: evidence.actorUserId,
       correlationId: evidence.correlationId,
       prepay: () => prepayLiveDispatch(deps.transport),

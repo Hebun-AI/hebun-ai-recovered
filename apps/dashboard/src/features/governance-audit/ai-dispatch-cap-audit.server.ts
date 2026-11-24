@@ -10,9 +10,10 @@
  * No prompt, provider content or credential exists in the refusal shape, so none can be written.
  */
 import { randomUUID } from "node:crypto";
-import { and, count, eq, gte, lt } from "drizzle-orm";
+import { and, count, eq, gte, lt, sql } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { auditLog } from "@/db/schema/audit-log";
+import { processorAttestations } from "@/db/schema/external-ai-data-use";
 import { EXTERNAL_AI_DISCLOSURE_AUTHORIZED } from "./external-ai-disclosure-audit.server";
 
 export const AI_DISPATCH_CAP_REFUSED = "ai-dispatch-cap.refused";
@@ -24,6 +25,11 @@ export async function countAuthorizedDisclosuresInWindow(
   db: ControlPlaneDatabase,
   tenantId: string,
   window: { readonly start: Date; readonly end: Date },
+  /**
+   * P5-4 (D3) — `platform` counts only disclosures sent on the platform account: a disclosure whose
+   * recorded `accountRef` is one of THIS tenant's own attested accounts (its BYOK key) is left out.
+   */
+  scope: "all" | "platform" = "all",
 ): Promise<number> {
   const [row] = await db
     .select({ n: count() })
@@ -34,6 +40,9 @@ export async function countAuthorizedDisclosuresInWindow(
         eq(auditLog.action, EXTERNAL_AI_DISCLOSURE_AUTHORIZED),
         gte(auditLog.occurredAt, window.start),
         lt(auditLog.occurredAt, window.end),
+        scope === "platform"
+          ? sql`coalesce(${auditLog.metadata}->>'accountRef', '') not in (select ${processorAttestations.accountRef} from ${processorAttestations} where ${processorAttestations.ownerTenantId} = ${tenantId})`
+          : undefined,
       ),
     );
   return Number(row?.n ?? 0);

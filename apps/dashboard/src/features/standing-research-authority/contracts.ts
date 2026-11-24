@@ -66,6 +66,8 @@ export type StandingResearchRefusal =
   | "concurrent-authorization-change"
   | "no-active-authorization"
   | "already-authorized"
+  /** P5-4 — the organization's plan holds no schedule (Free). Withdrawing is always admitted. */
+  | "plan-schedule-not-included"
   | "persistence-unavailable";
 
 export type StandingResearchWriteResult =
@@ -73,7 +75,12 @@ export type StandingResearchWriteResult =
   | { readonly status: "refused"; readonly reason: StandingResearchRefusal };
 
 /** Why a SCHEDULED run may not start. Checked in this order; the switch first, before any read. */
-export type ScheduledResearchRefusal = "research-schedule-disabled" | "no-active-authorization" | "persistence-unavailable";
+export type ScheduledResearchRefusal =
+  | "research-schedule-disabled"
+  | "no-active-authorization"
+  /** P5-4 — the plan changed to one without schedules after the authorization was granted. */
+  | "plan-schedule-not-included"
+  | "persistence-unavailable";
 
 export type ScheduledResearchAdmission =
   | { readonly status: "admitted"; readonly authorization: StandingResearchAuthorizationRecord }

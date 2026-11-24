@@ -110,7 +110,8 @@ const SOURCE = walk("src").filter((f) => !f.startsWith("src/db/migrations/"));
   assert.equal([...a.matchAll(/action: (\w+),/g)].map((m) => m[1]).join(","), "AI_DISPATCH_CAP_REFUSED", "its one row is the refusal");
   assert.deepEqual(
     [...a.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort(),
-    ["./external-ai-disclosure-audit.server", "@/db/client.server", "@/db/schema/audit-log", "drizzle-orm", "node:crypto"],
+    /* P5-4 (D3): + the attestation table, read to leave this tenant's own-key disclosures out of the plan count. A table, not an authority. */
+    ["./external-ai-disclosure-audit.server", "@/db/client.server", "@/db/schema/audit-log", "@/db/schema/external-ai-data-use", "drizzle-orm", "node:crypto"],
     "the sibling imports the sink and the evidence action name — no deciding authority",
   );
 }

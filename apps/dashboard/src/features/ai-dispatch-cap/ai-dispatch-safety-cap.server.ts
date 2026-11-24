@@ -123,6 +123,12 @@ export interface AiDispatchAdmissionInput<T> {
    * (`persistence-unavailable`); a value is returned on admission.
    */
   readonly commit: (db: ControlPlaneDatabase) => Promise<T>;
+  /**
+   * P5-4 (D3) — whose key carries a MODEL call. `tenant` (a verified BYOK key) is not counted against
+   * the plan's model quota; only an operator-set deployment cap bounds it, counting every model call
+   * of the day. Absent means the platform key.
+   */
+  readonly credentialSource?: "platform" | "tenant";
 }
 
 export type AiDispatchAdmission<T> =
@@ -157,8 +163,9 @@ async function admittedInWindow(
   tenantId: string,
   dispatchClass: AiDispatchClass,
   window: { readonly start: Date; readonly end: Date },
+  modelScope: "all" | "platform" = "platform",
 ): Promise<number> {
-  if (dispatchClass === "model") return countAuthorizedDisclosuresInWindow(db, tenantId, window);
+  if (dispatchClass === "model") return countAuthorizedDisclosuresInWindow(db, tenantId, window, modelScope);
   const [row] = await db
     .select({ n: count() })
     .from(mediaGenerationInvocations)
@@ -205,8 +212,12 @@ export const admitAiDispatch: AdmitAiDispatch = async <T>(
         sql`select pg_advisory_xact_lock(hashtext('hebun.ai-dispatch-safety-cap'), hashtext(${`${input.tenantId}:${input.dispatchClass}`}))`,
       );
       /* The tenant's ceiling is read under the same lock and transaction as the count it bounds. */
-      cap = await resolveTenantDispatchCeiling(handle, input.tenantId, input.dispatchClass, deploymentCap(input.dispatchClass, env));
-      const admitted = await admittedInWindow(handle, input.tenantId, input.dispatchClass, day);
+      const deployment = deploymentCap(input.dispatchClass, env);
+      const tenantKey = input.dispatchClass === "model" && input.credentialSource === "tenant";
+      cap = tenantKey
+        ? deployment.operatorSet ? deployment.cap : Number.POSITIVE_INFINITY
+        : await resolveTenantDispatchCeiling(handle, input.tenantId, input.dispatchClass, deployment);
+      const admitted = await admittedInWindow(handle, input.tenantId, input.dispatchClass, day, tenantKey ? "all" : "platform");
       if (admitted >= cap) return { status: "cap-reached" as const, admitted };
       if (input.prepay && !input.prepay()) throw new ProcessBudgetRefusal();
       return { status: "admitted" as const, value: await input.commit(handle) };

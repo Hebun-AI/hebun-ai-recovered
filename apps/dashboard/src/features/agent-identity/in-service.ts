@@ -53,3 +53,11 @@ export function agentInServiceCondition(): SQL {
     or(isNull(agents.agentLifecycleStatus), eq(agents.agentLifecycleStatus, IN_SERVICE_AGENT_LIFECYCLE_STATUS)),
   ) as SQL;
 }
+
+/**
+ * P5-4 — NOT RETIRED: the agents a plan's agent limit counts. A suspended agent is not in service but
+ * still holds its place, because it can be reactivated; only retirement gives the place back.
+ */
+export function agentNotRetiredCondition(): SQL {
+  return isNull(agents.retiredAt) as SQL;
+}

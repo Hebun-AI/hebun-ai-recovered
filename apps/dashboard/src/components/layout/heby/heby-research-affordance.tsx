@@ -51,6 +51,7 @@ const WRITE_REFUSAL_WORDING: Partial<Record<StandingResearchRefusal, string>> = 
   "concurrent-authorization-change": "Someone changed the research authorization at the same moment. Nothing was written; reload.",
   "already-authorized": "This exact brief is already authorized.",
   "no-active-authorization": "There is no standing research authorization in force to withdraw.",
+  "plan-schedule-not-included": "Scheduled research is not included in the Free plan. Change the plan on Account → Plan.",
 };
 
 const NOT_PREPARED_WORDING: Partial<Record<NotPrepared, string>> = {

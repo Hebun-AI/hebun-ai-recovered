@@ -107,6 +107,8 @@ const CREATE_REFUSAL_TEXT: Record<AgentIdentityRefusal, string> = {
     "This organization has no Governance authority yet, or it could not be read. Registering an agent needs one. Nothing was written.",
   "not-the-governance-authority":
     "Only a human holding this organization's Governance authority may register an agent, and that is not you. Nothing was written.",
+  "plan-agent-limit-reached":
+    "This organization's plan admits no more agents (Free: 1, Pro: 5; retired agents do not count). Retire one or change the plan on Account → Plan. Nothing was written.",
 };
 
 const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
