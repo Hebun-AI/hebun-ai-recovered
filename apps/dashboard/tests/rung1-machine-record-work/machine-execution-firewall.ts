@@ -439,7 +439,7 @@ function onlyTheAdmittedMachineIngressTriggersIt(): void {
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
       { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
       /* P6-4 (D7) — one daily schedule: 05:00 UTC is 08:00 Europe/Istanbul. */
-      { path: "/api/standing-research/scan", schedule: "0 5 * * *" },
+      { path: "/api/standing-research/scan", schedule: "0 5 * * *" }, /* P5-5 — Monday 05:00 UTC is 08:00 Istanbul. */ { path: "/api/standing-agent-task/scan", schedule: "0 5 * * 1" },
     ],
     "exactly four schedules exist, three hourly and one daily, each aimed at its own machine ingress",
   );

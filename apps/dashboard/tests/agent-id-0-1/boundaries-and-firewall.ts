@@ -378,6 +378,8 @@ function main(): void {
         "src/features/agent-identity/retire-durable-agent-identity.server.ts",
         /* L-2b — suspending or reactivating an identity, in the suspension writer's own transaction. */
         "src/features/agent-identity/suspend-durable-agent-identity.server.ts",
+        /* P5-5 — authorizing or withdrawing a standing agent task, in that writer's own transaction. */
+        "src/features/standing-agent-task/standing-agent-task.server.ts",
       ]),
     ).has(GOVERNANCE_DECISION),
     "and it reaches it ONLY through the mandate, (AP-1) registration and (L-1b) retirement authorities — no direct Governance door was opened",
@@ -436,6 +438,9 @@ function main(): void {
       /* AP-2 — the Organization Authority's agent placement writer and its type-only contracts. */
       "@/features/organization-authority/agent-placement-contracts",
       "@/features/organization-authority/write-agent-placement.server",
+      /* P5-5 — the standing agent task writer and its type-only contracts. */
+      "@/features/standing-agent-task/contracts",
+      "@/features/standing-agent-task/standing-agent-task.server",
       "next/cache",
     ],
     "the boundary imports exactly the session resolver, the SIX authorities (AP-2: agent placement; L-2b: suspension), their type-only " +
@@ -553,6 +558,8 @@ function main(): void {
   assert.deepEqual(
     [...actions.matchAll(/export async function (\w+)/g)].map((m) => m[1]).sort(),
     [
+      /* P5-5 — grant a standing agent task, and withdraw it: Governance decisions in that writer. */
+      "authorizeStandingAgentTaskAction",
       /* P5-3 — set up an agent from a template: the three released acts above, in order, through one seam. */
       "createAgentFromTemplateAction",
       "createDurableAgentIdentityAction",
@@ -572,8 +579,9 @@ function main(): void {
       /* L-2b — suspend an in-service identity. */
       "suspendDurableAgentIdentityAction",
       "withdrawAgentPlacementAction",
+      "withdrawStandingAgentTaskAction",
     ],
-    "the boundary exposes exactly nine actions: establish an identity, withdraw one, suspend or reactivate one, record a mandate, file a hypothesis, place or unplace an agent, and set one up from a template",
+    "the boundary exposes exactly eleven actions: establish an identity, withdraw one, suspend or reactivate one, record a mandate, file a hypothesis, place or unplace an agent, set one up from a template, and grant or withdraw a standing agent task (P5-5)",
   );
   /*
    * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement

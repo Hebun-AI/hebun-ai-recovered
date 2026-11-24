@@ -92,6 +92,9 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * COMMERCIAL-ACTIVATION-1 — the last entry is Stripe's webhook. Not a bearer route: it is
  * authenticated by the Stripe-Signature HMAC over the raw body, verified before anything is read;
  * an unset webhook secret refuses every request.
+ *
+ * P5-5 — `/api/standing-agent-task/scan` is the Monday agent-task tick, bearer-authenticated by its
+ * own secret like the standing research tick before it.
  */
 const MACHINE_INGRESS_PATHS = [
   "/api/observation/scan",
@@ -99,6 +102,7 @@ const MACHINE_INGRESS_PATHS = [
   "/api/standing-issuance/scan",
   "/api/media-storage/acceptance",
   "/api/standing-research/scan",
+  "/api/standing-agent-task/scan",
   "/api/billing/stripe/webhook",
 ];
 

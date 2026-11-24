@@ -1075,6 +1075,12 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * existing row changes meaning.
    */
   "standing-research",
+  /*
+   * P5-5 — a standing authorization for one agent to prepare one weekly internal draft from a template and
+   * a brief the organization wrote. Its own domain beside `standing-research`: it prepares a draft for
+   * review and acts on nothing. Additive.
+   */
+  "standing-agent-task",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

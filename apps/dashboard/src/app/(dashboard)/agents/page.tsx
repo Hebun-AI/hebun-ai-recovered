@@ -10,6 +10,9 @@ import { organizationalDemoDataPermitted } from "@/features/mock-surface-gating/
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { AgentPlacementCard } from "@/components/agents/agent-placement-card";
 import { AgentTemplateCard } from "@/components/agents/agent-template-card";
+import { AgentTaskScheduleCard } from "@/components/agents/agent-task-schedule-card";
+import { readStandingAgentTasks } from "@/features/standing-agent-task/standing-agent-task.server";
+import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
@@ -168,6 +171,9 @@ export default async function AgentsPage() {
    * in-service departments, and the writer is what refuses everything else.
    */
   const placements = await readAgentPlacements(tenant);
+  /* P5-5 — weekly agent tasks and the work items one can be pointed at, both tenant-scoped reads. */
+  const agentTasks = await readStandingAgentTasks(tenant);
+  const workRegister = await readWorkRegister(tenant);
   const authoritative = await readOrganizationAuthority(tenant);
   const structure = authoritative.status === "available" ? authoritative.organization.structure : null;
   /*
@@ -306,6 +312,14 @@ export default async function AgentsPage() {
         {tenant ? <AgentTemplateCard structure={structure} /> : null}
         <AgentPlacementCard register={placements} structure={structure} identities={identities} />
         <AgentMandateCard block={mandateBlock} entries={mandateEntries} workDomains={workDomains} />
+        {/* P5-5 — weekly agent tasks: a Governance authorization per template, run on Mondays when switched on. */}
+        {tenant ? (
+          <AgentTaskScheduleCard
+            authorizations={agentTasks.status === "read" ? agentTasks.authorizations : null}
+            workItems={workRegister.status === "available" ? workRegister.items.filter((w) => w.inService).map((w) => ({ id: w.workItemId, label: w.title })) : []}
+            agents={identities.filter((identity) => identity.inService).map((identity) => ({ id: identity.agentId, label: identity.name }))}
+          />
+        ) : null}
         {capabilities.map((entry, index) => (
           <AgentCapabilityTruthCard key={entry.agentName ?? index} truth={entry.truth} agentName={entry.agentName} />
         ))}

@@ -184,7 +184,7 @@ function main(): void {
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
     /* COMMERCIAL-ACTIVATION-1: + Stripe's signed webhook. */
-    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) — the 08:00 standing research tick, its own secret. */ '"/api/standing-research/scan"', '"/api/billing/stripe/webhook"'],
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) — the 08:00 standing research tick, its own secret. */ '"/api/standing-research/scan"', /* P5-5 */ '"/api/standing-agent-task/scan"', '"/api/billing/stripe/webhook"'],
     /*
      * THREE, and the third is the RUNG 2 act path's. Listing it here is not a formality: deployed
      * WITHOUT this entry, that route answered a scheduler with `307 -> /login` — the sign-in page
@@ -261,6 +261,7 @@ function main(): void {
        * matched, for the same reason the second was: a route that appears without a line in this
        * census is a route nobody decided to add.
        */
+      /* P5-5 — the Monday agent-task tick. */ "src/app/api/standing-agent-task/scan/route.ts",
       "src/app/api/standing-issuance/scan/route.ts",
       /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
       "src/app/api/standing-research/scan/route.ts",
@@ -297,7 +298,7 @@ function main(): void {
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
       { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
-      /* P6-4 (D7) — 05:00 UTC is 08:00 Europe/Istanbul. */ { path: "/api/standing-research/scan", schedule: "0 5 * * *" },
+      /* P6-4 (D7) — 05:00 UTC is 08:00 Europe/Istanbul. */ { path: "/api/standing-research/scan", schedule: "0 5 * * *" }, /* P5-5 — Monday 05:00 UTC is 08:00 Istanbul. */ { path: "/api/standing-agent-task/scan", schedule: "0 5 * * 1" },
     ],
       "exactly three schedules exist: hourly, each aimed at its own machine ingress, and nothing else",
     );

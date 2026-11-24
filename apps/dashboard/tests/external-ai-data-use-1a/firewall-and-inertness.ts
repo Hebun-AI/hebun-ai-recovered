@@ -106,7 +106,7 @@ assert.deepEqual(
      */
     "src/features/provider-anthropic/byok-account-terms.server.ts",
     /* P6-4 (D9) — the scheduled research run asks the same gate before the model, for the authorization's tenant. */
-    "src/features/standing-research-authority/scheduled-research.server.ts",
+    /* P5-5 — the scheduled agent task, the same seam and ceiling. */ "src/features/standing-agent-task/scheduled-agent-task.server.ts", "src/features/standing-research-authority/scheduled-research.server.ts",
   ],
   "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the readiness card's read-only composition, the operational planning projection and plan-candidate contract checks, the AI planning runtime's declaration and the research seam's preflight reach the authority",
 );

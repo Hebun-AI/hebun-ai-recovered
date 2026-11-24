@@ -70,6 +70,7 @@ export * from "./standing-mutation-authorization";
 /* P6-2. Governance's standing permission for one tenant's research brief. */
 export * from "./standing-research-authorization";
 export * from "./scheduled-research-run";
+export * from "./standing-agent-task";
 export * from "./document";
 export * from "./notification";
 export * from "./work-artifact";

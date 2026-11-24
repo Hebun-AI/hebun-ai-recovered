@@ -594,3 +594,33 @@ export function isUniqueViolation(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false;
   return codeOf(error) === "23505" || codeOf((error as { cause?: unknown }).cause) === "23505";
 }
+
+/**
+ * P5-5 — an internal draft (`operational-plan`) filed by a SCHEDULED agent task run. No person creates it:
+ * the run is the `system` actor, in the tenant its standing authorization names. The general validator
+ * judges the input (so a research report or a content draft is refused here), and the filing condition
+ * re-reads the authorization and the mandate inside the creating transaction. Only the scheduled agent
+ * task runner imports it.
+ */
+export function createInternalDraftFromScheduledAgentTask(
+  run: { readonly tenantId: string; readonly runId: string },
+  input: { readonly title: string; readonly content: string } | null,
+  ownerWorkspace: string,
+  authorship: AgentAuthorship,
+  deps: WorkArtifactWriteDeps,
+  filingCondition: ResearchFilingCondition,
+): Promise<CreateWorkArtifactResult> {
+  const author = agentAuthorOrNull(authorship);
+  if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  if (!filingCondition || !run?.tenantId || !UUID_RE.test(run.runId ?? "")) return Promise.resolve(refused("invalid-input"));
+  if (!input) return Promise.resolve(refused("invalid-input"));
+  return insertArtifactWithFirstRevision(
+    { scheduled: true, tenantId: run.tenantId, runId: run.runId },
+    { title: input.title, content: input.content, artifactType: "operational-plan" },
+    ownerWorkspace,
+    author,
+    deps,
+    validateWorkArtifactInput,
+    filingCondition,
+  );
+}

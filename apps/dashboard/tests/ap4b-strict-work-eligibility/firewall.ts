@@ -62,7 +62,7 @@ assert.deepEqual(
   SRC.filter((f) => /refuseOutsideAgentWorkCapability\(/.test(code(f))).sort(),
   /* RA-PREP-1 — the research seam asks it again before filing. */
   /* P6-4 (D9) — and the scheduled research run, before the model and again inside filing. */
-  [WORK_CAPABILITY, AGENT_WORK, PREPARATION, "src/features/agent-work/assign-research-report.server.ts", "src/features/standing-research-authority/scheduled-research.server.ts"].sort(),
+  [WORK_CAPABILITY, AGENT_WORK, PREPARATION, "src/features/agent-work/assign-research-report.server.ts", "src/features/standing-research-authority/scheduled-research.server.ts", /* P5-5 — the scheduled agent task, the same seam and ceiling. */ "src/features/standing-agent-task/scheduled-agent-task.server.ts"].sort(),
   "F1: the work capability's condition is asked by exactly the agent work seam, the preparation seam and the research seam",
 );
 assert.match(code(AGENT_WORK), /readWorkStateTarget\(/, "F1: the agent work seam reads the scope from the Work Authority, never from the client");

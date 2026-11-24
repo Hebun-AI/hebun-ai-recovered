@@ -260,7 +260,7 @@ async function main(): Promise<void> {
     const vercel = JSON.parse(read("vercel.json")) as { crons?: { path: string }[] };
     assert.deepEqual(
       (vercel.crons ?? []).map((c) => c.path),
-      /* P6-4 (D7) adds the 08:00 standing research tick. */ ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan", "/api/standing-research/scan"],
+      /* P6-4 (D7) adds the 08:00 standing research tick. */ ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan", "/api/standing-research/scan", /* P5-5 — the Monday agent-task tick. */ "/api/standing-agent-task/scan"],
       "the tenant AUTHORITY adds no cron; the three are observation, delivery and standing issuance",
     );
 
@@ -282,7 +282,7 @@ async function main(): Promise<void> {
     assert.deepEqual(
       ingressList![1]!.split(",").map((entry) => entry.trim()).filter(Boolean),
       /* COMMERCIAL-ACTIVATION-1: + Stripe's signed webhook. */
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) */ '"/api/standing-research/scan"', '"/api/billing/stripe/webhook"'],
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"', /* P6-4 (D7) */ '"/api/standing-research/scan"', /* P5-5 */ '"/api/standing-agent-task/scan"', '"/api/billing/stripe/webhook"'],
       "the machine ingress allowlist holds exactly the five pinned ingresses",
     );
 

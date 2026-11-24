@@ -199,6 +199,7 @@ async function main(): Promise<void> {
       "/api/media-storage/acceptance",
       /* P6-4 (D7) — the 08:00 standing research tick. */
       "/api/standing-research/scan",
+      /* P5-5 — the Monday agent-task tick. */ "/api/standing-agent-task/scan",
       /* COMMERCIAL-ACTIVATION-1: Stripe's signed webhook. */
       "/api/billing/stripe/webhook",
     ]);
