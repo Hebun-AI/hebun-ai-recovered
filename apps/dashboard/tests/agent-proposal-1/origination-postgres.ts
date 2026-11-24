@@ -725,6 +725,7 @@ async function main(): Promise<void> {
            * it is PostgreSQL's refusal rather than the writer's.
            */
           /* RUNG 2 — an agent may never authorize its own standing envelope. A DATABASE fact. */
+          /* P5-5 — the standing agent task is authorized by a human, CHECK-enforced. */ "standing_agent_task_authorizations_human_authorizer_chk",
           "standing_mutation_authorizations_human_authorizer_chk",
           "standing_observation_authorizations_human_authorizer_chk",
           /* P6-2 — standing research is authorized by a human, CHECK-enforced. */ "standing_research_authorizations_human_authorizer_chk",
@@ -742,7 +743,7 @@ async function main(): Promise<void> {
       "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the twenty human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the twenty-one human-only CHECKs (P5-5 added the standing agent task's) are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

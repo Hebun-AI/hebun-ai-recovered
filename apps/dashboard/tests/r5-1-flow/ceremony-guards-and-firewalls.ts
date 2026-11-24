@@ -403,6 +403,7 @@ function phaseFirewalls(): void {
     /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
     "src/app/api/standing-issuance/scan/route.ts",
     /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
+    /* P5-5 — the Monday agent-task tick. */ "src/app/api/standing-agent-task/scan/route.ts",
     "src/app/api/standing-research/scan/route.ts",
   ].sort();
   const routes = collect("src/app")

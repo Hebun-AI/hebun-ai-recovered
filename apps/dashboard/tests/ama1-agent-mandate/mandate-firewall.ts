@@ -560,6 +560,8 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "origination-availability", "list-eligible-agents.server.ts"),
       /* WF-1. The read-only availability projection behind Heby's origination offer. */
       path.join("src", "features", "origination-availability", "read-origination-availability.server.ts"),
+      /* P5-5. The scheduled agent task re-reads the effective mandate before the model and inside filing. */
+      path.join("src", "features", "standing-agent-task", "scheduled-agent-task.server.ts"),
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
       /* P6-4 (D9). The scheduled research run re-reads the effective mandate through the runtime door, before the model and inside filing. */
@@ -567,7 +569,7 @@ function noProposalEnforcementExists(): void {
       /* AGENT-EXECUTION-1. The preparation seam asks the same ceiling of every agent named as a draft's author. */
       path.join("src", "features", "work-artifacts", "prepare-work-artifact.server.ts"),
     ],
-    "eighteen modules (RA-PREP-1 added the research seam, a seventh enforcer of the same ceiling) know a mandate exists, and each is named (RA-AUTH-1 added the pure capability contract): the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the SIX enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam and the preparation seam that every agent-authored draft passes through), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
+    "nineteen modules (P5-5 added the scheduled agent task, an enforcer of the same ceiling; RA-PREP-1 added the research seam, a seventh enforcer of the same ceiling) know a mandate exists, and each is named (RA-AUTH-1 added the pure capability contract): the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the SIX enforcers that apply the one shared ceiling (WF-4 added the shared permit spend, AGENT-EXECUTION-1 the agent work seam and the preparation seam that every agent-authored draft passes through), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
   );
 
   /*

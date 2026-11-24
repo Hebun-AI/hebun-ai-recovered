@@ -16,6 +16,10 @@
     {
       "path": "/api/standing-research/scan",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/standing-agent-task/scan",
+      "schedule": "0 5 * * 1"
     }
   ]
 }

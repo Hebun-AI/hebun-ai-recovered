@@ -69,7 +69,7 @@ function main(): void {
      * day, the idempotency key), not a control: it arms nothing and the research-schedule switch stays a
      * row in provider_connectivity_controls. Named, so any other control-shaped table still fails.
      */
-    controlTables.filter((name) => name !== "scheduled_research_runs").sort(),
+    /* P5-5 — `scheduled_agent_task_runs` is likewise the agent-task run LEDGER (one row per tenant, template and ISO week); its switch is a provider_connectivity_controls row. */ controlTables.filter((name) => name !== "scheduled_research_runs" && name !== "scheduled_agent_task_runs").sort(),
     ["provider_connectivity_controls"],
     "exactly ONE control table exists — no second kill switch, no lock table, no schedule table",
   );
@@ -226,6 +226,7 @@ function main(): void {
       "src/app/api/media-storage/acceptance/route.ts",
       "src/app/api/observation/scan/route.ts",
       /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
+      /* P5-5 — the Monday agent-task tick. */ "src/app/api/standing-agent-task/scan/route.ts",
       "src/app/api/standing-issuance/scan/route.ts",
       /* P6-4 (D7, D9) — the 08:00 standing research tick: its own bearer secret, inert while research-schedule is off. */
       "src/app/api/standing-research/scan/route.ts",
@@ -266,7 +267,7 @@ function main(): void {
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
       { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
-      /* P6-4 (D7) — 05:00 UTC is 08:00 Europe/Istanbul. */ { path: "/api/standing-research/scan", schedule: "0 5 * * *" },
+      /* P6-4 (D7) — 05:00 UTC is 08:00 Europe/Istanbul. */ { path: "/api/standing-research/scan", schedule: "0 5 * * *" }, /* P5-5 — Monday 05:00 UTC is 08:00 Istanbul. */ { path: "/api/standing-agent-task/scan", schedule: "0 5 * * 1" },
     ],
       "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
     );

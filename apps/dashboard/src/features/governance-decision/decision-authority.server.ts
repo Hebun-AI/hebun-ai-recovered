@@ -65,6 +65,13 @@ import {
   STANDING_RESEARCH_WITHDRAW_DECISION_TYPE,
 } from "@/features/standing-research-authority/contracts";
 import {
+  STANDING_AGENT_TASK_AUTHORIZED_OUTCOME,
+  STANDING_AGENT_TASK_DOMAIN,
+  STANDING_AGENT_TASK_SUBJECT_TYPE,
+  STANDING_AGENT_TASK_WITHDRAWN_OUTCOME,
+  STANDING_AGENT_TASK_WITHDRAW_DECISION_TYPE,
+} from "@/features/standing-agent-task/contracts";
+import {
   ORGANIZATIONAL_ROLE_DOMAIN,
   ORGANIZATIONAL_ROLE_OUTCOME,
   ORGANIZATIONAL_ROLE_SUBJECT_TYPE,
@@ -246,6 +253,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
       /* P6-2 — the standing research revision a decision authorizes or withdraws. */
       | typeof STANDING_RESEARCH_SUBJECT_TYPE
+      /* P5-5 — the standing agent task revision a decision authorizes or withdraws. */
+      | typeof STANDING_AGENT_TASK_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
       /* TENANT-ARM-1 — the external-send arming revision a decision arms or disarms. */
       | typeof TENANT_EXTERNAL_SEND_SUBJECT_TYPE
@@ -408,6 +417,8 @@ export async function writeGovernanceDecisionWithin(
                 ? STANDING_OBSERVATION_DOMAIN
                 : input.subjectType === STANDING_RESEARCH_SUBJECT_TYPE
                 ? STANDING_RESEARCH_DOMAIN
+                : input.subjectType === STANDING_AGENT_TASK_SUBJECT_TYPE
+                ? STANDING_AGENT_TASK_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
                 ? AGENT_MANDATE_DOMAIN
                 : /*
@@ -498,6 +509,11 @@ export async function writeGovernanceDecisionWithin(
       ? input.decisionType === STANDING_RESEARCH_WITHDRAW_DECISION_TYPE
         ? STANDING_RESEARCH_WITHDRAWN_OUTCOME
         : STANDING_RESEARCH_AUTHORIZED_OUTCOME
+      /* P5-5 — the same defence: never `membership-authorized`, never "authority revoked". */
+      : input.subjectType === STANDING_AGENT_TASK_SUBJECT_TYPE
+      ? input.decisionType === STANDING_AGENT_TASK_WITHDRAW_DECISION_TYPE
+        ? STANDING_AGENT_TASK_WITHDRAWN_OUTCOME
+        : STANDING_AGENT_TASK_AUTHORIZED_OUTCOME
       : /*
      * TRH-10 IS CHECKED FIRST, FOR THE SHARPEST FORM OF THE REASON SIA-3 AND AMA-1 BOTH GIVE.
      *

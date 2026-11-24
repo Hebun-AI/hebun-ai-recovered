@@ -18,6 +18,8 @@ import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity
 import type { AgentServiceTransitionResult } from "@/features/agent-identity/suspension-contracts";
 import { establishAgentMandateWithResponsibility } from "@/features/agent-mandate/establish-agent-mandate.server";
 import { createAgentFromTemplate, type CreateAgentFromTemplateResult } from "@/features/agent-templates/create-agent-from-template.server";
+import { authorizeStandingAgentTask, withdrawStandingAgentTask } from "@/features/standing-agent-task/standing-agent-task.server";
+import type { StandingAgentTaskWriteResult } from "@/features/standing-agent-task/contracts";
 import type { EstablishResponsibleAgentMandateResult } from "@/features/agent-mandate/responsibility-contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
@@ -344,5 +346,47 @@ export async function createAgentFromTemplateAction(input: {
     departmentId: typeof input?.departmentId === "string" ? input.departmentId : null,
   });
   if (result.status !== "refused") revalidatePath("/agents");
+  return result;
+}
+
+/*
+ * P5-5 — weekly agent tasks. Transport only: the tenant and the person come from the session; the standing
+ * agent task writer decides every refusal (Governance, plan, eligibility, revision).
+ */
+export async function authorizeStandingAgentTaskAction(input: {
+  readonly template: string;
+  readonly workItemId: string;
+  readonly agentId: string;
+  readonly title: string;
+  readonly brief: string;
+  readonly justification: string;
+  readonly observedAuthorizationRevision: number | null;
+}): Promise<StandingAgentTaskWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await authorizeStandingAgentTask(tenant, {
+    template: String(input?.template ?? ""),
+    workItemId: String(input?.workItemId ?? ""),
+    agentId: String(input?.agentId ?? ""),
+    title: String(input?.title ?? ""),
+    brief: String(input?.brief ?? ""),
+    justification: String(input?.justification ?? ""),
+    observedAuthorizationRevision: typeof input?.observedAuthorizationRevision === "number" ? input.observedAuthorizationRevision : null,
+  });
+  if (result.status === "authorized") revalidatePath("/agents");
+  return result;
+}
+
+export async function withdrawStandingAgentTaskAction(input: {
+  readonly template: string;
+  readonly justification: string;
+  readonly observedAuthorizationRevision: number | null;
+}): Promise<StandingAgentTaskWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await withdrawStandingAgentTask(tenant, {
+    template: String(input?.template ?? ""),
+    justification: String(input?.justification ?? ""),
+    observedAuthorizationRevision: typeof input?.observedAuthorizationRevision === "number" ? input.observedAuthorizationRevision : null,
+  });
+  if (result.status === "authorized") revalidatePath("/agents");
   return result;
 }
