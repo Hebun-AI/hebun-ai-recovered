@@ -5836,6 +5836,7 @@ re-graded here.
 | P5-1-MOCK-REMOVAL | DEPLOYED | `docs/product-vision/runtime/hebun-p5-1-mock-removal-closure.md` |
 | P5-2-ROLE-BRIEF | DEPLOYED | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` |
 | P5-3-AGENT-TEMPLATES | DEPLOYED | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` |
+| P5-4-PLAN-ENTITLEMENTS | DEPLOYED | `docs/product-vision/runtime/hebun-p5-4-plan-entitlements-closure.md` |
 
 ---
 
@@ -6090,3 +6091,4 @@ before §16.1 are not yet indexed (Phase B).
 | P5-2-ASSISTANCE-ADD-CLASS-UX-1 | P5-2-ROLE-BRIEF | `docs/product-vision/runtime/hebun-p5-2-role-brief-closure.md` | Product gap | DEFERRED | Director decision to offer renew on the assistance card when the policy holds a pair the decision lacks |
 | P5-3-TEMPLATE-UNOBSERVED-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Acceptance gap | DEFERRED | P5-9 sets up the Content and Research agents on TRH from templates and reads back their mandates |
 | P5-3-MANDATE-PARTIAL-UNDRIVEN-1 | P5-3-AGENT-TEMPLATES | `docs/product-vision/runtime/hebun-p5-3-agent-templates-closure.md` | Test coverage | DEFERRED | A mandate-writer test seam, if step 2 ever becomes refusable on its own |
+| P5-4-LIMITS-UNOBSERVED-1 | P5-4-PLAN-ENTITLEMENTS | `docs/product-vision/runtime/hebun-p5-4-plan-entitlements-closure.md` | Acceptance gap | DEFERRED | P5-9: a Free tenant refused a second agent and a schedule, a Pro tenant admitted, an own-key call excluded from the plan count |
